@@ -232,6 +232,18 @@ class AppDatabase extends _$AppDatabase {
     books,
   )..orderBy([(row) => OrderingTerm.desc(row.createdAt)])).get();
 
+  Future<Book?> bookByFingerprint(String fingerprint) => (select(
+    books,
+  )..where((row) => row.fingerprint.equals(fingerprint))).getSingleOrNull();
+
+  Future<Book?> bookById(String id) =>
+      (select(books)..where((row) => row.id.equals(id))).getSingleOrNull();
+
+  Future<void> renameBook(String id, String title) =>
+      (update(books)..where((row) => row.id.equals(id))).write(
+        BooksCompanion(title: Value(title.trim())),
+      );
+
   Stream<List<Book>> watchBooks() => (select(
     books,
   )..orderBy([(row) => OrderingTerm.desc(row.createdAt)])).watch();

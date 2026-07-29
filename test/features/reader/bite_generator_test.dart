@@ -98,4 +98,16 @@ void main() {
       isEmpty,
     );
   });
+
+  test('positions remain unique across chapters', () {
+    final bites = generator.generate(
+      bookFingerprint: 'abc',
+      sections: const [
+        SourceSection(index: 0, paragraphs: ['First chapter sentence.']),
+        SourceSection(index: 1, paragraphs: ['Second chapter sentence.']),
+      ],
+    );
+
+    expect(bites.map((bite) => bite.position), [0, 1]);
+  });
 }

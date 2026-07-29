@@ -43,6 +43,7 @@ class BiteGenerator {
     required List<SourceSection> sections,
   }) {
     final result = <GeneratedBite>[];
+    var globalPosition = 0;
     for (final section in sections) {
       final paragraphs = section.paragraphs
           .map((text) => text.replaceAll(RegExp(r'\s+'), ' ').trim())
@@ -78,11 +79,11 @@ class BiteGenerator {
 
       var current = <_Unit>[];
       var words = 0;
-      var position = 0;
+      var firstInSection = true;
       void flush() {
         if (current.isEmpty) return;
         final body = current.map((unit) => unit.text).join('\n\n');
-        final text = position == 0 && heading != null && heading.isNotEmpty
+        final text = firstInSection && heading != null && heading.isNotEmpty
             ? '$heading\n\n$body'
             : body;
         final start = current.first.start;
@@ -96,12 +97,13 @@ class BiteGenerator {
           GeneratedBite(
             id: id,
             sectionIndex: section.index,
-            position: position++,
+            position: globalPosition++,
             text: text,
             sourceStart: start,
             sourceEnd: end,
           ),
         );
+        firstInSection = false;
         current = [];
         words = 0;
       }
