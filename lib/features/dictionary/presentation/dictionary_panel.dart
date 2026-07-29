@@ -13,6 +13,7 @@ class DictionaryPanel extends StatefulWidget {
     required this.bite,
     required this.word,
     required this.onClose,
+    this.onSaved,
     this.repository = const BundledDictionary(),
   });
 
@@ -21,6 +22,7 @@ class DictionaryPanel extends StatefulWidget {
   final Bite bite;
   final String word;
   final VoidCallback onClose;
+  final Future<void> Function()? onSaved;
   final DictionaryRepository repository;
 
   @override
@@ -64,6 +66,7 @@ class _DictionaryPanelState extends State<DictionaryPanel> {
       biteId: widget.bite.id,
       now: now,
     );
+    await widget.onSaved?.call();
     if (mounted) {
       ScaffoldMessenger.of(
         context,

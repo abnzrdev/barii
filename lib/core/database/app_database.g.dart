@@ -2642,6 +2642,48 @@ class $ReaderPreferencesTable extends ReaderPreferences
     requiredDuringInsert: false,
     defaultValue: const Constant(680),
   );
+  static const VerificationMeta _pageMarginMeta = const VerificationMeta(
+    'pageMargin',
+  );
+  @override
+  late final GeneratedColumn<double> pageMargin = GeneratedColumn<double>(
+    'page_margin',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(24),
+  );
+  static const VerificationMeta _autoHideControlsMeta = const VerificationMeta(
+    'autoHideControls',
+  );
+  @override
+  late final GeneratedColumn<bool> autoHideControls = GeneratedColumn<bool>(
+    'auto_hide_controls',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("auto_hide_controls" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _hapticsEnabledMeta = const VerificationMeta(
+    'hapticsEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> hapticsEnabled = GeneratedColumn<bool>(
+    'haptics_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("haptics_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2650,6 +2692,9 @@ class $ReaderPreferencesTable extends ReaderPreferences
     lineHeight,
     alignment,
     readingWidth,
+    pageMargin,
+    autoHideControls,
+    hapticsEnabled,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2699,6 +2744,30 @@ class $ReaderPreferencesTable extends ReaderPreferences
         ),
       );
     }
+    if (data.containsKey('page_margin')) {
+      context.handle(
+        _pageMarginMeta,
+        pageMargin.isAcceptableOrUnknown(data['page_margin']!, _pageMarginMeta),
+      );
+    }
+    if (data.containsKey('auto_hide_controls')) {
+      context.handle(
+        _autoHideControlsMeta,
+        autoHideControls.isAcceptableOrUnknown(
+          data['auto_hide_controls']!,
+          _autoHideControlsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('haptics_enabled')) {
+      context.handle(
+        _hapticsEnabledMeta,
+        hapticsEnabled.isAcceptableOrUnknown(
+          data['haptics_enabled']!,
+          _hapticsEnabledMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2732,6 +2801,18 @@ class $ReaderPreferencesTable extends ReaderPreferences
         DriftSqlType.double,
         data['${effectivePrefix}reading_width'],
       )!,
+      pageMargin: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}page_margin'],
+      )!,
+      autoHideControls: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}auto_hide_controls'],
+      )!,
+      hapticsEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}haptics_enabled'],
+      )!,
     );
   }
 
@@ -2749,6 +2830,9 @@ class ReaderPreference extends DataClass
   final double lineHeight;
   final String alignment;
   final double readingWidth;
+  final double pageMargin;
+  final bool autoHideControls;
+  final bool hapticsEnabled;
   const ReaderPreference({
     required this.id,
     required this.theme,
@@ -2756,6 +2840,9 @@ class ReaderPreference extends DataClass
     required this.lineHeight,
     required this.alignment,
     required this.readingWidth,
+    required this.pageMargin,
+    required this.autoHideControls,
+    required this.hapticsEnabled,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2766,6 +2853,9 @@ class ReaderPreference extends DataClass
     map['line_height'] = Variable<double>(lineHeight);
     map['alignment'] = Variable<String>(alignment);
     map['reading_width'] = Variable<double>(readingWidth);
+    map['page_margin'] = Variable<double>(pageMargin);
+    map['auto_hide_controls'] = Variable<bool>(autoHideControls);
+    map['haptics_enabled'] = Variable<bool>(hapticsEnabled);
     return map;
   }
 
@@ -2777,6 +2867,9 @@ class ReaderPreference extends DataClass
       lineHeight: Value(lineHeight),
       alignment: Value(alignment),
       readingWidth: Value(readingWidth),
+      pageMargin: Value(pageMargin),
+      autoHideControls: Value(autoHideControls),
+      hapticsEnabled: Value(hapticsEnabled),
     );
   }
 
@@ -2792,6 +2885,9 @@ class ReaderPreference extends DataClass
       lineHeight: serializer.fromJson<double>(json['lineHeight']),
       alignment: serializer.fromJson<String>(json['alignment']),
       readingWidth: serializer.fromJson<double>(json['readingWidth']),
+      pageMargin: serializer.fromJson<double>(json['pageMargin']),
+      autoHideControls: serializer.fromJson<bool>(json['autoHideControls']),
+      hapticsEnabled: serializer.fromJson<bool>(json['hapticsEnabled']),
     );
   }
   @override
@@ -2804,6 +2900,9 @@ class ReaderPreference extends DataClass
       'lineHeight': serializer.toJson<double>(lineHeight),
       'alignment': serializer.toJson<String>(alignment),
       'readingWidth': serializer.toJson<double>(readingWidth),
+      'pageMargin': serializer.toJson<double>(pageMargin),
+      'autoHideControls': serializer.toJson<bool>(autoHideControls),
+      'hapticsEnabled': serializer.toJson<bool>(hapticsEnabled),
     };
   }
 
@@ -2814,6 +2913,9 @@ class ReaderPreference extends DataClass
     double? lineHeight,
     String? alignment,
     double? readingWidth,
+    double? pageMargin,
+    bool? autoHideControls,
+    bool? hapticsEnabled,
   }) => ReaderPreference(
     id: id ?? this.id,
     theme: theme ?? this.theme,
@@ -2821,6 +2923,9 @@ class ReaderPreference extends DataClass
     lineHeight: lineHeight ?? this.lineHeight,
     alignment: alignment ?? this.alignment,
     readingWidth: readingWidth ?? this.readingWidth,
+    pageMargin: pageMargin ?? this.pageMargin,
+    autoHideControls: autoHideControls ?? this.autoHideControls,
+    hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
   );
   ReaderPreference copyWithCompanion(ReaderPreferencesCompanion data) {
     return ReaderPreference(
@@ -2834,6 +2939,15 @@ class ReaderPreference extends DataClass
       readingWidth: data.readingWidth.present
           ? data.readingWidth.value
           : this.readingWidth,
+      pageMargin: data.pageMargin.present
+          ? data.pageMargin.value
+          : this.pageMargin,
+      autoHideControls: data.autoHideControls.present
+          ? data.autoHideControls.value
+          : this.autoHideControls,
+      hapticsEnabled: data.hapticsEnabled.present
+          ? data.hapticsEnabled.value
+          : this.hapticsEnabled,
     );
   }
 
@@ -2845,14 +2959,26 @@ class ReaderPreference extends DataClass
           ..write('fontSize: $fontSize, ')
           ..write('lineHeight: $lineHeight, ')
           ..write('alignment: $alignment, ')
-          ..write('readingWidth: $readingWidth')
+          ..write('readingWidth: $readingWidth, ')
+          ..write('pageMargin: $pageMargin, ')
+          ..write('autoHideControls: $autoHideControls, ')
+          ..write('hapticsEnabled: $hapticsEnabled')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, theme, fontSize, lineHeight, alignment, readingWidth);
+  int get hashCode => Object.hash(
+    id,
+    theme,
+    fontSize,
+    lineHeight,
+    alignment,
+    readingWidth,
+    pageMargin,
+    autoHideControls,
+    hapticsEnabled,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2862,7 +2988,10 @@ class ReaderPreference extends DataClass
           other.fontSize == this.fontSize &&
           other.lineHeight == this.lineHeight &&
           other.alignment == this.alignment &&
-          other.readingWidth == this.readingWidth);
+          other.readingWidth == this.readingWidth &&
+          other.pageMargin == this.pageMargin &&
+          other.autoHideControls == this.autoHideControls &&
+          other.hapticsEnabled == this.hapticsEnabled);
 }
 
 class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
@@ -2872,6 +3001,9 @@ class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
   final Value<double> lineHeight;
   final Value<String> alignment;
   final Value<double> readingWidth;
+  final Value<double> pageMargin;
+  final Value<bool> autoHideControls;
+  final Value<bool> hapticsEnabled;
   const ReaderPreferencesCompanion({
     this.id = const Value.absent(),
     this.theme = const Value.absent(),
@@ -2879,6 +3011,9 @@ class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
     this.lineHeight = const Value.absent(),
     this.alignment = const Value.absent(),
     this.readingWidth = const Value.absent(),
+    this.pageMargin = const Value.absent(),
+    this.autoHideControls = const Value.absent(),
+    this.hapticsEnabled = const Value.absent(),
   });
   ReaderPreferencesCompanion.insert({
     this.id = const Value.absent(),
@@ -2887,6 +3022,9 @@ class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
     this.lineHeight = const Value.absent(),
     this.alignment = const Value.absent(),
     this.readingWidth = const Value.absent(),
+    this.pageMargin = const Value.absent(),
+    this.autoHideControls = const Value.absent(),
+    this.hapticsEnabled = const Value.absent(),
   });
   static Insertable<ReaderPreference> custom({
     Expression<int>? id,
@@ -2895,6 +3033,9 @@ class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
     Expression<double>? lineHeight,
     Expression<String>? alignment,
     Expression<double>? readingWidth,
+    Expression<double>? pageMargin,
+    Expression<bool>? autoHideControls,
+    Expression<bool>? hapticsEnabled,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -2903,6 +3044,9 @@ class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
       if (lineHeight != null) 'line_height': lineHeight,
       if (alignment != null) 'alignment': alignment,
       if (readingWidth != null) 'reading_width': readingWidth,
+      if (pageMargin != null) 'page_margin': pageMargin,
+      if (autoHideControls != null) 'auto_hide_controls': autoHideControls,
+      if (hapticsEnabled != null) 'haptics_enabled': hapticsEnabled,
     });
   }
 
@@ -2913,6 +3057,9 @@ class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
     Value<double>? lineHeight,
     Value<String>? alignment,
     Value<double>? readingWidth,
+    Value<double>? pageMargin,
+    Value<bool>? autoHideControls,
+    Value<bool>? hapticsEnabled,
   }) {
     return ReaderPreferencesCompanion(
       id: id ?? this.id,
@@ -2921,6 +3068,9 @@ class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
       lineHeight: lineHeight ?? this.lineHeight,
       alignment: alignment ?? this.alignment,
       readingWidth: readingWidth ?? this.readingWidth,
+      pageMargin: pageMargin ?? this.pageMargin,
+      autoHideControls: autoHideControls ?? this.autoHideControls,
+      hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
     );
   }
 
@@ -2945,6 +3095,15 @@ class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
     if (readingWidth.present) {
       map['reading_width'] = Variable<double>(readingWidth.value);
     }
+    if (pageMargin.present) {
+      map['page_margin'] = Variable<double>(pageMargin.value);
+    }
+    if (autoHideControls.present) {
+      map['auto_hide_controls'] = Variable<bool>(autoHideControls.value);
+    }
+    if (hapticsEnabled.present) {
+      map['haptics_enabled'] = Variable<bool>(hapticsEnabled.value);
+    }
     return map;
   }
 
@@ -2956,7 +3115,10 @@ class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
           ..write('fontSize: $fontSize, ')
           ..write('lineHeight: $lineHeight, ')
           ..write('alignment: $alignment, ')
-          ..write('readingWidth: $readingWidth')
+          ..write('readingWidth: $readingWidth, ')
+          ..write('pageMargin: $pageMargin, ')
+          ..write('autoHideControls: $autoHideControls, ')
+          ..write('hapticsEnabled: $hapticsEnabled')
           ..write(')'))
         .toString();
   }
@@ -6224,6 +6386,9 @@ typedef $$ReaderPreferencesTableCreateCompanionBuilder =
       Value<double> lineHeight,
       Value<String> alignment,
       Value<double> readingWidth,
+      Value<double> pageMargin,
+      Value<bool> autoHideControls,
+      Value<bool> hapticsEnabled,
     });
 typedef $$ReaderPreferencesTableUpdateCompanionBuilder =
     ReaderPreferencesCompanion Function({
@@ -6233,6 +6398,9 @@ typedef $$ReaderPreferencesTableUpdateCompanionBuilder =
       Value<double> lineHeight,
       Value<String> alignment,
       Value<double> readingWidth,
+      Value<double> pageMargin,
+      Value<bool> autoHideControls,
+      Value<bool> hapticsEnabled,
     });
 
 class $$ReaderPreferencesTableFilterComposer
@@ -6271,6 +6439,21 @@ class $$ReaderPreferencesTableFilterComposer
 
   ColumnFilters<double> get readingWidth => $composableBuilder(
     column: $table.readingWidth,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get pageMargin => $composableBuilder(
+    column: $table.pageMargin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get autoHideControls => $composableBuilder(
+    column: $table.autoHideControls,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get hapticsEnabled => $composableBuilder(
+    column: $table.hapticsEnabled,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -6313,6 +6496,21 @@ class $$ReaderPreferencesTableOrderingComposer
     column: $table.readingWidth,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<double> get pageMargin => $composableBuilder(
+    column: $table.pageMargin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get autoHideControls => $composableBuilder(
+    column: $table.autoHideControls,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get hapticsEnabled => $composableBuilder(
+    column: $table.hapticsEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ReaderPreferencesTableAnnotationComposer
@@ -6343,6 +6541,21 @@ class $$ReaderPreferencesTableAnnotationComposer
 
   GeneratedColumn<double> get readingWidth => $composableBuilder(
     column: $table.readingWidth,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get pageMargin => $composableBuilder(
+    column: $table.pageMargin,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get autoHideControls => $composableBuilder(
+    column: $table.autoHideControls,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get hapticsEnabled => $composableBuilder(
+    column: $table.hapticsEnabled,
     builder: (column) => column,
   );
 }
@@ -6393,6 +6606,9 @@ class $$ReaderPreferencesTableTableManager
                 Value<double> lineHeight = const Value.absent(),
                 Value<String> alignment = const Value.absent(),
                 Value<double> readingWidth = const Value.absent(),
+                Value<double> pageMargin = const Value.absent(),
+                Value<bool> autoHideControls = const Value.absent(),
+                Value<bool> hapticsEnabled = const Value.absent(),
               }) => ReaderPreferencesCompanion(
                 id: id,
                 theme: theme,
@@ -6400,6 +6616,9 @@ class $$ReaderPreferencesTableTableManager
                 lineHeight: lineHeight,
                 alignment: alignment,
                 readingWidth: readingWidth,
+                pageMargin: pageMargin,
+                autoHideControls: autoHideControls,
+                hapticsEnabled: hapticsEnabled,
               ),
           createCompanionCallback:
               ({
@@ -6409,6 +6628,9 @@ class $$ReaderPreferencesTableTableManager
                 Value<double> lineHeight = const Value.absent(),
                 Value<String> alignment = const Value.absent(),
                 Value<double> readingWidth = const Value.absent(),
+                Value<double> pageMargin = const Value.absent(),
+                Value<bool> autoHideControls = const Value.absent(),
+                Value<bool> hapticsEnabled = const Value.absent(),
               }) => ReaderPreferencesCompanion.insert(
                 id: id,
                 theme: theme,
@@ -6416,6 +6638,9 @@ class $$ReaderPreferencesTableTableManager
                 lineHeight: lineHeight,
                 alignment: alignment,
                 readingWidth: readingWidth,
+                pageMargin: pageMargin,
+                autoHideControls: autoHideControls,
+                hapticsEnabled: hapticsEnabled,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

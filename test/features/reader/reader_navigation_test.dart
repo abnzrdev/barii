@@ -14,8 +14,20 @@ void main() {
     expect(readerActionForKey(LogicalKeyboardKey.keyJ), ReaderAction.next);
     expect(readerActionForKey(LogicalKeyboardKey.keyN), ReaderAction.notes);
     expect(
+      readerActionForKey(LogicalKeyboardKey.arrowLeft),
+      ReaderAction.notes,
+    );
+    expect(
       readerActionForKey(LogicalKeyboardKey.keyD),
       ReaderAction.dictionary,
+    );
+    expect(
+      readerActionForKey(LogicalKeyboardKey.arrowRight),
+      ReaderAction.dictionary,
+    );
+    expect(
+      readerActionForKey(LogicalKeyboardKey.keyT),
+      ReaderAction.toggleControls,
     );
     expect(
       readerActionForKey(LogicalKeyboardKey.escape),

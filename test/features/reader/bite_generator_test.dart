@@ -110,4 +110,29 @@ void main() {
 
     expect(bites.map((bite) => bite.position), [0, 1]);
   });
+
+  test('chapter-opening bites include heading and keep stable IDs', () {
+    const sections = [
+      SourceSection(
+        index: 4,
+        heading: 'A Calm Beginning',
+        paragraphs: ['Opening sentence. More opening text.'],
+      ),
+    ];
+
+    final first = generator.generate(
+      bookFingerprint: 'chapter-book',
+      sections: sections,
+    );
+    final regenerated = generator.generate(
+      bookFingerprint: 'chapter-book',
+      sections: sections,
+    );
+
+    expect(
+      first.single.text,
+      'A Calm Beginning\n\nOpening sentence. More opening text.',
+    );
+    expect(regenerated.single.id, first.single.id);
+  });
 }

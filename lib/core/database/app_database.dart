@@ -102,6 +102,11 @@ class ReaderPreferences extends Table {
   RealColumn get lineHeight => real().withDefault(const Constant(1.6))();
   TextColumn get alignment => text().withDefault(const Constant('start'))();
   RealColumn get readingWidth => real().withDefault(const Constant(680))();
+  RealColumn get pageMargin => real().withDefault(const Constant(24))();
+  BoolColumn get autoHideControls =>
+      boolean().withDefault(const Constant(true))();
+  BoolColumn get hapticsEnabled =>
+      boolean().withDefault(const Constant(true))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -149,7 +154,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -166,6 +171,22 @@ class AppDatabase extends _$AppDatabase {
         'CREATE INDEX vocabulary_book_word '
         'ON vocabulary_entries (book_id, normalized_word)',
       );
+    },
+    onUpgrade: (migrator, from, to) async {
+      if (from < 2) {
+        await migrator.addColumn(
+          readerPreferences,
+          readerPreferences.pageMargin,
+        );
+        await migrator.addColumn(
+          readerPreferences,
+          readerPreferences.autoHideControls,
+        );
+        await migrator.addColumn(
+          readerPreferences,
+          readerPreferences.hapticsEnabled,
+        );
+      }
     },
     beforeOpen: (_) => customStatement('PRAGMA foreign_keys = ON'),
   );
@@ -350,14 +371,23 @@ class AppDatabase extends _$AppDatabase {
     required double lineHeight,
     required String alignment,
     required double readingWidth,
-  }) => update(readerPreferences).write(
-    ReaderPreferencesCompanion(
-      fontSize: Value(fontSize),
-      lineHeight: Value(lineHeight),
-      alignment: Value(alignment),
-      readingWidth: Value(readingWidth),
-    ),
-  );
+    required double pageMargin,
+    required bool autoHideControls,
+    required bool hapticsEnabled,
+  }) async {
+    await ensurePreferences();
+    await update(readerPreferences).write(
+      ReaderPreferencesCompanion(
+        fontSize: Value(fontSize),
+        lineHeight: Value(lineHeight),
+        alignment: Value(alignment),
+        readingWidth: Value(readingWidth),
+        pageMargin: Value(pageMargin),
+        autoHideControls: Value(autoHideControls),
+        hapticsEnabled: Value(hapticsEnabled),
+      ),
+    );
+  }
 
   Future<void> saveTheme(String theme) => update(
     readerPreferences,

@@ -211,8 +211,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   child: InkWell(
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
-                        builder: (_) =>
-                            ReaderScreen(database: widget.database, book: book),
+                        builder: (_) => ReaderScreen(
+                          database: widget.database,
+                          book: book,
+                          themeMode: widget.themeMode,
+                          onThemeChanged: widget.onThemeChanged,
+                        ),
                       ),
                     ),
                     child: Padding(

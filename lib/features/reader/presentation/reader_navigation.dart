@@ -1,6 +1,13 @@
 import 'package:flutter/services.dart';
 
-enum ReaderAction { previous, next, notes, dictionary, closePanel }
+enum ReaderAction {
+  previous,
+  next,
+  notes,
+  dictionary,
+  toggleControls,
+  closePanel,
+}
 
 ReaderAction? readerActionForKey(LogicalKeyboardKey key) {
   if (key == LogicalKeyboardKey.arrowUp || key == LogicalKeyboardKey.keyK) {
@@ -17,6 +24,7 @@ ReaderAction? readerActionForKey(LogicalKeyboardKey key) {
   if (key == LogicalKeyboardKey.arrowRight || key == LogicalKeyboardKey.keyD) {
     return ReaderAction.dictionary;
   }
+  if (key == LogicalKeyboardKey.keyT) return ReaderAction.toggleControls;
   if (key == LogicalKeyboardKey.escape) return ReaderAction.closePanel;
   return null;
 }

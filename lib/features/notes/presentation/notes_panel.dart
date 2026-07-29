@@ -9,12 +9,14 @@ class NotesPanel extends StatefulWidget {
     required this.book,
     required this.bite,
     required this.onClose,
+    this.onSaved,
   });
 
   final AppDatabase database;
   final Book book;
   final Bite bite;
   final VoidCallback onClose;
+  final Future<void> Function()? onSaved;
 
   @override
   State<NotesPanel> createState() => _NotesPanelState();
@@ -50,6 +52,7 @@ class _NotesPanelState extends State<NotesPanel> {
     );
     _controller.clear();
     await _load();
+    await widget.onSaved?.call();
   }
 
   @override

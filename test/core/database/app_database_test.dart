@@ -65,6 +65,23 @@ void main() {
       hasLength(1),
     );
   });
+
+  test('saves and restores reader experience preferences', () async {
+    await database.savePreferences(
+      fontSize: 24,
+      lineHeight: 1.8,
+      alignment: 'justify',
+      readingWidth: 720,
+      pageMargin: 32,
+      autoHideControls: false,
+      hapticsEnabled: false,
+    );
+
+    final preferences = await database.preferences();
+    expect(preferences.pageMargin, 32);
+    expect(preferences.autoHideControls, isFalse);
+    expect(preferences.hapticsEnabled, isFalse);
+  });
 }
 
 Future<void> _createBook(AppDatabase database) async {

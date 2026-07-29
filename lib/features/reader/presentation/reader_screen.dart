@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,10 +13,20 @@ import 'reader_navigation.dart';
 enum _OpenPanel { notes, dictionary }
 
 class ReaderScreen extends StatefulWidget {
-  const ReaderScreen({super.key, required this.database, required this.book});
+  const ReaderScreen({
+    super.key,
+    required this.database,
+    required this.book,
+    this.themeMode = ThemeMode.system,
+    this.onThemeChanged,
+    this.hapticFeedback,
+  });
 
   final AppDatabase database;
   final Book book;
+  final ThemeMode themeMode;
+  final ValueChanged<ThemeMode>? onThemeChanged;
+  final Future<void> Function()? hapticFeedback;
 
   @override
   State<ReaderScreen> createState() => _ReaderScreenState();
@@ -21,13 +34,22 @@ class ReaderScreen extends StatefulWidget {
 
 class _ReaderScreenState extends State<ReaderScreen> {
   final _focusNode = FocusNode();
-  final _recognizers = <GestureRecognizer>[];
+  PageController? _pageController;
+  Timer? _focusTimer;
+  Timer? _panelReturnTimer;
   List<Bite> _bites = const [];
   var _index = 0;
   var _drag = Offset.zero;
+  var _horizontalOffset = 0.0;
+  var _ignoreHorizontalDrag = false;
+  _OpenPanel? _dragPreview;
   var _fontSize = 20.0;
   var _lineHeight = 1.6;
   var _readingWidth = 680.0;
+  var _pageMargin = 24.0;
+  var _autoHideControls = true;
+  var _hapticsEnabled = true;
+  var _chromeVisible = true;
   var _alignment = TextAlign.start;
   String _recentWord = 'book';
   _OpenPanel? _panel;
@@ -46,13 +68,18 @@ class _ReaderScreenState extends State<ReaderScreen> {
         ? 0
         : bites.indexWhere((bite) => bite.id == progress.biteId);
     if (mounted) {
+      final index = (restored < 0 ? progress?.bitePosition ?? 0 : restored)
+          .clamp(0, bites.isEmpty ? 0 : bites.length - 1);
       setState(() {
         _bites = bites;
-        _index = restored < 0 ? progress?.bitePosition ?? 0 : restored;
-        _index = _index.clamp(0, bites.isEmpty ? 0 : bites.length - 1);
+        _index = index;
+        _pageController = PageController(initialPage: index);
         _fontSize = preferences.fontSize;
         _lineHeight = preferences.lineHeight;
         _readingWidth = preferences.readingWidth;
+        _pageMargin = preferences.pageMargin;
+        _autoHideControls = preferences.autoHideControls;
+        _hapticsEnabled = preferences.hapticsEnabled;
         _alignment = switch (preferences.alignment) {
           'center' => TextAlign.center,
           'justify' => TextAlign.justify,
@@ -61,19 +88,90 @@ class _ReaderScreenState extends State<ReaderScreen> {
         if (bites.isNotEmpty) _recentWord = _firstWord(bites[_index].content);
       });
       _focusNode.requestFocus();
+      _resetFocusTimer();
     }
+  }
+
+  void _resetFocusTimer({bool show = true}) {
+    _focusTimer?.cancel();
+    if (show && mounted && !_chromeVisible) {
+      setState(() => _chromeVisible = true);
+    }
+    if (_autoHideControls && _panel == null) {
+      _focusTimer = Timer(const Duration(seconds: 4), () {
+        if (mounted && _panel == null) setState(() => _chromeVisible = false);
+      });
+    }
+  }
+
+  void _toggleChrome() {
+    _focusTimer?.cancel();
+    setState(() => _chromeVisible = !_chromeVisible);
+    if (_chromeVisible) _resetFocusTimer(show: false);
+  }
+
+  Future<void> _feedback() async {
+    if (!_hapticsEnabled) return;
+    if (widget.hapticFeedback != null) {
+      await widget.hapticFeedback!();
+    } else if (Platform.isAndroid) {
+      await HapticFeedback.selectionClick();
+    }
+  }
+
+  void _openPanel(_OpenPanel panel) {
+    if (_bites.isEmpty || _panel == panel) return;
+    _focusTimer?.cancel();
+    setState(() {
+      _chromeVisible = true;
+      _panel = panel;
+    });
+    _feedback();
+  }
+
+  void _closePanel() {
+    if (_panel == null) return;
+    setState(() => _panel = null);
+    _resetFocusTimer();
   }
 
   Future<void> _move(int change) async {
     if (_bites.isEmpty) return;
     final next = (_index + change).clamp(0, _bites.length - 1);
     if (next == _index) return;
+    setState(() => _panel = null);
+    _resetFocusTimer();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _pageController?.jumpToPage(next);
+      await _saveCompletedPage(next);
+    } else {
+      await _pageController?.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
+  Future<void> _completePageChange() async {
+    if (_bites.isEmpty || !(_pageController?.hasClients ?? false)) return;
+    final next = (_pageController!.page?.round() ?? _index).clamp(
+      0,
+      _bites.length - 1,
+    );
+    await _saveCompletedPage(next);
+  }
+
+  Future<void> _saveCompletedPage(int next) async {
+    if (next == _index || _bites.isEmpty) return;
     setState(() {
       _index = next;
       _panel = null;
       _recentWord = _firstWord(_bites[next].content);
     });
     await widget.database.saveProgress(widget.book.id, _bites[next].id, next);
+    await _feedback();
+    _resetFocusTimer();
   }
 
   void _perform(ReaderAction? action) {
@@ -83,107 +181,162 @@ class _ReaderScreenState extends State<ReaderScreen> {
       case ReaderAction.next:
         _move(1);
       case ReaderAction.notes:
-        if (_bites.isNotEmpty) setState(() => _panel = _OpenPanel.notes);
+        _openPanel(_OpenPanel.notes);
       case ReaderAction.dictionary:
-        if (_bites.isNotEmpty) setState(() => _panel = _OpenPanel.dictionary);
+        _openPanel(_OpenPanel.dictionary);
+      case ReaderAction.toggleControls:
+        _toggleChrome();
       case ReaderAction.closePanel:
-        if (_panel != null) setState(() => _panel = null);
+        if (_panel != null) {
+          _closePanel();
+        } else {
+          Navigator.maybePop(context);
+        }
       case null:
         break;
     }
   }
 
-  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent) return KeyEventResult.ignored;
-    final action = readerActionForKey(event.logicalKey);
-    if (action == null) return KeyEventResult.ignored;
-    _perform(action);
-    return KeyEventResult.handled;
-  }
-
-  List<InlineSpan> _wordSpans(Bite bite, TextStyle style) {
-    for (final recognizer in _recognizers) {
-      recognizer.dispose();
+  Map<ShortcutActivator, VoidCallback> _shortcuts() {
+    final bindings = <ShortcutActivator, VoidCallback>{
+      const SingleActivator(LogicalKeyboardKey.escape): () =>
+          _perform(ReaderAction.closePanel),
+    };
+    if (_panel != null) return bindings;
+    void bind(LogicalKeyboardKey key, ReaderAction action) {
+      bindings[SingleActivator(key)] = () => _perform(action);
     }
-    _recognizers.clear();
-    return RegExp(r'\s+|\S+').allMatches(bite.content).map((match) {
-      final text = match.group(0)!;
-      if (text.trim().isEmpty) return TextSpan(text: text, style: style);
-      final recognizer = LongPressGestureRecognizer()
-        ..onLongPress = () {
-          setState(() {
-            _recentWord = text;
-            _panel = _OpenPanel.dictionary;
-          });
-        };
-      _recognizers.add(recognizer);
-      return TextSpan(text: text, style: style, recognizer: recognizer);
-    }).toList();
+
+    bind(LogicalKeyboardKey.arrowUp, ReaderAction.previous);
+    bind(LogicalKeyboardKey.keyK, ReaderAction.previous);
+    bind(LogicalKeyboardKey.arrowDown, ReaderAction.next);
+    bind(LogicalKeyboardKey.space, ReaderAction.next);
+    bind(LogicalKeyboardKey.keyJ, ReaderAction.next);
+    bind(LogicalKeyboardKey.arrowLeft, ReaderAction.notes);
+    bind(LogicalKeyboardKey.keyN, ReaderAction.notes);
+    bind(LogicalKeyboardKey.arrowRight, ReaderAction.dictionary);
+    bind(LogicalKeyboardKey.keyD, ReaderAction.dictionary);
+    bind(LogicalKeyboardKey.keyT, ReaderAction.toggleControls);
+    return bindings;
   }
 
   Future<void> _showSettings() async {
+    _focusTimer?.cancel();
+    if (!_chromeVisible) setState(() => _chromeVisible = true);
+    var selectedTheme = widget.themeMode;
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (context) => StatefulBuilder(
-        builder: (context, setSheetState) => Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Reader settings'),
-              Semantics(
-                label: 'Font size',
-                child: Slider(
-                  value: _fontSize,
-                  min: 16,
-                  max: 32,
-                  onChanged: (value) {
-                    setState(() => _fontSize = value);
+        builder: (context, setSheetState) => SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Reader settings'),
+                SegmentedButton<ThemeMode>(
+                  segments: const [
+                    ButtonSegment(
+                      value: ThemeMode.system,
+                      label: Text('System'),
+                    ),
+                    ButtonSegment(value: ThemeMode.light, label: Text('Light')),
+                    ButtonSegment(value: ThemeMode.dark, label: Text('Dark')),
+                  ],
+                  selected: {selectedTheme},
+                  onSelectionChanged: (value) {
+                    selectedTheme = value.first;
+                    widget.onThemeChanged?.call(value.first);
+                    widget.database.saveTheme(value.first.name);
                     setSheetState(() {});
                   },
                 ),
-              ),
-              Semantics(
-                label: 'Line spacing',
-                child: Slider(
-                  value: _lineHeight,
-                  min: 1.2,
-                  max: 2,
-                  onChanged: (value) {
-                    setState(() => _lineHeight = value);
-                    setSheetState(() {});
-                  },
-                ),
-              ),
-              Semantics(
-                label: 'Reading width',
-                child: Slider(
-                  value: _readingWidth,
-                  min: 420,
-                  max: 900,
-                  onChanged: (value) {
-                    setState(() => _readingWidth = value);
-                    setSheetState(() {});
-                  },
-                ),
-              ),
-              SegmentedButton<TextAlign>(
-                segments: const [
-                  ButtonSegment(value: TextAlign.start, label: Text('Start')),
-                  ButtonSegment(value: TextAlign.center, label: Text('Center')),
-                  ButtonSegment(
-                    value: TextAlign.justify,
-                    label: Text('Justify'),
+                Semantics(
+                  label: 'Font size',
+                  child: Slider(
+                    value: _fontSize,
+                    min: 16,
+                    max: 32,
+                    onChanged: (value) {
+                      setState(() => _fontSize = value);
+                      setSheetState(() {});
+                    },
                   ),
-                ],
-                selected: {_alignment},
-                onSelectionChanged: (value) {
-                  setState(() => _alignment = value.first);
-                  setSheetState(() {});
-                },
-              ),
-            ],
+                ),
+                Semantics(
+                  label: 'Line spacing',
+                  child: Slider(
+                    value: _lineHeight,
+                    min: 1.2,
+                    max: 2,
+                    onChanged: (value) {
+                      setState(() => _lineHeight = value);
+                      setSheetState(() {});
+                    },
+                  ),
+                ),
+                Semantics(
+                  label: 'Reading width',
+                  child: Slider(
+                    value: _readingWidth,
+                    min: 420,
+                    max: 900,
+                    onChanged: (value) {
+                      setState(() => _readingWidth = value);
+                      setSheetState(() {});
+                    },
+                  ),
+                ),
+                Semantics(
+                  label: 'Horizontal page margin',
+                  child: Slider(
+                    value: _pageMargin,
+                    min: 12,
+                    max: 64,
+                    onChanged: (value) {
+                      setState(() => _pageMargin = value);
+                      setSheetState(() {});
+                    },
+                  ),
+                ),
+                SegmentedButton<TextAlign>(
+                  segments: const [
+                    ButtonSegment(value: TextAlign.start, label: Text('Start')),
+                    ButtonSegment(
+                      value: TextAlign.center,
+                      label: Text('Center'),
+                    ),
+                    ButtonSegment(
+                      value: TextAlign.justify,
+                      label: Text('Justify'),
+                    ),
+                  ],
+                  selected: {_alignment},
+                  onSelectionChanged: (value) {
+                    setState(() => _alignment = value.first);
+                    setSheetState(() {});
+                  },
+                ),
+                SwitchListTile(
+                  title: const Text('Automatically hide reader controls'),
+                  value: _autoHideControls,
+                  onChanged: (value) {
+                    setState(() => _autoHideControls = value);
+                    setSheetState(() {});
+                  },
+                ),
+                SwitchListTile(
+                  title: const Text('Haptic feedback'),
+                  value: _hapticsEnabled,
+                  onChanged: (value) {
+                    setState(() => _hapticsEnabled = value);
+                    setSheetState(() {});
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -197,14 +350,18 @@ class _ReaderScreenState extends State<ReaderScreen> {
         _ => 'start',
       },
       readingWidth: _readingWidth,
+      pageMargin: _pageMargin,
+      autoHideControls: _autoHideControls,
+      hapticsEnabled: _hapticsEnabled,
     );
+    _resetFocusTimer();
   }
 
   @override
   void dispose() {
-    for (final recognizer in _recognizers) {
-      recognizer.dispose();
-    }
+    _pageController?.dispose();
+    _focusTimer?.cancel();
+    _panelReturnTimer?.cancel();
     _focusNode.dispose();
     super.dispose();
   }
@@ -212,137 +369,308 @@ class _ReaderScreenState extends State<ReaderScreen> {
   @override
   Widget build(BuildContext context) {
     final bite = _bites.isEmpty ? null : _bites[_index];
-    final panel = bite == null
+    Widget? panelFor(_OpenPanel? selection) => bite == null
         ? null
-        : switch (_panel) {
+        : switch (selection) {
             _OpenPanel.notes => NotesPanel(
               database: widget.database,
               book: widget.book,
               bite: bite,
-              onClose: () => setState(() => _panel = null),
+              onClose: _closePanel,
+              onSaved: _feedback,
             ),
             _OpenPanel.dictionary => DictionaryPanel(
               database: widget.database,
               book: widget.book,
               bite: bite,
               word: _recentWord,
-              onClose: () => setState(() => _panel = null),
+              onClose: _closePanel,
+              onSaved: _feedback,
             ),
             null => null,
           };
+    final panel = panelFor(_panel);
     final textStyle = Theme.of(
       context,
     ).textTheme.bodyLarge?.copyWith(fontSize: _fontSize, height: _lineHeight);
-    return Focus(
-      focusNode: _focusNode,
-      autofocus: true,
-      onKeyEvent: _onKey,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(widget.book.title),
-          actions: [
-            IconButton(
-              tooltip: 'Reader settings',
-              onPressed: _showSettings,
-              icon: const Icon(Icons.text_fields),
+    return PopScope(
+      canPop: _panel == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _closePanel();
+      },
+      child: CallbackShortcuts(
+        bindings: _shortcuts(),
+        child: Focus(
+          focusNode: _focusNode,
+          autofocus: true,
+          child: Scaffold(
+            appBar: AppBar(
+              leading: AnimatedOpacity(
+                opacity: _chromeVisible ? 1 : 0,
+                alwaysIncludeSemantics: true,
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 180),
+                child: IgnorePointer(
+                  ignoring: !_chromeVisible,
+                  child: BackButton(
+                    onPressed: () => Navigator.maybePop(context),
+                  ),
+                ),
+              ),
+              title: AnimatedOpacity(
+                key: const ValueKey('reader-title'),
+                opacity: _chromeVisible ? 1 : 0,
+                alwaysIncludeSemantics: true,
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 180),
+                child: Text(widget.book.title),
+              ),
+              actions: [
+                AnimatedOpacity(
+                  opacity: _chromeVisible ? 1 : 0,
+                  alwaysIncludeSemantics: true,
+                  duration: MediaQuery.disableAnimationsOf(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 180),
+                  child: IgnorePointer(
+                    ignoring: !_chromeVisible,
+                    child: IconButton(
+                      tooltip: 'Reader settings',
+                      onPressed: _showSettings,
+                      icon: const Icon(Icons.text_fields),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-        body: LayoutBuilder(
-          builder: (context, constraints) {
-            final wide = constraints.maxWidth >= 900;
-            final reader = Column(
-              children: [
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onPanStart: (_) => _drag = Offset.zero,
-                      onPanUpdate: (details) => _drag += details.delta,
-                      onPanEnd: (_) => _perform(readerActionForDrag(_drag)),
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(maxWidth: _readingWidth),
-                          child: AnimatedSwitcher(
-                            duration: MediaQuery.disableAnimationsOf(context)
-                                ? Duration.zero
-                                : const Duration(milliseconds: 180),
-                            child: bite == null
-                                ? const Text('This book has no readable bites.')
-                                : Semantics(
-                                    key: ValueKey(bite.id),
-                                    label: 'Reading bite',
-                                    child: Text.rich(
-                                      TextSpan(
-                                        children: _wordSpans(bite, textStyle!),
+            body: LayoutBuilder(
+              builder: (context, constraints) {
+                final wide = constraints.maxWidth >= 900;
+                final reader = Column(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _toggleChrome,
+                        onHorizontalDragStart: (details) {
+                          final insets = MediaQuery.systemGestureInsetsOf(
+                            context,
+                          );
+                          final width = MediaQuery.sizeOf(context).width;
+                          final leftEdge = insets.left.clamp(
+                            24,
+                            double.infinity,
+                          );
+                          final rightEdge = insets.right.clamp(
+                            24,
+                            double.infinity,
+                          );
+                          _ignoreHorizontalDrag =
+                              details.globalPosition.dx <= leftEdge ||
+                              details.globalPosition.dx >= width - rightEdge;
+                          _drag = Offset.zero;
+                          _horizontalOffset = 0;
+                        },
+                        onHorizontalDragUpdate: (details) {
+                          if (_ignoreHorizontalDrag) return;
+                          _drag += details.delta;
+                          setState(() {
+                            _horizontalOffset += details.delta.dx;
+                            _dragPreview = _horizontalOffset < 0
+                                ? _OpenPanel.notes
+                                : _OpenPanel.dictionary;
+                          });
+                          _resetFocusTimer();
+                        },
+                        onHorizontalDragEnd: (details) {
+                          if (_ignoreHorizontalDrag) return;
+                          var action = readerActionForDrag(_drag);
+                          final velocity = details.primaryVelocity ?? 0;
+                          if (action == null && velocity.abs() >= 700) {
+                            action = velocity < 0
+                                ? ReaderAction.notes
+                                : ReaderAction.dictionary;
+                          }
+                          setState(() {
+                            _horizontalOffset = 0;
+                            if (action != null) _dragPreview = null;
+                          });
+                          if (action == null) {
+                            _panelReturnTimer?.cancel();
+                            _panelReturnTimer = Timer(
+                              const Duration(milliseconds: 180),
+                              () {
+                                if (mounted) {
+                                  setState(() => _dragPreview = null);
+                                }
+                              },
+                            );
+                          }
+                          _perform(action);
+                        },
+                        child: _pageController == null
+                            ? const Center(child: CircularProgressIndicator())
+                            : NotificationListener<ScrollNotification>(
+                                onNotification: (notification) {
+                                  if (notification is ScrollStartNotification) {
+                                    _resetFocusTimer();
+                                  } else if (notification
+                                      is ScrollEndNotification) {
+                                    _completePageChange();
+                                  }
+                                  return false;
+                                },
+                                child: PageView.builder(
+                                  controller: _pageController,
+                                  scrollDirection: Axis.vertical,
+                                  pageSnapping: true,
+                                  itemCount: _bites.length,
+                                  itemBuilder: (context, pageIndex) {
+                                    final pageBite = _bites[pageIndex];
+                                    return KeyedSubtree(
+                                      key: ValueKey(pageBite.id),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 0,
+                                        ),
+                                        child: Center(
+                                          child: ConstrainedBox(
+                                            constraints: BoxConstraints(
+                                              maxWidth: _readingWidth,
+                                            ),
+                                            child: Padding(
+                                              padding: EdgeInsets.symmetric(
+                                                horizontal: _pageMargin,
+                                              ),
+                                              child: Semantics(
+                                                label: 'Reading bite',
+                                                child: _BiteText(
+                                                  bite: pageBite,
+                                                  style: textStyle!,
+                                                  alignment: _alignment,
+                                                  onWord: (word) {
+                                                    _recentWord = word;
+                                                    _openPanel(
+                                                      _OpenPanel.dictionary,
+                                                    );
+                                                  },
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
                                       ),
-                                      textAlign: _alignment,
-                                    ),
-                                  ),
+                                    );
+                                  },
+                                ),
+                              ),
+                      ),
+                    ),
+                    AnimatedOpacity(
+                      key: const ValueKey('reader-controls'),
+                      opacity: _chromeVisible ? 1 : 0,
+                      alwaysIncludeSemantics: true,
+                      duration: MediaQuery.disableAnimationsOf(context)
+                          ? Duration.zero
+                          : const Duration(milliseconds: 180),
+                      child: IgnorePointer(
+                        ignoring: !_chromeVisible,
+                        child: SafeArea(
+                          top: false,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              IconButton(
+                                tooltip: 'Previous bite',
+                                onPressed: _index == 0
+                                    ? null
+                                    : () => _perform(ReaderAction.previous),
+                                icon: const Icon(Icons.keyboard_arrow_up),
+                              ),
+                              IconButton(
+                                tooltip: 'Notes',
+                                onPressed: bite == null
+                                    ? null
+                                    : () => _perform(ReaderAction.notes),
+                                icon: const Icon(Icons.note_alt_outlined),
+                              ),
+                              IconButton(
+                                tooltip: 'Dictionary',
+                                onPressed: bite == null
+                                    ? null
+                                    : () => _perform(ReaderAction.dictionary),
+                                icon: const Icon(Icons.menu_book_outlined),
+                              ),
+                              IconButton(
+                                tooltip: 'Next bite',
+                                onPressed: _index >= _bites.length - 1
+                                    ? null
+                                    : () => _perform(ReaderAction.next),
+                                icon: const Icon(Icons.keyboard_arrow_down),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ),
-                SafeArea(
-                  top: false,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      IconButton(
-                        tooltip: 'Previous bite',
-                        onPressed: _index == 0
-                            ? null
-                            : () => _perform(ReaderAction.previous),
-                        icon: const Icon(Icons.keyboard_arrow_up),
+                  ],
+                );
+                final base = wide
+                    ? Row(
+                        children: [
+                          Expanded(child: reader),
+                          if (panel != null) SizedBox(width: 380, child: panel),
+                        ],
+                      )
+                    : Stack(
+                        children: [
+                          reader,
+                          if (panel != null)
+                            Positioned.fill(
+                              top: constraints.maxHeight * 0.25,
+                              child: panel,
+                            ),
+                        ],
+                      );
+                final previewSelection = _dragPreview;
+                if (previewSelection == null || bite == null) return base;
+                final preview = panelFor(previewSelection)!;
+                final panelWidth = wide ? 380.0 : constraints.maxWidth;
+                final revealed = (_horizontalOffset.abs() / panelWidth).clamp(
+                  0,
+                  1,
+                );
+                final translation = previewSelection == _OpenPanel.notes
+                    ? panelWidth * (1 - revealed)
+                    : -panelWidth * (1 - revealed);
+                return Stack(
+                  clipBehavior: Clip.hardEdge,
+                  children: [
+                    base,
+                    Positioned(
+                      top: wide ? 0 : constraints.maxHeight * 0.25,
+                      bottom: 0,
+                      width: panelWidth,
+                      right: previewSelection == _OpenPanel.notes ? 0 : null,
+                      left: previewSelection == _OpenPanel.dictionary
+                          ? 0
+                          : null,
+                      child: AnimatedContainer(
+                        duration: MediaQuery.disableAnimationsOf(context)
+                            ? Duration.zero
+                            : const Duration(milliseconds: 180),
+                        curve: Curves.easeOutCubic,
+                        transform: Matrix4.translationValues(translation, 0, 0),
+                        child: IgnorePointer(child: preview),
                       ),
-                      IconButton(
-                        tooltip: 'Notes',
-                        onPressed: bite == null
-                            ? null
-                            : () => _perform(ReaderAction.notes),
-                        icon: const Icon(Icons.note_alt_outlined),
-                      ),
-                      IconButton(
-                        tooltip: 'Dictionary',
-                        onPressed: bite == null
-                            ? null
-                            : () => _perform(ReaderAction.dictionary),
-                        icon: const Icon(Icons.menu_book_outlined),
-                      ),
-                      IconButton(
-                        tooltip: 'Next bite',
-                        onPressed: _index >= _bites.length - 1
-                            ? null
-                            : () => _perform(ReaderAction.next),
-                        icon: const Icon(Icons.keyboard_arrow_down),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            );
-            if (wide) {
-              return Row(
-                children: [
-                  Expanded(child: reader),
-                  if (panel != null) SizedBox(width: 380, child: panel),
-                ],
-              );
-            }
-            return Stack(
-              children: [
-                reader,
-                if (panel != null)
-                  Positioned.fill(
-                    top: constraints.maxHeight * 0.25,
-                    child: panel,
-                  ),
-              ],
-            );
-          },
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
         ),
       ),
     );
@@ -350,4 +678,54 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   static String _firstWord(String text) =>
       RegExp(r'\S+').firstMatch(text)?.group(0) ?? 'book';
+}
+
+class _BiteText extends StatefulWidget {
+  const _BiteText({
+    required this.bite,
+    required this.style,
+    required this.alignment,
+    required this.onWord,
+  });
+
+  final Bite bite;
+  final TextStyle style;
+  final TextAlign alignment;
+  final ValueChanged<String> onWord;
+
+  @override
+  State<_BiteText> createState() => _BiteTextState();
+}
+
+class _BiteTextState extends State<_BiteText> {
+  final _recognizers = <GestureRecognizer>[];
+
+  @override
+  void dispose() {
+    for (final recognizer in _recognizers) {
+      recognizer.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    for (final recognizer in _recognizers) {
+      recognizer.dispose();
+    }
+    _recognizers.clear();
+    final spans = RegExp(r'\s+|\S+').allMatches(widget.bite.content).map((
+      match,
+    ) {
+      final text = match.group(0)!;
+      if (text.trim().isEmpty) {
+        return TextSpan(text: text, style: widget.style);
+      }
+      final recognizer = LongPressGestureRecognizer()
+        ..onLongPress = () => widget.onWord(text);
+      _recognizers.add(recognizer);
+      return TextSpan(text: text, style: widget.style, recognizer: recognizer);
+    }).toList();
+    return Text.rich(TextSpan(children: spans), textAlign: widget.alignment);
+  }
 }
