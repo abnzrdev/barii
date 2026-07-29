@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:file_picker/file_picker.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -37,11 +37,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
   var _busy = false;
 
   Future<void> _import() async {
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: const ['epub', 'txt'],
+    const types = XTypeGroup(
+      label: 'Books',
+      extensions: ['epub', 'txt'],
+      mimeTypes: ['application/epub+zip', 'text/plain'],
     );
-    final selected = result?.files.single.path;
+    final result = await openFile(acceptedTypeGroups: [types]);
+    final selected = result?.path;
     if (selected != null) await _runImport(selected);
   }
 

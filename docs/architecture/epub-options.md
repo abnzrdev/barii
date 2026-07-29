@@ -15,3 +15,8 @@ BookBites therefore uses `epubx` only for EPUB container, metadata, and spine
 content extraction. HTML is sanitized separately and bites are rendered by
 ordinary Flutter widgets. This keeps Android/Linux behavior identical and
 avoids coupling progress to a third-party viewport or CFI renderer.
+
+File import uses Flutter’s BSD-3-Clause `file_selector` 1.1.0, whose endorsed
+Android and Linux implementations use native platform dialogs. It replaced
+`file_picker` 11.0.2 after that release’s legacy Kotlin plugin conflicted with
+Flutter 3.44/AGP 9 Android builds.
