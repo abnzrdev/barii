@@ -106,6 +106,19 @@ class BookImportService {
     }
     return (await database.bookById(fingerprint))!;
   }
+
+  Future<void> deleteBook(Book book) async {
+    final source = File(book.filePath);
+    final staged = File('${book.filePath}.deleting');
+    if (await source.exists()) await source.rename(staged.path);
+    try {
+      await database.deleteBookRecord(book.id);
+      if (await staged.exists()) await staged.delete();
+    } catch (_) {
+      if (await staged.exists()) await staged.rename(source.path);
+      rethrow;
+    }
+  }
 }
 
 class BookImportException implements Exception {

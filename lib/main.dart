@@ -1,20 +1,23 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 
-void main() {
-  runApp(const MainApp());
-}
+import 'app/bookbites_app.dart';
+import 'core/database/app_database.dart';
 
-class MainApp extends StatelessWidget {
-  const MainApp({super.key});
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final documents = await getApplicationDocumentsDirectory();
+  final storage = Directory('${documents.path}/books');
+  final database = AppDatabase();
+  await database.ensurePreferences();
+  await database.allBooks();
 
-  @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: Text('Hello World!'),
-        ),
-      ),
-    );
-  }
+  runApp(
+    ProviderScope(
+      child: BookBitesApp(database: database, storageDirectory: storage),
+    ),
+  );
 }

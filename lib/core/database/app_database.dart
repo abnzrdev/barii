@@ -329,4 +329,31 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> deleteBookRecord(String bookId) =>
       (delete(books)..where((row) => row.id.equals(bookId))).go();
+
+  Future<void> ensurePreferences() => into(
+    readerPreferences,
+  ).insert(const ReaderPreferencesCompanion(), mode: InsertMode.insertOrIgnore);
+
+  Future<ReaderPreference> preferences() async {
+    await ensurePreferences();
+    return select(readerPreferences).getSingle();
+  }
+
+  Future<void> savePreferences({
+    required double fontSize,
+    required double lineHeight,
+    required String alignment,
+    required double readingWidth,
+  }) => update(readerPreferences).write(
+    ReaderPreferencesCompanion(
+      fontSize: Value(fontSize),
+      lineHeight: Value(lineHeight),
+      alignment: Value(alignment),
+      readingWidth: Value(readingWidth),
+    ),
+  );
+
+  Future<void> saveTheme(String theme) => update(
+    readerPreferences,
+  ).write(ReaderPreferencesCompanion(theme: Value(theme)));
 }
