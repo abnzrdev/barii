@@ -57,6 +57,18 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('First lantern sentence.'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+    expect(
+      find.bySemanticsLabel(RegExp('progress', caseSensitive: false)),
+      findsNothing,
+    );
+    expect(find.textContaining('%'), findsNothing);
+    expect(
+      find.textContaining(
+        RegExp(r'\b(?:bite|page)\s+\d', caseSensitive: false),
+      ),
+      findsNothing,
+    );
     expect(find.byTooltip('Previous bite'), findsOneWidget);
     expect(find.byTooltip('Next bite'), findsOneWidget);
     expect(find.byTooltip('Notes'), findsOneWidget);
@@ -78,6 +90,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Second quiet sentence.'), findsOneWidget);
     expect((await database.progressFor('book'))?.biteId, 'bite-2');
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReaderScreen(database: database, book: book),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Second quiet sentence.'), findsOneWidget);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.keyN);
     await tester.pumpAndSettle();

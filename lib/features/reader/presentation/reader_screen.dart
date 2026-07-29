@@ -286,11 +286,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                     ),
                   ),
                 ),
-                if (_bites.length > 1)
-                  LinearProgressIndicator(
-                    value: (_index + 1) / _bites.length,
-                    minHeight: 2,
-                  ),
                 SafeArea(
                   top: false,
                   child: Row(

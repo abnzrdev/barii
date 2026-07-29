@@ -101,6 +101,7 @@ class EpubParser {
         .trim();
     final paragraphs = document
         .querySelectorAll('p, li, blockquote')
+        .where((node) => node.querySelector('p, li, blockquote') == null)
         .map((node) => node.text.replaceAll(RegExp(r'\s+'), ' ').trim())
         .where((text) => text.isNotEmpty)
         .toList();

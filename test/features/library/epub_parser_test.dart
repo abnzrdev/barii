@@ -34,9 +34,25 @@ void main() {
       throwsA(isA<UnsupportedDrmException>()),
     );
   });
+
+  test('extracts nested list paragraphs exactly once', () async {
+    final publication = await parser.parse(_epubBytes(nestedList: true));
+    const text = 'If you are a coach, build a reliable system.';
+
+    expect(
+      publication.sections.expand((section) => section.paragraphs),
+      contains(text),
+    );
+    expect(
+      publication.sections
+          .expand((section) => section.paragraphs)
+          .where((paragraph) => paragraph == text),
+      hasLength(1),
+    );
+  });
 }
 
-List<int> _epubBytes({bool encrypted = false}) {
+List<int> _epubBytes({bool encrypted = false, bool nestedList = false}) {
   final archive = Archive()
     ..addFile(ArchiveFile.string('mimetype', 'application/epub+zip'))
     ..addFile(
@@ -73,7 +89,9 @@ media-type="application/xhtml+xml"/></manifest>
       ArchiveFile.string(
         'OEBPS/one.xhtml',
         '''<html><body><h1>Chapter One</h1><script>remove me</script>
-<p>First safe sentence.</p><p>Second safe sentence.</p></body></html>''',
+<p>First safe sentence.</p><p>Second safe sentence.</p>
+${nestedList ? '<ul><li><p>If you are a coach, build a reliable system.</p></li></ul>' : ''}
+</body></html>''',
       ),
     )
     ..addFile(
