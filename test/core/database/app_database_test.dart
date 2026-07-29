@@ -54,6 +54,17 @@ void main() {
     expect(await database.progressFor('book'), isNull);
     expect(await database.bitesForBook('book'), isEmpty);
   });
+
+  test('repeated initialization keeps one reader preference row', () async {
+    await database.ensurePreferences();
+    await database.ensurePreferences();
+
+    expect((await database.preferences()).id, 1);
+    expect(
+      await database.select(database.readerPreferences).get(),
+      hasLength(1),
+    );
+  });
 }
 
 Future<void> _createBook(AppDatabase database) async {

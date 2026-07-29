@@ -330,9 +330,15 @@ class AppDatabase extends _$AppDatabase {
   Future<void> deleteBookRecord(String bookId) =>
       (delete(books)..where((row) => row.id.equals(bookId))).go();
 
-  Future<void> ensurePreferences() => into(
-    readerPreferences,
-  ).insert(const ReaderPreferencesCompanion(), mode: InsertMode.insertOrIgnore);
+  Future<void> ensurePreferences() => transaction(() async {
+    await into(readerPreferences).insert(
+      const ReaderPreferencesCompanion(id: Value(1)),
+      mode: InsertMode.insertOrIgnore,
+    );
+    await (delete(
+      readerPreferences,
+    )..where((row) => row.id.isNotValue(1))).go();
+  });
 
   Future<ReaderPreference> preferences() async {
     await ensurePreferences();
