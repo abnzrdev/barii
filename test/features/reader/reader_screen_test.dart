@@ -130,6 +130,12 @@ void main() {
     expect(highlights, hasLength(1));
     expect(highlights.single.selectedText, isNotEmpty);
 
+    await tester.drag(find.byType(PageView), const Offset(-300, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('Notes for this bite'), findsOneWidget);
+    await tester.tap(find.byTooltip('Close notes'));
+    await tester.pumpAndSettle();
+
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpWidget(
       MaterialApp(

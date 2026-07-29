@@ -763,6 +763,18 @@ class _BiteTextState extends State<_BiteText> {
     );
   }
 
+  void _dismissSelection(EditableTextState state) {
+    final offset = state.textEditingValue.selection.end;
+    state.userUpdateTextEditingValue(
+      state.textEditingValue.copyWith(
+        selection: TextSelection.collapsed(offset: offset),
+      ),
+      SelectionChangedCause.toolbar,
+    );
+    state.hideToolbar();
+    widget.onSelectionChanged(false);
+  }
+
   Future<void> _saveSelection(
     EditableTextState state, {
     String? note,
@@ -820,7 +832,7 @@ class _BiteTextState extends State<_BiteText> {
       resolved: true,
       now: now,
     );
-    state.hideToolbar();
+    _dismissSelection(state);
     await _load();
     if (replaced && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -839,7 +851,7 @@ class _BiteTextState extends State<_BiteText> {
     )) {
       await widget.database.deleteHighlight(highlight.id, deleteNote: true);
     }
-    state.hideToolbar();
+    _dismissSelection(state);
     await _load();
   }
 
@@ -949,7 +961,7 @@ class _BiteTextState extends State<_BiteText> {
           ContextMenuButtonItem(
             label: 'Define',
             onPressed: () {
-              state.hideToolbar();
+              _dismissSelection(state);
               widget.onWord(text);
             },
           ),
