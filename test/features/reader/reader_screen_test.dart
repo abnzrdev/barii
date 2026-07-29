@@ -107,6 +107,47 @@ void main() {
     );
   });
 
+  testWidgets('native selection toolbar can persist a highlight', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReaderScreen(database: database, book: book),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.byType(SelectableText).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Define'), findsOneWidget);
+    expect(find.text('Highlight'), findsOneWidget);
+    expect(find.text('Copy'), findsOneWidget);
+
+    await tester.tap(find.text('Highlight'));
+    await tester.pumpAndSettle();
+    final highlights = await database.highlightsForBite('bite-1');
+    expect(highlights, hasLength(1));
+    expect(highlights.single.selectedText, isNotEmpty);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReaderScreen(database: database, book: book),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final text = tester.widget<SelectableText>(
+      find.byType(SelectableText).first,
+    );
+    expect(
+      text.textSpan!.children!.whereType<TextSpan>().any(
+        (span) => span.style?.backgroundColor != null,
+      ),
+      isTrue,
+    );
+  });
+
   testWidgets('completed swipe saves and cancelled swipe does not', (
     tester,
   ) async {

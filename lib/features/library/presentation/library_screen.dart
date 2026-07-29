@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../dictionary/data/sqlite_dictionary_repository.dart';
+import '../../dictionary/presentation/dictionary_settings_screen.dart';
 import '../../dictionary/presentation/vocabulary_screen.dart';
 import '../../notes/presentation/notebook_screen.dart';
 import '../../reader/presentation/reader_screen.dart';
@@ -29,6 +31,12 @@ class LibraryScreen extends StatefulWidget {
 }
 
 class _LibraryScreenState extends State<LibraryScreen> {
+  late final DictionaryPackService _dictionaryPacks = DictionaryPackService(
+    database: widget.database,
+    storageDirectory: Directory('${widget.storageDirectory.path}/dictionaries'),
+  );
+  late final SqliteDictionaryRepository _dictionary =
+      SqliteDictionaryRepository(widget.database);
   late final BookImportService _imports = BookImportService(
     database: widget.database,
     storageDirectory: widget.storageDirectory,
@@ -137,6 +145,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
     appBar: AppBar(
       title: const Text('BookBites'),
       actions: [
+        IconButton(
+          tooltip: 'Offline dictionaries',
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => DictionarySettingsScreen(
+                database: widget.database,
+                packs: _dictionaryPacks,
+              ),
+            ),
+          ),
+          icon: const Icon(Icons.book_outlined),
+        ),
         if (widget.onThemeChanged != null)
           PopupMenuButton<ThemeMode>(
             tooltip: 'Theme',
@@ -216,6 +236,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                           book: book,
                           themeMode: widget.themeMode,
                           onThemeChanged: widget.onThemeChanged,
+                          dictionaryRepository: _dictionary,
                         ),
                       ),
                     ),
@@ -240,6 +261,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                                           builder: (_) => NotebookScreen(
                                             database: widget.database,
                                             book: book,
+                                            dictionaryRepository: _dictionary,
                                           ),
                                         ),
                                       );

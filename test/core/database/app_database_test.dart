@@ -82,6 +82,101 @@ void main() {
     expect(preferences.autoHideControls, isFalse);
     expect(preferences.hapticsEnabled, isFalse);
   });
+
+  test('persists dictionary source state and priority', () async {
+    final installed = DateTime.utc(2026, 7, 29);
+    await database.saveDictionarySource(
+      id: 'dictionary',
+      name: 'Fixture English',
+      language: 'en',
+      format: 'limmud-sqlite',
+      sizeBytes: 118784,
+      filePath: '/tmp/fixture.dict.sqlite',
+      contentHash: 'dictionary-hash',
+      source: 'Kaikki/Wiktionary',
+      licenseName: 'CC BY-SA 4.0 and GFDL',
+      attribution: 'Wiktionary contributors',
+      installedAt: installed,
+    );
+    await database.setDictionaryEnabled('dictionary', false);
+
+    final source = (await database.allDictionarySources()).single;
+    expect(source.name, 'Fixture English');
+    expect(source.enabled, isFalse);
+    expect(source.priority, 0);
+    expect(source.contentHash, 'dictionary-hash');
+  });
+
+  test('persists highlight offsets, context, style, and note', () async {
+    await _createBook(database);
+    final now = DateTime.utc(2026, 7, 29);
+    await database.saveHighlightNote(
+      id: 'highlight-note',
+      bookId: 'book',
+      biteId: 'bite',
+      text: 'Important',
+      now: now,
+    );
+    await database.saveHighlight(
+      id: 'highlight',
+      bookId: 'book',
+      biteId: 'bite',
+      startOffset: 0,
+      endOffset: 4,
+      selectedText: 'Text',
+      prefixContext: '',
+      suffixContext: '.',
+      contentChecksum: 'checksum',
+      style: 'highlight',
+      color: 'yellow',
+      noteId: 'highlight-note',
+      resolved: true,
+      now: now,
+    );
+
+    final highlight = (await database.highlightsForBite('bite')).single;
+    expect(highlight.selectedText, 'Text');
+    expect(highlight.startOffset, 0);
+    expect(highlight.endOffset, 4);
+    expect(highlight.noteId, 'highlight-note');
+    expect(
+      (await database.highlightNote('highlight-note'))?.noteText,
+      'Important',
+    );
+  });
+
+  test('deleting a book cascades highlights and highlight notes', () async {
+    await _createBook(database);
+    final now = DateTime.utc(2026, 7, 29);
+    await database.saveHighlightNote(
+      id: 'highlight-note',
+      bookId: 'book',
+      biteId: 'bite',
+      text: 'Important',
+      now: now,
+    );
+    await database.saveHighlight(
+      id: 'highlight',
+      bookId: 'book',
+      biteId: 'bite',
+      startOffset: 0,
+      endOffset: 4,
+      selectedText: 'Text',
+      prefixContext: '',
+      suffixContext: '.',
+      contentChecksum: 'checksum',
+      style: 'underline',
+      color: 'blue',
+      noteId: 'highlight-note',
+      resolved: true,
+      now: now,
+    );
+
+    await database.deleteBookRecord('book');
+
+    expect(await database.highlightsForBook('book'), isEmpty);
+    expect(await database.highlightNote('highlight-note'), isNull);
+  });
 }
 
 Future<void> _createBook(AppDatabase database) async {

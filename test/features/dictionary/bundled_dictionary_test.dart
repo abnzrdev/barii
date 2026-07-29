@@ -7,12 +7,12 @@ void main() {
 
   test('looks up normalized bundled words', () async {
     expect(
-      await repository.lookup('Lantern'),
+      (await repository.lookupEntry('Lantern'))?.definition,
       'A portable light protected by a transparent case.',
     );
   });
 
   test('returns no result for an unknown offline word', () async {
-    expect(await repository.lookup('unlistedword'), isNull);
+    expect(await repository.lookupEntry('unlistedword'), isNull);
   });
 }

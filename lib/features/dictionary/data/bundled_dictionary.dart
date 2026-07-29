@@ -15,6 +15,24 @@ class BundledDictionary implements DictionaryRepository {
   };
 
   @override
-  Future<String?> lookup(String word) async =>
-      _definitions[normalizeWord(word)];
+  Future<DictionaryEntry?> lookupEntry(String word) async {
+    final normalized = normalizeWord(word);
+    final definition = _definitions[normalized];
+    return definition == null
+        ? null
+        : DictionaryEntry(
+            word: normalized,
+            definition: definition,
+            sourceName: 'Bundled dictionary',
+          );
+  }
+
+  @override
+  Future<List<String>> suggest(String word, {int limit = 8}) async {
+    final normalized = normalizeWord(word);
+    return _definitions.keys
+        .where((candidate) => candidate.startsWith(normalized))
+        .take(limit)
+        .toList();
+  }
 }

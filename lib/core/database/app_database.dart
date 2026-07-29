@@ -89,10 +89,97 @@ class VocabularyEntries extends Table {
       text().references(Books, #id, onDelete: KeyAction.cascade)();
   TextColumn get biteId =>
       text().references(Bites, #id, onDelete: KeyAction.cascade)();
+  TextColumn get dictionarySourceId => text().nullable().references(
+    DictionarySources,
+    #id,
+    onDelete: KeyAction.setNull,
+  )();
+  TextColumn get dictionarySourceName =>
+      text().withDefault(const Constant('Bundled dictionary'))();
+  TextColumn get partOfSpeech => text().nullable()();
+  TextColumn get pronunciation => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
 
   @override
   Set<Column> get primaryKey => {id};
+}
+
+class DictionarySources extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  TextColumn get language => text()();
+  TextColumn get format => text()();
+  IntColumn get sizeBytes => integer()();
+  TextColumn get filePath => text()();
+  TextColumn get contentHash => text().unique()();
+  TextColumn get source => text()();
+  TextColumn get licenseName => text()();
+  TextColumn get attribution => text()();
+  BoolColumn get enabled => boolean().withDefault(const Constant(true))();
+  IntColumn get priority => integer()();
+  DateTimeColumn get installedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class DictionaryImportStates extends Table {
+  TextColumn get sourceId =>
+      text().references(DictionarySources, #id, onDelete: KeyAction.cascade)();
+  TextColumn get stage => text()();
+  IntColumn get completed => integer().withDefault(const Constant(0))();
+  IntColumn get total => integer().withDefault(const Constant(1))();
+  TextColumn get error => text().nullable()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {sourceId};
+}
+
+class HighlightNotes extends Table {
+  TextColumn get id => text()();
+  TextColumn get bookId =>
+      text().references(Books, #id, onDelete: KeyAction.cascade)();
+  TextColumn get biteId =>
+      text().references(Bites, #id, onDelete: KeyAction.cascade)();
+  TextColumn get noteText => text()();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class Highlights extends Table {
+  TextColumn get id => text()();
+  TextColumn get bookId =>
+      text().references(Books, #id, onDelete: KeyAction.cascade)();
+  TextColumn get biteId =>
+      text().references(Bites, #id, onDelete: KeyAction.cascade)();
+  IntColumn get startOffset => integer()();
+  IntColumn get endOffset => integer()();
+  TextColumn get selectedText => text()();
+  TextColumn get prefixContext => text()();
+  TextColumn get suffixContext => text()();
+  TextColumn get contentChecksum => text()();
+  TextColumn get style => text()();
+  TextColumn get color => text()();
+  TextColumn get noteId => text().nullable().references(
+    HighlightNotes,
+    #id,
+    onDelete: KeyAction.setNull,
+  )();
+  BoolColumn get resolved => boolean().withDefault(const Constant(true))();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<Set<Column>> get uniqueKeys => [
+    {biteId, startOffset, endOffset},
+  ];
 }
 
 class ReaderPreferences extends Table {
@@ -146,6 +233,10 @@ class StoredBite {
     ReadingProgress,
     ReaderNotes,
     VocabularyEntries,
+    DictionarySources,
+    DictionaryImportStates,
+    HighlightNotes,
+    Highlights,
     ReaderPreferences,
   ],
 )
@@ -154,7 +245,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -171,6 +262,18 @@ class AppDatabase extends _$AppDatabase {
         'CREATE INDEX vocabulary_book_word '
         'ON vocabulary_entries (book_id, normalized_word)',
       );
+      await customStatement(
+        'CREATE INDEX dictionary_enabled_priority '
+        'ON dictionary_sources (enabled, priority)',
+      );
+      await customStatement(
+        'CREATE INDEX highlights_book_bite '
+        'ON highlights (book_id, bite_id)',
+      );
+      await customStatement(
+        'CREATE INDEX highlight_notes_book_bite '
+        'ON highlight_notes (book_id, bite_id)',
+      );
     },
     onUpgrade: (migrator, from, to) async {
       if (from < 2) {
@@ -185,6 +288,40 @@ class AppDatabase extends _$AppDatabase {
         await migrator.addColumn(
           readerPreferences,
           readerPreferences.hapticsEnabled,
+        );
+      }
+      if (from < 3) {
+        await migrator.createTable(dictionarySources);
+        await migrator.createTable(dictionaryImportStates);
+        await migrator.createTable(highlightNotes);
+        await migrator.createTable(highlights);
+        await migrator.addColumn(
+          vocabularyEntries,
+          vocabularyEntries.dictionarySourceId,
+        );
+        await migrator.addColumn(
+          vocabularyEntries,
+          vocabularyEntries.dictionarySourceName,
+        );
+        await migrator.addColumn(
+          vocabularyEntries,
+          vocabularyEntries.partOfSpeech,
+        );
+        await migrator.addColumn(
+          vocabularyEntries,
+          vocabularyEntries.pronunciation,
+        );
+        await customStatement(
+          'CREATE INDEX dictionary_enabled_priority '
+          'ON dictionary_sources (enabled, priority)',
+        );
+        await customStatement(
+          'CREATE INDEX highlights_book_bite '
+          'ON highlights (book_id, bite_id)',
+        );
+        await customStatement(
+          'CREATE INDEX highlight_notes_book_bite '
+          'ON highlight_notes (book_id, bite_id)',
         );
       }
     },
@@ -275,6 +412,13 @@ class AppDatabase extends _$AppDatabase {
             ..orderBy([(row) => OrderingTerm.asc(row.position)]))
           .get();
 
+  Future<String?> sectionHeadingForBite(String biteId) async {
+    final query = select(bites).join([
+      innerJoin(sections, sections.id.equalsExp(bites.sectionId)),
+    ])..where(bites.id.equals(biteId));
+    return (await query.getSingleOrNull())?.readTable(sections).heading;
+  }
+
   Future<void> saveProgress(String bookId, String biteId, int position) =>
       into(readingProgress).insertOnConflictUpdate(
         ReadingProgressCompanion.insert(
@@ -329,6 +473,10 @@ class AppDatabase extends _$AppDatabase {
     required String bookId,
     required String biteId,
     required DateTime now,
+    String? dictionarySourceId,
+    String dictionarySourceName = 'Bundled dictionary',
+    String? partOfSpeech,
+    String? pronunciation,
   }) => into(vocabularyEntries).insertOnConflictUpdate(
     VocabularyEntriesCompanion.insert(
       id: id,
@@ -338,6 +486,10 @@ class AppDatabase extends _$AppDatabase {
       sourceSentence: sourceSentence,
       bookId: bookId,
       biteId: biteId,
+      dictionarySourceId: Value(dictionarySourceId),
+      dictionarySourceName: Value(dictionarySourceName),
+      partOfSpeech: Value(partOfSpeech),
+      pronunciation: Value(pronunciation),
       createdAt: now,
     ),
   );
@@ -347,6 +499,194 @@ class AppDatabase extends _$AppDatabase {
             ..where((row) => row.bookId.equals(bookId))
             ..orderBy([(row) => OrderingTerm.desc(row.createdAt)]))
           .get();
+
+  Future<void> saveDictionarySource({
+    required String id,
+    required String name,
+    required String language,
+    required String format,
+    required int sizeBytes,
+    required String filePath,
+    required String contentHash,
+    required String source,
+    required String licenseName,
+    required String attribution,
+    required DateTime installedAt,
+  }) async {
+    final nextPriority = await allDictionarySources().then(
+      (sources) => sources.length,
+    );
+    await into(dictionarySources).insert(
+      DictionarySourcesCompanion.insert(
+        id: id,
+        name: name,
+        language: language,
+        format: format,
+        sizeBytes: sizeBytes,
+        filePath: filePath,
+        contentHash: contentHash,
+        source: source,
+        licenseName: licenseName,
+        attribution: attribution,
+        priority: nextPriority,
+        installedAt: installedAt,
+      ),
+    );
+  }
+
+  Future<List<DictionarySource>> allDictionarySources() => (select(
+    dictionarySources,
+  )..orderBy([(row) => OrderingTerm.asc(row.priority)])).get();
+
+  Future<DictionarySource?> dictionarySourceByHash(String hash) => (select(
+    dictionarySources,
+  )..where((row) => row.contentHash.equals(hash))).getSingleOrNull();
+
+  Future<void> setDictionaryEnabled(String id, bool enabled) =>
+      (update(dictionarySources)..where((row) => row.id.equals(id))).write(
+        DictionarySourcesCompanion(enabled: Value(enabled)),
+      );
+
+  Future<void> setDictionaryPriorities(List<String> sourceIds) =>
+      transaction(() async {
+        for (var index = 0; index < sourceIds.length; index++) {
+          await (update(dictionarySources)
+                ..where((row) => row.id.equals(sourceIds[index])))
+              .write(DictionarySourcesCompanion(priority: Value(index)));
+        }
+      });
+
+  Future<void> deleteDictionarySource(String id) =>
+      (delete(dictionarySources)..where((row) => row.id.equals(id))).go();
+
+  Future<void> saveDictionaryImportState({
+    required String sourceId,
+    required String stage,
+    required int completed,
+    required int total,
+    String? error,
+  }) => into(dictionaryImportStates).insertOnConflictUpdate(
+    DictionaryImportStatesCompanion.insert(
+      sourceId: sourceId,
+      stage: stage,
+      completed: Value(completed),
+      total: Value(total),
+      error: Value(error),
+      updatedAt: DateTime.now().toUtc(),
+    ),
+  );
+
+  Future<DictionaryImportState?> dictionaryImportState(String sourceId) =>
+      (select(
+        dictionaryImportStates,
+      )..where((row) => row.sourceId.equals(sourceId))).getSingleOrNull();
+
+  Future<void> saveHighlightNote({
+    required String id,
+    required String bookId,
+    required String biteId,
+    required String text,
+    required DateTime now,
+  }) async {
+    final existing = await highlightNote(id);
+    await into(highlightNotes).insertOnConflictUpdate(
+      HighlightNotesCompanion.insert(
+        id: id,
+        bookId: bookId,
+        biteId: biteId,
+        noteText: text,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      ),
+    );
+  }
+
+  Future<HighlightNote?> highlightNote(String id) => (select(
+    highlightNotes,
+  )..where((row) => row.id.equals(id))).getSingleOrNull();
+
+  Future<void> deleteHighlightNote(String id) =>
+      (delete(highlightNotes)..where((row) => row.id.equals(id))).go();
+
+  Future<void> saveHighlight({
+    required String id,
+    required String bookId,
+    required String biteId,
+    required int startOffset,
+    required int endOffset,
+    required String selectedText,
+    required String prefixContext,
+    required String suffixContext,
+    required String contentChecksum,
+    required String style,
+    required String color,
+    required String? noteId,
+    required bool resolved,
+    required DateTime now,
+  }) async {
+    final existing = await (select(
+      highlights,
+    )..where((row) => row.id.equals(id))).getSingleOrNull();
+    await into(highlights).insertOnConflictUpdate(
+      HighlightsCompanion.insert(
+        id: id,
+        bookId: bookId,
+        biteId: biteId,
+        startOffset: startOffset,
+        endOffset: endOffset,
+        selectedText: selectedText,
+        prefixContext: prefixContext,
+        suffixContext: suffixContext,
+        contentChecksum: contentChecksum,
+        style: style,
+        color: color,
+        noteId: Value(noteId),
+        resolved: Value(resolved),
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      ),
+    );
+  }
+
+  Future<List<Highlight>> highlightsForBite(String biteId) =>
+      (select(highlights)
+            ..where((row) => row.biteId.equals(biteId))
+            ..orderBy([(row) => OrderingTerm.asc(row.startOffset)]))
+          .get();
+
+  Future<List<Highlight>> highlightsForBook(String bookId) =>
+      (select(highlights)
+            ..where((row) => row.bookId.equals(bookId))
+            ..orderBy([(row) => OrderingTerm.desc(row.updatedAt)]))
+          .get();
+
+  Future<void> updateHighlightAppearance(
+    String id, {
+    required String style,
+    required String color,
+  }) => (update(highlights)..where((row) => row.id.equals(id))).write(
+    HighlightsCompanion(
+      style: Value(style),
+      color: Value(color),
+      updatedAt: Value(DateTime.now().toUtc()),
+    ),
+  );
+
+  Future<void> setHighlightResolved(String id, bool resolved) =>
+      (update(highlights)..where((row) => row.id.equals(id))).write(
+        HighlightsCompanion(resolved: Value(resolved)),
+      );
+
+  Future<void> deleteHighlight(String id, {bool deleteNote = false}) =>
+      transaction(() async {
+        final highlight = await (select(
+          highlights,
+        )..where((row) => row.id.equals(id))).getSingleOrNull();
+        await (delete(highlights)..where((row) => row.id.equals(id))).go();
+        if (deleteNote && highlight?.noteId != null) {
+          await deleteHighlightNote(highlight!.noteId!);
+        }
+      });
 
   Future<void> deleteBookRecord(String bookId) =>
       (delete(books)..where((row) => row.id.equals(bookId))).go();
