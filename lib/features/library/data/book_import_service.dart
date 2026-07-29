@@ -31,9 +31,8 @@ class BookImportService {
     }
     final bytes = await source.readAsBytes();
     final fingerprint = sha256.convert(bytes).toString();
-    if (await database.bookByFingerprint(fingerprint) != null) {
-      throw const DuplicateBookException();
-    }
+    final existing = await database.bookByFingerprint(fingerprint);
+    if (existing != null) return existing;
 
     final ParsedPublication publication;
     if (extension == '.epub') {

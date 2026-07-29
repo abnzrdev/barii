@@ -5,6 +5,8 @@ import 'package:bookbites/features/library/data/book_import_service.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../support/epub_fixture.dart';
+
 void main() {
   late Directory source;
   late Directory storage;
@@ -41,7 +43,7 @@ void main() {
     expect(await database.bitesForBook(book.id), isNotEmpty);
   });
 
-  test('rejects empty and duplicate TXT files', () async {
+  test('rejects empty TXT and reuses duplicate imports', () async {
     final empty = File('${source.path}/empty.txt');
     await empty.writeAsString(' \n ');
     final book = File('${source.path}/book.txt');
@@ -55,11 +57,61 @@ void main() {
       () => service.importFile(empty.path),
       throwsA(isA<EmptyBookException>()),
     );
-    await service.importFile(book.path);
-    expect(
-      () => service.importFile(book.path),
-      throwsA(isA<DuplicateBookException>()),
+    final first = await service.importFile(book.path);
+    final second = await service.importFile(book.path);
+    expect(second.id, first.id);
+    expect(await database.bitesForBook(first.id), hasLength(1));
+  });
+
+  test('EPUB re-import preserves stable bites, progress, and notes', () async {
+    final file = File('${source.path}/anchored.epub');
+    await file.writeAsBytes(
+      epubFixtureBytes(anchoredNavigation: true, nestedList: true),
     );
+    final service = BookImportService(
+      database: database,
+      storageDirectory: storage,
+    );
+    final first = await service.importFile(file.path);
+    final originalBites = await database.bitesForBook(first.id);
+    final target = originalBites.firstWhere(
+      (bite) => bite.content.contains('Previously duplicated sentence.'),
+    );
+    final now = DateTime.utc(2026, 7, 29);
+    await database.saveProgress(first.id, target.id, target.position);
+    await database.saveNote(
+      id: 'anchored-note',
+      bookId: first.id,
+      biteId: target.id,
+      text: 'Keep this note.',
+      now: now,
+    );
+
+    final second = await service.importFile(file.path);
+    final reimportedBites = await database.bitesForBook(second.id);
+
+    expect(second.id, first.id);
+    expect(
+      reimportedBites.map((bite) => bite.id),
+      originalBites.map((bite) => bite.id),
+    );
+    expect(
+      reimportedBites.map((bite) => bite.id).toSet(),
+      hasLength(reimportedBites.length),
+    );
+    expect(
+      reimportedBites
+          .where(
+            (bite) => bite.content.contains('Previously duplicated sentence.'),
+          )
+          .single
+          .content
+          .split('Previously duplicated sentence.')
+          .length,
+      2,
+    );
+    expect((await database.progressFor(first.id))?.biteId, target.id);
+    expect(await database.notesForBook(first.id), hasLength(1));
   });
 
   test('rejects unsupported extensions and missing files', () async {

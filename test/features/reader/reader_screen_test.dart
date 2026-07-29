@@ -79,6 +79,34 @@ void main() {
     expect(find.textContaining('of 2'), findsNothing);
   });
 
+  testWidgets('renders persisted EPUB content exactly once', (tester) async {
+    await database.replaceContent(
+      'book',
+      sections: const [StoredSection(id: 'section', position: 0)],
+      bites: const [
+        StoredBite(
+          id: 'epub-bite',
+          sectionId: 'section',
+          position: 0,
+          text: 'Previously duplicated sentence.',
+          sourceStart: 0,
+          sourceEnd: 31,
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReaderScreen(database: database, book: book),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('Previously duplicated sentence.'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('completed swipe saves and cancelled swipe does not', (
     tester,
   ) async {

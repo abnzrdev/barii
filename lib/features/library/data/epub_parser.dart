@@ -34,41 +34,60 @@ class EpubParser {
       }
       final book = await EpubReader.readBook(bytes);
       final sections = <SourceSection>[];
-      void addChapters(List<EpubChapter>? chapters) {
+      final titlesByFile = <String, String>{};
+      void collectTitles(List<EpubChapter>? chapters) {
         for (final chapter in chapters ?? const <EpubChapter>[]) {
-          final content = chapter.HtmlContent?.trim() ?? '';
-          if (content.isNotEmpty) {
-            final parsed = _parseHtml(content);
-            if (parsed.paragraphs.isNotEmpty) {
-              sections.add(
-                SourceSection(
-                  index: sections.length,
-                  heading: parsed.heading ?? chapter.Title?.trim(),
-                  paragraphs: parsed.paragraphs,
-                ),
-              );
-            }
+          final fileName = _normalizePath(chapter.ContentFileName);
+          final title = chapter.Title?.trim();
+          if (fileName.isNotEmpty && title != null && title.isNotEmpty) {
+            titlesByFile.putIfAbsent(fileName, () => title);
           }
-          addChapters(chapter.SubChapters);
+          collectTitles(chapter.SubChapters);
         }
       }
 
-      addChapters(book.Chapters);
-      if (sections.isEmpty) {
-        final htmlFiles = book.Content?.Html;
-        if (htmlFiles != null) {
-          for (final file in htmlFiles.values) {
-            final parsed = _parseHtml(file.Content ?? '');
-            if (parsed.paragraphs.isNotEmpty) {
-              sections.add(
-                SourceSection(
-                  index: sections.length,
-                  heading: parsed.heading,
-                  paragraphs: parsed.paragraphs,
-                ),
-              );
-            }
+      collectTitles(book.Chapters);
+      final htmlFiles =
+          book.Content?.Html ?? const <String, EpubTextContentFile>{};
+      final filesByName = <String, EpubTextContentFile>{};
+      for (final entry in htmlFiles.entries) {
+        filesByName[_normalizePath(entry.key)] = entry.value;
+        filesByName[_normalizePath(entry.value.FileName)] = entry.value;
+      }
+      final orderedFiles = <({String name, EpubTextContentFile file})>[];
+      final processed = <String>{};
+      final manifest = {
+        for (final item
+            in book.Schema?.Package?.Manifest?.Items ??
+                const <EpubManifestItem>[])
+          if (item.Id != null) item.Id!: item,
+      };
+      for (final item
+          in book.Schema?.Package?.Spine?.Items ?? const <EpubSpineItemRef>[]) {
+        final href = _normalizePath(manifest[item.IdRef]?.Href);
+        final file = filesByName[href];
+        if (file != null && processed.add(href)) {
+          orderedFiles.add((name: href, file: file));
+        }
+      }
+      if (orderedFiles.isEmpty) {
+        for (final entry in htmlFiles.entries) {
+          final name = _normalizePath(entry.value.FileName ?? entry.key);
+          if (processed.add(name)) {
+            orderedFiles.add((name: name, file: entry.value));
           }
+        }
+      }
+      for (final source in orderedFiles) {
+        final parsed = _parseHtml(source.file.Content ?? '');
+        if (parsed.paragraphs.isNotEmpty) {
+          sections.add(
+            SourceSection(
+              index: sections.length,
+              heading: parsed.heading ?? titlesByFile[source.name],
+              paragraphs: parsed.paragraphs,
+            ),
+          );
         }
       }
       if (sections.isEmpty) throw const BookParseException('Book is empty.');
@@ -117,6 +136,11 @@ class EpubParser {
   static String _fallback(String? value, String fallback) {
     final text = value?.trim();
     return text == null || text.isEmpty ? fallback : text;
+  }
+
+  static String _normalizePath(String? value) {
+    final path = (value ?? '').split('#').first.replaceAll('\\', '/').trim();
+    return path.startsWith('./') ? path.substring(2) : path;
   }
 }
 
