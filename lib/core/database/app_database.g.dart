@@ -912,6 +912,49 @@ class $BitesTable extends Bites with TableInfo<$BitesTable, Bite> {
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _kindMeta = const VerificationMeta('kind');
+  @override
+  late final GeneratedColumn<String> kind = GeneratedColumn<String>(
+    'kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('text'),
+  );
+  static const VerificationMeta _assetPathMeta = const VerificationMeta(
+    'assetPath',
+  );
+  @override
+  late final GeneratedColumn<String> assetPath = GeneratedColumn<String>(
+    'asset_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _altTextMeta = const VerificationMeta(
+    'altText',
+  );
+  @override
+  late final GeneratedColumn<String> altText = GeneratedColumn<String>(
+    'alt_text',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _captionMeta = const VerificationMeta(
+    'caption',
+  );
+  @override
+  late final GeneratedColumn<String> caption = GeneratedColumn<String>(
+    'caption',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -921,6 +964,10 @@ class $BitesTable extends Bites with TableInfo<$BitesTable, Bite> {
     content,
     sourceStart,
     sourceEnd,
+    kind,
+    assetPath,
+    altText,
+    caption,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -990,6 +1037,30 @@ class $BitesTable extends Bites with TableInfo<$BitesTable, Bite> {
     } else if (isInserting) {
       context.missing(_sourceEndMeta);
     }
+    if (data.containsKey('kind')) {
+      context.handle(
+        _kindMeta,
+        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
+      );
+    }
+    if (data.containsKey('asset_path')) {
+      context.handle(
+        _assetPathMeta,
+        assetPath.isAcceptableOrUnknown(data['asset_path']!, _assetPathMeta),
+      );
+    }
+    if (data.containsKey('alt_text')) {
+      context.handle(
+        _altTextMeta,
+        altText.isAcceptableOrUnknown(data['alt_text']!, _altTextMeta),
+      );
+    }
+    if (data.containsKey('caption')) {
+      context.handle(
+        _captionMeta,
+        caption.isAcceptableOrUnknown(data['caption']!, _captionMeta),
+      );
+    }
     return context;
   }
 
@@ -1031,6 +1102,22 @@ class $BitesTable extends Bites with TableInfo<$BitesTable, Bite> {
         DriftSqlType.int,
         data['${effectivePrefix}source_end'],
       )!,
+      kind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kind'],
+      )!,
+      assetPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}asset_path'],
+      ),
+      altText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}alt_text'],
+      ),
+      caption: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}caption'],
+      ),
     );
   }
 
@@ -1048,6 +1135,10 @@ class Bite extends DataClass implements Insertable<Bite> {
   final String content;
   final int sourceStart;
   final int sourceEnd;
+  final String kind;
+  final String? assetPath;
+  final String? altText;
+  final String? caption;
   const Bite({
     required this.id,
     required this.bookId,
@@ -1056,6 +1147,10 @@ class Bite extends DataClass implements Insertable<Bite> {
     required this.content,
     required this.sourceStart,
     required this.sourceEnd,
+    required this.kind,
+    this.assetPath,
+    this.altText,
+    this.caption,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1067,6 +1162,16 @@ class Bite extends DataClass implements Insertable<Bite> {
     map['content'] = Variable<String>(content);
     map['source_start'] = Variable<int>(sourceStart);
     map['source_end'] = Variable<int>(sourceEnd);
+    map['kind'] = Variable<String>(kind);
+    if (!nullToAbsent || assetPath != null) {
+      map['asset_path'] = Variable<String>(assetPath);
+    }
+    if (!nullToAbsent || altText != null) {
+      map['alt_text'] = Variable<String>(altText);
+    }
+    if (!nullToAbsent || caption != null) {
+      map['caption'] = Variable<String>(caption);
+    }
     return map;
   }
 
@@ -1079,6 +1184,16 @@ class Bite extends DataClass implements Insertable<Bite> {
       content: Value(content),
       sourceStart: Value(sourceStart),
       sourceEnd: Value(sourceEnd),
+      kind: Value(kind),
+      assetPath: assetPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(assetPath),
+      altText: altText == null && nullToAbsent
+          ? const Value.absent()
+          : Value(altText),
+      caption: caption == null && nullToAbsent
+          ? const Value.absent()
+          : Value(caption),
     );
   }
 
@@ -1095,6 +1210,10 @@ class Bite extends DataClass implements Insertable<Bite> {
       content: serializer.fromJson<String>(json['content']),
       sourceStart: serializer.fromJson<int>(json['sourceStart']),
       sourceEnd: serializer.fromJson<int>(json['sourceEnd']),
+      kind: serializer.fromJson<String>(json['kind']),
+      assetPath: serializer.fromJson<String?>(json['assetPath']),
+      altText: serializer.fromJson<String?>(json['altText']),
+      caption: serializer.fromJson<String?>(json['caption']),
     );
   }
   @override
@@ -1108,6 +1227,10 @@ class Bite extends DataClass implements Insertable<Bite> {
       'content': serializer.toJson<String>(content),
       'sourceStart': serializer.toJson<int>(sourceStart),
       'sourceEnd': serializer.toJson<int>(sourceEnd),
+      'kind': serializer.toJson<String>(kind),
+      'assetPath': serializer.toJson<String?>(assetPath),
+      'altText': serializer.toJson<String?>(altText),
+      'caption': serializer.toJson<String?>(caption),
     };
   }
 
@@ -1119,6 +1242,10 @@ class Bite extends DataClass implements Insertable<Bite> {
     String? content,
     int? sourceStart,
     int? sourceEnd,
+    String? kind,
+    Value<String?> assetPath = const Value.absent(),
+    Value<String?> altText = const Value.absent(),
+    Value<String?> caption = const Value.absent(),
   }) => Bite(
     id: id ?? this.id,
     bookId: bookId ?? this.bookId,
@@ -1127,6 +1254,10 @@ class Bite extends DataClass implements Insertable<Bite> {
     content: content ?? this.content,
     sourceStart: sourceStart ?? this.sourceStart,
     sourceEnd: sourceEnd ?? this.sourceEnd,
+    kind: kind ?? this.kind,
+    assetPath: assetPath.present ? assetPath.value : this.assetPath,
+    altText: altText.present ? altText.value : this.altText,
+    caption: caption.present ? caption.value : this.caption,
   );
   Bite copyWithCompanion(BitesCompanion data) {
     return Bite(
@@ -1139,6 +1270,10 @@ class Bite extends DataClass implements Insertable<Bite> {
           ? data.sourceStart.value
           : this.sourceStart,
       sourceEnd: data.sourceEnd.present ? data.sourceEnd.value : this.sourceEnd,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      assetPath: data.assetPath.present ? data.assetPath.value : this.assetPath,
+      altText: data.altText.present ? data.altText.value : this.altText,
+      caption: data.caption.present ? data.caption.value : this.caption,
     );
   }
 
@@ -1151,7 +1286,11 @@ class Bite extends DataClass implements Insertable<Bite> {
           ..write('position: $position, ')
           ..write('content: $content, ')
           ..write('sourceStart: $sourceStart, ')
-          ..write('sourceEnd: $sourceEnd')
+          ..write('sourceEnd: $sourceEnd, ')
+          ..write('kind: $kind, ')
+          ..write('assetPath: $assetPath, ')
+          ..write('altText: $altText, ')
+          ..write('caption: $caption')
           ..write(')'))
         .toString();
   }
@@ -1165,6 +1304,10 @@ class Bite extends DataClass implements Insertable<Bite> {
     content,
     sourceStart,
     sourceEnd,
+    kind,
+    assetPath,
+    altText,
+    caption,
   );
   @override
   bool operator ==(Object other) =>
@@ -1176,7 +1319,11 @@ class Bite extends DataClass implements Insertable<Bite> {
           other.position == this.position &&
           other.content == this.content &&
           other.sourceStart == this.sourceStart &&
-          other.sourceEnd == this.sourceEnd);
+          other.sourceEnd == this.sourceEnd &&
+          other.kind == this.kind &&
+          other.assetPath == this.assetPath &&
+          other.altText == this.altText &&
+          other.caption == this.caption);
 }
 
 class BitesCompanion extends UpdateCompanion<Bite> {
@@ -1187,6 +1334,10 @@ class BitesCompanion extends UpdateCompanion<Bite> {
   final Value<String> content;
   final Value<int> sourceStart;
   final Value<int> sourceEnd;
+  final Value<String> kind;
+  final Value<String?> assetPath;
+  final Value<String?> altText;
+  final Value<String?> caption;
   final Value<int> rowid;
   const BitesCompanion({
     this.id = const Value.absent(),
@@ -1196,6 +1347,10 @@ class BitesCompanion extends UpdateCompanion<Bite> {
     this.content = const Value.absent(),
     this.sourceStart = const Value.absent(),
     this.sourceEnd = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.assetPath = const Value.absent(),
+    this.altText = const Value.absent(),
+    this.caption = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   BitesCompanion.insert({
@@ -1206,6 +1361,10 @@ class BitesCompanion extends UpdateCompanion<Bite> {
     required String content,
     required int sourceStart,
     required int sourceEnd,
+    this.kind = const Value.absent(),
+    this.assetPath = const Value.absent(),
+    this.altText = const Value.absent(),
+    this.caption = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        bookId = Value(bookId),
@@ -1222,6 +1381,10 @@ class BitesCompanion extends UpdateCompanion<Bite> {
     Expression<String>? content,
     Expression<int>? sourceStart,
     Expression<int>? sourceEnd,
+    Expression<String>? kind,
+    Expression<String>? assetPath,
+    Expression<String>? altText,
+    Expression<String>? caption,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1232,6 +1395,10 @@ class BitesCompanion extends UpdateCompanion<Bite> {
       if (content != null) 'content': content,
       if (sourceStart != null) 'source_start': sourceStart,
       if (sourceEnd != null) 'source_end': sourceEnd,
+      if (kind != null) 'kind': kind,
+      if (assetPath != null) 'asset_path': assetPath,
+      if (altText != null) 'alt_text': altText,
+      if (caption != null) 'caption': caption,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1244,6 +1411,10 @@ class BitesCompanion extends UpdateCompanion<Bite> {
     Value<String>? content,
     Value<int>? sourceStart,
     Value<int>? sourceEnd,
+    Value<String>? kind,
+    Value<String?>? assetPath,
+    Value<String?>? altText,
+    Value<String?>? caption,
     Value<int>? rowid,
   }) {
     return BitesCompanion(
@@ -1254,6 +1425,10 @@ class BitesCompanion extends UpdateCompanion<Bite> {
       content: content ?? this.content,
       sourceStart: sourceStart ?? this.sourceStart,
       sourceEnd: sourceEnd ?? this.sourceEnd,
+      kind: kind ?? this.kind,
+      assetPath: assetPath ?? this.assetPath,
+      altText: altText ?? this.altText,
+      caption: caption ?? this.caption,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1282,6 +1457,18 @@ class BitesCompanion extends UpdateCompanion<Bite> {
     if (sourceEnd.present) {
       map['source_end'] = Variable<int>(sourceEnd.value);
     }
+    if (kind.present) {
+      map['kind'] = Variable<String>(kind.value);
+    }
+    if (assetPath.present) {
+      map['asset_path'] = Variable<String>(assetPath.value);
+    }
+    if (altText.present) {
+      map['alt_text'] = Variable<String>(altText.value);
+    }
+    if (caption.present) {
+      map['caption'] = Variable<String>(caption.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1298,6 +1485,10 @@ class BitesCompanion extends UpdateCompanion<Bite> {
           ..write('content: $content, ')
           ..write('sourceStart: $sourceStart, ')
           ..write('sourceEnd: $sourceEnd, ')
+          ..write('kind: $kind, ')
+          ..write('assetPath: $assetPath, ')
+          ..write('altText: $altText, ')
+          ..write('caption: $caption, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -7337,6 +7528,10 @@ typedef $$BitesTableCreateCompanionBuilder =
       required String content,
       required int sourceStart,
       required int sourceEnd,
+      Value<String> kind,
+      Value<String?> assetPath,
+      Value<String?> altText,
+      Value<String?> caption,
       Value<int> rowid,
     });
 typedef $$BitesTableUpdateCompanionBuilder =
@@ -7348,6 +7543,10 @@ typedef $$BitesTableUpdateCompanionBuilder =
       Value<String> content,
       Value<int> sourceStart,
       Value<int> sourceEnd,
+      Value<String> kind,
+      Value<String?> assetPath,
+      Value<String?> altText,
+      Value<String?> caption,
       Value<int> rowid,
     });
 
@@ -7515,6 +7714,26 @@ class $$BitesTableFilterComposer extends Composer<_$AppDatabase, $BitesTable> {
 
   ColumnFilters<int> get sourceEnd => $composableBuilder(
     column: $table.sourceEnd,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get assetPath => $composableBuilder(
+    column: $table.assetPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get altText => $composableBuilder(
+    column: $table.altText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get caption => $composableBuilder(
+    column: $table.caption,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7724,6 +7943,26 @@ class $$BitesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get assetPath => $composableBuilder(
+    column: $table.assetPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get altText => $composableBuilder(
+    column: $table.altText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get caption => $composableBuilder(
+    column: $table.caption,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$BooksTableOrderingComposer get bookId {
     final $$BooksTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -7796,6 +8035,18 @@ class $$BitesTableAnnotationComposer
 
   GeneratedColumn<int> get sourceEnd =>
       $composableBuilder(column: $table.sourceEnd, builder: (column) => column);
+
+  GeneratedColumn<String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<String> get assetPath =>
+      $composableBuilder(column: $table.assetPath, builder: (column) => column);
+
+  GeneratedColumn<String> get altText =>
+      $composableBuilder(column: $table.altText, builder: (column) => column);
+
+  GeneratedColumn<String> get caption =>
+      $composableBuilder(column: $table.caption, builder: (column) => column);
 
   $$BooksTableAnnotationComposer get bookId {
     final $$BooksTableAnnotationComposer composer = $composerBuilder(
@@ -8013,6 +8264,10 @@ class $$BitesTableTableManager
                 Value<String> content = const Value.absent(),
                 Value<int> sourceStart = const Value.absent(),
                 Value<int> sourceEnd = const Value.absent(),
+                Value<String> kind = const Value.absent(),
+                Value<String?> assetPath = const Value.absent(),
+                Value<String?> altText = const Value.absent(),
+                Value<String?> caption = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => BitesCompanion(
                 id: id,
@@ -8022,6 +8277,10 @@ class $$BitesTableTableManager
                 content: content,
                 sourceStart: sourceStart,
                 sourceEnd: sourceEnd,
+                kind: kind,
+                assetPath: assetPath,
+                altText: altText,
+                caption: caption,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -8033,6 +8292,10 @@ class $$BitesTableTableManager
                 required String content,
                 required int sourceStart,
                 required int sourceEnd,
+                Value<String> kind = const Value.absent(),
+                Value<String?> assetPath = const Value.absent(),
+                Value<String?> altText = const Value.absent(),
+                Value<String?> caption = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => BitesCompanion.insert(
                 id: id,
@@ -8042,6 +8305,10 @@ class $$BitesTableTableManager
                 content: content,
                 sourceStart: sourceStart,
                 sourceEnd: sourceEnd,
+                kind: kind,
+                assetPath: assetPath,
+                altText: altText,
+                caption: caption,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

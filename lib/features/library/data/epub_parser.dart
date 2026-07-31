@@ -1,23 +1,35 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:epubx/epubx.dart';
+import 'package:html/dom.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:image/image.dart' as image;
+import 'package:path/path.dart' as path;
 
 import '../../reader/domain/bite_generator.dart';
+
+class ParsedAsset {
+  const ParsedAsset({required this.bytes, required this.extension});
+
+  final Uint8List bytes;
+  final String extension;
+}
 
 class ParsedPublication {
   const ParsedPublication({
     required this.title,
     required this.author,
     required this.sections,
+    this.assets = const {},
     this.cover,
   });
 
   final String title;
   final String author;
   final List<SourceSection> sections;
+  final Map<String, ParsedAsset> assets;
   final Uint8List? cover;
 }
 
@@ -32,8 +44,16 @@ class EpubParser {
       )) {
         throw const UnsupportedDrmException();
       }
+      final archiveFiles = {
+        for (final file in archive.files)
+          if (file.isFile)
+            _normalizePath(file.name): Uint8List.fromList(
+              (file.content as List<int>),
+            ),
+      };
       final book = await EpubReader.readBook(bytes);
       final sections = <SourceSection>[];
+      final assets = <String, ParsedAsset>{};
       final titlesByFile = <String, String>{};
       void collectTitles(List<EpubChapter>? chapters) {
         for (final chapter in chapters ?? const <EpubChapter>[]) {
@@ -79,13 +99,23 @@ class EpubParser {
         }
       }
       for (final source in orderedFiles) {
-        final parsed = _parseHtml(source.file.Content ?? '');
-        if (parsed.paragraphs.isNotEmpty) {
+        final fileName = _normalizePath(source.file.FileName ?? source.name);
+        final parsed = _parseHtml(
+          source.file.Content ?? '',
+          fileName,
+          archiveFiles,
+        );
+        if (parsed.blocks.isNotEmpty) {
+          assets.addAll(parsed.assets);
           sections.add(
             SourceSection(
               index: sections.length,
               heading: parsed.heading ?? titlesByFile[source.name],
-              paragraphs: parsed.paragraphs,
+              paragraphs: parsed.blocks
+                  .map((block) => block.text)
+                  .whereType<String>()
+                  .toList(),
+              blocks: parsed.blocks,
             ),
           );
         }
@@ -95,6 +125,7 @@ class EpubParser {
         title: _fallback(book.Title, 'Untitled book'),
         author: _fallback(book.Author, 'Unknown author'),
         sections: sections,
+        assets: assets,
         cover: book.CoverImage == null
             ? null
             : Uint8List.fromList(image.encodePng(book.CoverImage!)),
@@ -108,46 +139,134 @@ class EpubParser {
     }
   }
 
-  static _ParsedHtml _parseHtml(String source) {
+  static _ParsedHtml _parseHtml(
+    String source,
+    String fileName,
+    Map<String, Uint8List> archiveFiles,
+  ) {
     final document = html_parser.parse(source);
     document
-        .querySelectorAll('script, style, nav, noscript, iframe, svg')
+        .querySelectorAll('script, style, nav, noscript, iframe')
         .forEach((node) => node.remove());
-    final heading = document
-        .querySelector('h1, h2, h3, h4, h5, h6')
-        ?.text
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-    final paragraphs = document
-        .querySelectorAll('p, li, blockquote')
-        .where((node) => node.querySelector('p, li, blockquote') == null)
-        .map((node) => node.text.replaceAll(RegExp(r'\s+'), ' ').trim())
-        .where((text) => text.isNotEmpty)
-        .toList();
-    if (paragraphs.isEmpty) {
-      final text = document.body?.text.replaceAll(RegExp(r'\s+'), ' ').trim();
-      if (text != null && text.isNotEmpty && text != heading) {
-        paragraphs.add(text);
+    final heading = _clean(
+      document.querySelector('h1, h2, h3, h4, h5, h6')?.text,
+    );
+    final blocks = <SourceBlock>[];
+    final assets = <String, ParsedAsset>{};
+    var inlineSvg = 0;
+    for (final element
+        in document.body?.querySelectorAll(
+              'p, li, blockquote, figure, img, svg',
+            ) ??
+            const <Element>[]) {
+      if (_hasAncestor(element, 'figure') && element.localName != 'figure') {
+        continue;
+      }
+      if (_isTextBlock(element)) {
+        if (element.querySelector('p, li, blockquote') != null) continue;
+        final text = _clean(element.text);
+        if (text != null) blocks.add(SourceBlock.text(text));
+        continue;
+      }
+      final imageElement = element.localName == 'figure'
+          ? element.querySelector('img, svg')
+          : element;
+      if (imageElement == null) continue;
+      final alt = _clean(
+        imageElement.attributes['alt'] ?? imageElement.attributes['aria-label'],
+      );
+      final caption = _clean(element.querySelector('figcaption')?.text);
+      String? assetKey;
+      Uint8List? assetBytes;
+      String? extension;
+      if (imageElement.localName == 'svg') {
+        assetKey = '$fileName.inline-${inlineSvg++}.svg';
+        assetBytes = Uint8List.fromList(utf8.encode(imageElement.outerHtml));
+        extension = '.svg';
+      } else {
+        assetKey = _resolveAssetPath(fileName, imageElement.attributes['src']);
+        assetBytes = assetKey == null ? null : archiveFiles[assetKey];
+        if (assetKey != null && assetBytes == null) {
+          final matches = archiveFiles.keys
+              .where((name) => name.endsWith('/$assetKey'))
+              .toList();
+          if (matches.length == 1) {
+            assetKey = matches.single;
+            assetBytes = archiveFiles[assetKey];
+          }
+        }
+        extension = assetKey == null ? null : path.posix.extension(assetKey);
+      }
+      if (assetKey != null && assetBytes != null) {
+        assets[assetKey] = ParsedAsset(
+          bytes: assetBytes,
+          extension: extension?.isEmpty ?? true ? '.bin' : extension!,
+        );
+        blocks.add(
+          SourceBlock.figure(
+            assetKey: assetKey,
+            altText: alt,
+            caption: caption,
+          ),
+        );
+      } else {
+        final fallback = [alt, caption].whereType<String>().join(' ');
+        if (fallback.isNotEmpty) blocks.add(SourceBlock.text(fallback));
       }
     }
-    return _ParsedHtml(heading, paragraphs);
+    if (blocks.isEmpty) {
+      final text = _clean(document.body?.text);
+      if (text != null && text != heading) blocks.add(SourceBlock.text(text));
+    }
+    return _ParsedHtml(heading, blocks, assets);
   }
 
-  static String _fallback(String? value, String fallback) {
-    final text = value?.trim();
-    return text == null || text.isEmpty ? fallback : text;
+  static bool _isTextBlock(Element element) =>
+      element.localName == 'p' ||
+      element.localName == 'li' ||
+      element.localName == 'blockquote';
+
+  static bool _hasAncestor(Element element, String name) {
+    for (var parent = element.parent; parent != null; parent = parent.parent) {
+      if (parent.localName == name) return true;
+    }
+    return false;
   }
+
+  static String? _clean(String? value) {
+    final text = value?.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return text == null || text.isEmpty ? null : text;
+  }
+
+  static String? _resolveAssetPath(String htmlFile, String? source) {
+    if (source == null || source.trim().isEmpty) return null;
+    final uri = Uri.tryParse(source.trim());
+    if (uri == null || uri.hasScheme || uri.path.startsWith('/')) return null;
+    final resolved = path.posix.normalize(
+      path.posix.join(path.posix.dirname(htmlFile), uri.path),
+    );
+    if (resolved == '..' || resolved.startsWith('../')) return null;
+    return _normalizePath(resolved);
+  }
+
+  static String _fallback(String? value, String fallback) =>
+      _clean(value) ?? fallback;
 
   static String _normalizePath(String? value) {
-    final path = (value ?? '').split('#').first.replaceAll('\\', '/').trim();
-    return path.startsWith('./') ? path.substring(2) : path;
+    final normalized = (value ?? '')
+        .split('#')
+        .first
+        .replaceAll('\\', '/')
+        .trim();
+    return normalized.startsWith('./') ? normalized.substring(2) : normalized;
   }
 }
 
 class _ParsedHtml {
-  const _ParsedHtml(this.heading, this.paragraphs);
+  const _ParsedHtml(this.heading, this.blocks, this.assets);
   final String? heading;
-  final List<String> paragraphs;
+  final List<SourceBlock> blocks;
+  final Map<String, ParsedAsset> assets;
 }
 
 class BookParseException implements Exception {

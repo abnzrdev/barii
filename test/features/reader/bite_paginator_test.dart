@@ -61,4 +61,5 @@ Bite _bite(String content) => Bite(
   content: content,
   sourceStart: 0,
   sourceEnd: content.length,
+  kind: 'text',
 );

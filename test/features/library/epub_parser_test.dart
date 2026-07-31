@@ -81,4 +81,27 @@ void main() {
       expect(paragraphs, contains('Unicode punctuation: “calm”—always.'));
     },
   );
+
+  test(
+    'preserves raster, external SVG, and inline SVG figures in order',
+    () async {
+      final publication = await parser.parse(epubFixtureBytes(figures: true));
+      final blocks = publication.sections.first.blocks;
+      final figureIndexes = <String, int>{
+        for (var index = 0; index < blocks.length; index++)
+          if (blocks[index].isFigure) blocks[index].altText!: index,
+      };
+
+      expect(figureIndexes.keys, [
+        'Green dot',
+        'JPEG portrait',
+        'External SVG',
+        'Inline SVG',
+      ]);
+      expect(figureIndexes['Green dot'], greaterThan(1));
+      expect(blocks[figureIndexes['Green dot']!].caption, 'PNG caption');
+      expect(publication.assets, hasLength(4));
+      expect(publication.assets.keys, everyElement(isNot(startsWith('../'))));
+    },
+  );
 }

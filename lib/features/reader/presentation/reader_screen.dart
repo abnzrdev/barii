@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../core/database/app_database.dart';
 import '../../dictionary/data/bundled_dictionary.dart';
@@ -611,27 +612,39 @@ class _ReaderScreenState extends State<ReaderScreen>
                                                   ),
                                                   child: Semantics(
                                                     label: 'Reading bite',
-                                                    child: _BiteText(
-                                                      database: widget.database,
-                                                      book: widget.book,
-                                                      bite: pageBite,
-                                                      startOffset:
-                                                          page.startOffset,
-                                                      endOffset: page.endOffset,
-                                                      style: textStyle,
-                                                      alignment: _alignment,
-                                                      onWord: (word) {
-                                                        _recentWord = word;
-                                                        _openPanel(
-                                                          _OpenPanel.dictionary,
-                                                        );
-                                                      },
-                                                      onSelectionChanged:
-                                                          (active) {
-                                                            _selectionActive =
-                                                                active;
-                                                          },
-                                                    ),
+                                                    child:
+                                                        pageBite.kind ==
+                                                            'figure'
+                                                        ? _FigurePage(
+                                                            bite: pageBite,
+                                                            style: textStyle,
+                                                          )
+                                                        : _BiteText(
+                                                            database:
+                                                                widget.database,
+                                                            book: widget.book,
+                                                            bite: pageBite,
+                                                            startOffset: page
+                                                                .startOffset,
+                                                            endOffset:
+                                                                page.endOffset,
+                                                            style: textStyle,
+                                                            alignment:
+                                                                _alignment,
+                                                            onWord: (word) {
+                                                              _recentWord =
+                                                                  word;
+                                                              _openPanel(
+                                                                _OpenPanel
+                                                                    .dictionary,
+                                                              );
+                                                            },
+                                                            onSelectionChanged:
+                                                                (active) {
+                                                                  _selectionActive =
+                                                                      active;
+                                                                },
+                                                          ),
                                                   ),
                                                 ),
                                               ),
@@ -802,6 +815,84 @@ class _ReaderScreenState extends State<ReaderScreen>
       _pageController!.jumpToPage(_index);
       _restoringViewport = false;
     });
+  }
+}
+
+class _FigurePage extends StatelessWidget {
+  const _FigurePage({required this.bite, required this.style});
+
+  final Bite bite;
+  final TextStyle style;
+
+  Widget _image({BoxFit fit = BoxFit.contain}) {
+    final assetPath = bite.assetPath;
+    if (assetPath == null) return const Icon(Icons.broken_image_outlined);
+    return assetPath.toLowerCase().endsWith('.svg')
+        ? SvgPicture.file(File(assetPath), fit: fit)
+        : Image.file(
+            File(assetPath),
+            fit: fit,
+            errorBuilder: (_, _, _) {
+              return const Icon(Icons.broken_image_outlined);
+            },
+          );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final label = bite.altText ?? bite.caption ?? 'Book figure';
+    return Semantics(
+      label: label,
+      button: true,
+      child: Tooltip(
+        message: 'Tap to zoom figure',
+        child: InkWell(
+          key: ValueKey('figure-${bite.id}'),
+          onTap: () => showDialog<void>(
+            context: context,
+            builder: (context) => Dialog.fullscreen(
+              child: SafeArea(
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: InteractiveViewer(
+                        minScale: 0.5,
+                        maxScale: 5,
+                        child: Center(child: _image()),
+                      ),
+                    ),
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: IconButton(
+                        tooltip: 'Close figure',
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Expanded(child: Center(child: _image())),
+              if (bite.caption?.isNotEmpty ?? false)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Text(
+                    bite.caption!,
+                    style: style,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

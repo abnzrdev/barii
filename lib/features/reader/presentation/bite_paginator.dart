@@ -27,6 +27,12 @@ List<DisplayPage> paginateBites({
 }) {
   final pages = <DisplayPage>[];
   for (final bite in bites) {
+    if (bite.kind == 'figure') {
+      pages.add(
+        DisplayPage(bite: bite, startOffset: 0, endOffset: bite.content.length),
+      );
+      continue;
+    }
     var start = 0;
     while (start < bite.content.length) {
       var low = start + 1;

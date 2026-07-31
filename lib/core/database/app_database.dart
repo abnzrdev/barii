@@ -43,6 +43,10 @@ class Bites extends Table {
   TextColumn get content => text()();
   IntColumn get sourceStart => integer()();
   IntColumn get sourceEnd => integer()();
+  TextColumn get kind => text().withDefault(const Constant('text'))();
+  TextColumn get assetPath => text().nullable()();
+  TextColumn get altText => text().nullable()();
+  TextColumn get caption => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -216,6 +220,10 @@ class StoredBite {
     required this.text,
     required this.sourceStart,
     required this.sourceEnd,
+    this.kind = 'text',
+    this.assetPath,
+    this.altText,
+    this.caption,
   });
 
   final String id;
@@ -224,6 +232,10 @@ class StoredBite {
   final String text;
   final int sourceStart;
   final int sourceEnd;
+  final String kind;
+  final String? assetPath;
+  final String? altText;
+  final String? caption;
 }
 
 @DriftDatabase(
@@ -246,7 +258,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -328,6 +340,12 @@ class AppDatabase extends _$AppDatabase {
       if (from < 4) {
         await migrator.addColumn(readingProgress, readingProgress.sourceOffset);
       }
+      if (from < 5) {
+        await migrator.addColumn(bites, bites.kind);
+        await migrator.addColumn(bites, bites.assetPath);
+        await migrator.addColumn(bites, bites.altText);
+        await migrator.addColumn(bites, bites.caption);
+      }
     },
     beforeOpen: (_) => customStatement('PRAGMA foreign_keys = ON'),
   );
@@ -384,6 +402,10 @@ class AppDatabase extends _$AppDatabase {
             content: bite.text,
             sourceStart: bite.sourceStart,
             sourceEnd: bite.sourceEnd,
+            kind: Value(bite.kind),
+            assetPath: Value(bite.assetPath),
+            altText: Value(bite.altText),
+            caption: Value(bite.caption),
           ),
         ),
       );

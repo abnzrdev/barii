@@ -62,6 +62,21 @@ class BookImportService {
       path.join(storageDirectory.path, '$fingerprint$extension'),
     );
     await source.copy(destination.path);
+    final assetDirectory = Directory(
+      path.join(storageDirectory.path, '$fingerprint-assets'),
+    );
+    final assetPaths = <String, String>{};
+    if (publication.assets.isNotEmpty) {
+      await assetDirectory.create(recursive: true);
+      for (final entry in publication.assets.entries) {
+        final name = sha256.convert(entry.key.codeUnits).toString();
+        final file = File(
+          path.join(assetDirectory.path, '$name${entry.value.extension}'),
+        );
+        await file.writeAsBytes(entry.value.bytes, flush: true);
+        assetPaths[entry.key] = file.path;
+      }
+    }
     try {
       await database.transaction(() async {
         await database.addBook(
@@ -94,6 +109,10 @@ class BookImportService {
                   text: bite.text,
                   sourceStart: bite.sourceStart,
                   sourceEnd: bite.sourceEnd,
+                  kind: bite.kind,
+                  assetPath: assetPaths[bite.assetKey],
+                  altText: bite.altText,
+                  caption: bite.caption,
                 ),
               )
               .toList(),
@@ -101,6 +120,9 @@ class BookImportService {
       });
     } catch (_) {
       if (await destination.exists()) await destination.delete();
+      if (await assetDirectory.exists()) {
+        await assetDirectory.delete(recursive: true);
+      }
       rethrow;
     }
     return (await database.bookById(fingerprint))!;
@@ -108,11 +130,15 @@ class BookImportService {
 
   Future<void> deleteBook(Book book) async {
     final source = File(book.filePath);
+    final assets = Directory(
+      path.join(storageDirectory.path, '${book.fingerprint}-assets'),
+    );
     final staged = File('${book.filePath}.deleting');
     if (await source.exists()) await source.rename(staged.path);
     try {
       await database.deleteBookRecord(book.id);
       if (await staged.exists()) await staged.delete();
+      if (await assets.exists()) await assets.delete(recursive: true);
     } catch (_) {
       if (await staged.exists()) await staged.rename(source.path);
       rethrow;

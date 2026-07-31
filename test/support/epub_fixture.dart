@@ -1,10 +1,12 @@
 import 'package:archive/archive.dart';
+import 'dart:convert';
 
 List<int> epubFixtureBytes({
   bool encrypted = false,
   bool nestedList = false,
   bool anchoredNavigation = false,
   bool emptyContent = false,
+  bool figures = false,
 }) {
   final archive = Archive()
     ..addFile(ArchiveFile.string('mimetype', 'application/epub+zip'))
@@ -26,7 +28,8 @@ unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
 <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml"
 properties="nav"/><item id="one" href="one.xhtml"
 media-type="application/xhtml+xml"/><item id="two" href="two.xhtml"
-media-type="application/xhtml+xml"/></manifest>
+media-type="application/xhtml+xml"/>
+${figures ? '<item id="png" href="images/dot.png" media-type="image/png"/><item id="jpg" href="images/photo.jpg" media-type="image/jpeg"/><item id="svg" href="images/shape.svg" media-type="image/svg+xml"/>' : ''}</manifest>
 <spine><itemref idref="one"/><itemref idref="two"/></spine></package>''',
       ),
     )
@@ -52,6 +55,7 @@ media-type="application/xhtml+xml"/></manifest>
             ? '<html><body><script>remove me</script></body></html>'
             : '''<html><body><h1>Chapter One</h1><script>remove me</script>
 <p>First safe sentence.</p><p>Second safe sentence.</p>
+${figures ? '<figure><img src="images/dot.png" alt="Green dot"/><figcaption>PNG caption</figcaption></figure><img src="./images/photo.jpg" alt="JPEG portrait"/><img src="images/shape.svg" alt="External SVG"/><svg aria-label="Inline SVG" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4"/></svg>' : ''}
 ${nestedList ? '<ul><li><p>If you are a coach, build a reliable system.</p></li></ul>' : ''}
 ${anchoredNavigation ? '<h2 id="start">Start</h2><p>Intentional refrain.</p><h2 id="part-one">Part One</h2><ul><li><p>Previously duplicated sentence.</p></li></ul><h2 id="part-two">Part Two</h2><p>Intentional refrain.</p><p>Unicode punctuation: “calm”—always.</p>' : ''}
 </body></html>''',
@@ -72,6 +76,22 @@ ${anchoredNavigation ? '<h2 id="start">Start</h2><p>Intentional refrain.</p><h2 
         '<encryption><EncryptedData/></encryption>',
       ),
     );
+  }
+  if (figures) {
+    final png = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+    );
+    archive
+      ..addFile(ArchiveFile('OEBPS/images/dot.png', png.length, png))
+      ..addFile(
+        ArchiveFile('OEBPS/images/photo.jpg', 4, [0xFF, 0xD8, 0xFF, 0xD9]),
+      )
+      ..addFile(
+        ArchiveFile.string(
+          'OEBPS/images/shape.svg',
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10"/></svg>',
+        ),
+      );
   }
   return ZipEncoder().encode(archive)!;
 }

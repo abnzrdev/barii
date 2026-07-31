@@ -114,6 +114,35 @@ void main() {
     expect(await database.notesForBook(first.id), hasLength(1));
   });
 
+  test(
+    'copies EPUB figure assets into managed storage and deletes them',
+    () async {
+      final file = File('${source.path}/figures.epub');
+      await file.writeAsBytes(epubFixtureBytes(figures: true));
+      final service = BookImportService(
+        database: database,
+        storageDirectory: storage,
+      );
+
+      final book = await service.importFile(file.path);
+      final figures = (await database.bitesForBook(
+        book.id,
+      )).where((bite) => bite.kind == 'figure').toList();
+
+      expect(figures, hasLength(4));
+      expect(figures.map((bite) => bite.altText), contains('Green dot'));
+      expect(figures.map((bite) => bite.caption), contains('PNG caption'));
+      for (final figure in figures) {
+        expect(figure.assetPath, startsWith(storage.path));
+        expect(await File(figure.assetPath!).exists(), isTrue);
+      }
+
+      final assetDirectory = Directory('${storage.path}/${book.id}-assets');
+      await service.deleteBook(book);
+      expect(await assetDirectory.exists(), isFalse);
+    },
+  );
+
   test('rejects unsupported extensions and missing files', () async {
     final service = BookImportService(
       database: database,

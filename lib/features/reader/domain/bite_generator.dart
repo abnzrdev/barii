@@ -2,16 +2,35 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 
+class SourceBlock {
+  const SourceBlock.text(this.text)
+    : assetKey = null,
+      altText = null,
+      caption = null;
+
+  const SourceBlock.figure({required this.assetKey, this.altText, this.caption})
+    : text = null;
+
+  final String? text;
+  final String? assetKey;
+  final String? altText;
+  final String? caption;
+
+  bool get isFigure => assetKey != null;
+}
+
 class SourceSection {
   const SourceSection({
     required this.index,
     this.heading,
-    required this.paragraphs,
+    this.paragraphs = const [],
+    this.blocks = const [],
   });
 
   final int index;
   final String? heading;
   final List<String> paragraphs;
+  final List<SourceBlock> blocks;
 }
 
 class GeneratedBite {
@@ -22,6 +41,10 @@ class GeneratedBite {
     required this.text,
     required this.sourceStart,
     required this.sourceEnd,
+    this.kind = 'text',
+    this.assetKey,
+    this.altText,
+    this.caption,
   });
 
   final String id;
@@ -30,6 +53,10 @@ class GeneratedBite {
   final String text;
   final int sourceStart;
   final int sourceEnd;
+  final String kind;
+  final String? assetKey;
+  final String? altText;
+  final String? caption;
 }
 
 class BiteGenerator {
@@ -45,24 +72,79 @@ class BiteGenerator {
     final result = <GeneratedBite>[];
     var globalPosition = 0;
     for (final section in sections) {
-      final paragraphs = section.paragraphs
-          .map((text) => text.replaceAll(RegExp(r'\s+'), ' ').trim())
-          .where((text) => text.isNotEmpty)
-          .toList();
+      final blocks = section.blocks.isEmpty
+          ? section.paragraphs.map(SourceBlock.text).toList()
+          : section.blocks;
       final heading = section.heading?.trim();
-      if (paragraphs.isEmpty) continue;
-
       final units = <_Unit>[];
       var sourceOffset = 0;
-      for (final paragraph in paragraphs) {
-        final sentences = _sentences(paragraph);
+      var firstInSection = true;
+
+      void flush() {
+        if (units.isEmpty) return;
+        final body = units.map((unit) => unit.text).join('\n\n');
+        final text = firstInSection && heading != null && heading.isNotEmpty
+            ? '$heading\n\n$body'
+            : body;
+        final start = units.first.start;
+        final end = units.last.end;
+        result.add(
+          GeneratedBite(
+            id: _id(bookFingerprint, section.index, start, end),
+            sectionIndex: section.index,
+            position: globalPosition++,
+            text: text,
+            sourceStart: start,
+            sourceEnd: end,
+          ),
+        );
+        firstInSection = false;
+        units.clear();
+      }
+
+      for (final block in blocks) {
+        if (block.isFigure) {
+          flush();
+          final semanticText = [
+            block.altText?.trim(),
+            block.caption?.trim(),
+          ].whereType<String>().where((text) => text.isNotEmpty).join('\n');
+          final end = sourceOffset + semanticText.length;
+          result.add(
+            GeneratedBite(
+              id: _id(
+                bookFingerprint,
+                section.index,
+                sourceOffset,
+                end,
+                block.assetKey,
+              ),
+              sectionIndex: section.index,
+              position: globalPosition++,
+              text: semanticText,
+              sourceStart: sourceOffset,
+              sourceEnd: end,
+              kind: 'figure',
+              assetKey: block.assetKey,
+              altText: block.altText,
+              caption: block.caption,
+            ),
+          );
+          firstInSection = false;
+          sourceOffset = end + 1;
+          continue;
+        }
+
+        final paragraph = block.text?.replaceAll(RegExp(r'\s+'), ' ').trim();
+        if (paragraph == null || paragraph.isEmpty) continue;
+        final paragraphUnits = <_Unit>[];
         var part = <String>[];
         var partWords = 0;
         var partStart = sourceOffset;
-        for (final sentence in sentences) {
+        for (final sentence in _sentences(paragraph)) {
           final sentenceWords = _wordCount(sentence);
           if (part.isNotEmpty && partWords + sentenceWords > maxWords) {
-            units.add(_Unit(part.join(' '), partStart, sourceOffset));
+            paragraphUnits.add(_Unit(part.join(' '), partStart, sourceOffset));
             part = [];
             partWords = 0;
             partStart = sourceOffset;
@@ -72,53 +154,40 @@ class BiteGenerator {
           sourceOffset += sentence.length + 1;
         }
         if (part.isNotEmpty) {
-          units.add(_Unit(part.join(' '), partStart, sourceOffset));
+          paragraphUnits.add(_Unit(part.join(' '), partStart, sourceOffset));
+        }
+        for (final unit in paragraphUnits) {
+          final words = units.fold<int>(
+            0,
+            (total, current) => total + _wordCount(current.text),
+          );
+          final unitWords = _wordCount(unit.text);
+          if (units.isNotEmpty && words + unitWords > maxWords) flush();
+          units.add(unit);
+          if (words + unitWords >= targetWords) flush();
         }
         sourceOffset++;
-      }
-
-      var current = <_Unit>[];
-      var words = 0;
-      var firstInSection = true;
-      void flush() {
-        if (current.isEmpty) return;
-        final body = current.map((unit) => unit.text).join('\n\n');
-        final text = firstInSection && heading != null && heading.isNotEmpty
-            ? '$heading\n\n$body'
-            : body;
-        final start = current.first.start;
-        final end = current.last.end;
-        final id = sha256
-            .convert(
-              utf8.encode('$bookFingerprint:${section.index}:$start:$end'),
-            )
-            .toString();
-        result.add(
-          GeneratedBite(
-            id: id,
-            sectionIndex: section.index,
-            position: globalPosition++,
-            text: text,
-            sourceStart: start,
-            sourceEnd: end,
-          ),
-        );
-        firstInSection = false;
-        current = [];
-        words = 0;
-      }
-
-      for (final unit in units) {
-        final unitWords = _wordCount(unit.text);
-        if (current.isNotEmpty && words + unitWords > maxWords) flush();
-        current.add(unit);
-        words += unitWords;
-        if (words >= targetWords) flush();
       }
       flush();
     }
     return result;
   }
+
+  static String _id(
+    String fingerprint,
+    int section,
+    int start,
+    int end, [
+    String? asset,
+  ]) => sha256
+      .convert(
+        utf8.encode(
+          asset == null
+              ? '$fingerprint:$section:$start:$end'
+              : '$fingerprint:$section:$start:$end:$asset',
+        ),
+      )
+      .toString();
 
   static List<String> _sentences(String text) {
     final matches = RegExp(r'.+?(?:[.!?。！？]+(?=\s|$)|$)', dotAll: true)
