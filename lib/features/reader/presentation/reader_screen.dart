@@ -12,6 +12,7 @@ import '../../dictionary/domain/dictionary_repository.dart';
 import '../../dictionary/presentation/dictionary_panel.dart';
 import '../../notes/presentation/notes_panel.dart';
 import '../domain/highlight_anchor.dart';
+import 'bite_paginator.dart';
 import 'reader_navigation.dart';
 
 enum _OpenPanel { notes, dictionary }
@@ -45,9 +46,12 @@ class _ReaderScreenState extends State<ReaderScreen>
   Timer? _focusTimer;
   Timer? _panelReturnTimer;
   List<Bite> _bites = const [];
+  List<DisplayPage> _pages = const [];
   var _index = 0;
   var _sourceOffset = 0;
   var _restoringViewport = false;
+  int? _paginationSignature;
+  String? _anchorBiteId;
   var _drag = Offset.zero;
   var _horizontalOffset = 0.0;
   var _ignoreHorizontalDrag = false;
@@ -74,11 +78,16 @@ class _ReaderScreenState extends State<ReaderScreen>
   @override
   void didChangeMetrics() {
     if (_bites.isEmpty || !(_pageController?.hasClients ?? false)) return;
-    final anchorIndex = _index;
+    final anchor = _currentPage;
+    if (anchor != null) {
+      _anchorBiteId = anchor.bite.id;
+      _sourceOffset = anchor.startOffset;
+    }
+    _paginationSignature = null;
     _restoringViewport = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !(_pageController?.hasClients ?? false)) return;
-      _pageController!.jumpToPage(anchorIndex);
+      _pageController!.jumpToPage(_index);
       _restoringViewport = false;
     });
   }
@@ -95,9 +104,10 @@ class _ReaderScreenState extends State<ReaderScreen>
           .clamp(0, bites.isEmpty ? 0 : bites.length - 1);
       setState(() {
         _bites = bites;
-        _index = index;
+        _index = 0;
+        _anchorBiteId = bites.isEmpty ? null : bites[index].id;
         _sourceOffset = progress?.sourceOffset ?? 0;
-        _pageController = PageController(initialPage: index);
+        _pageController = PageController();
         _fontSize = preferences.fontSize;
         _lineHeight = preferences.lineHeight;
         _readingWidth = preferences.readingWidth;
@@ -160,8 +170,8 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Future<void> _move(int change) async {
-    if (_bites.isEmpty) return;
-    final next = (_index + change).clamp(0, _bites.length - 1);
+    if (_pages.isEmpty) return;
+    final next = (_index + change).clamp(0, _pages.length - 1);
     if (next == _index) return;
     setState(() => _panel = null);
     _resetFocusTimer();
@@ -179,29 +189,31 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   Future<void> _completePageChange() async {
     if (_restoringViewport ||
-        _bites.isEmpty ||
+        _pages.isEmpty ||
         !(_pageController?.hasClients ?? false)) {
       return;
     }
     final next = (_pageController!.page?.round() ?? _index).clamp(
       0,
-      _bites.length - 1,
+      _pages.length - 1,
     );
     await _saveCompletedPage(next);
   }
 
   Future<void> _saveCompletedPage(int next) async {
-    if (next == _index || _bites.isEmpty) return;
+    if (next == _index || _pages.isEmpty) return;
+    final page = _pages[next];
     setState(() {
       _index = next;
-      _sourceOffset = 0;
+      _anchorBiteId = page.bite.id;
+      _sourceOffset = page.startOffset;
       _panel = null;
-      _recentWord = _firstWord(_bites[next].content);
+      _recentWord = _firstWord(page.text);
     });
     await widget.database.saveProgress(
       widget.book.id,
-      _bites[next].id,
-      next,
+      page.bite.id,
+      page.bite.position,
       _sourceOffset,
     );
     await _feedback();
@@ -403,7 +415,7 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   @override
   Widget build(BuildContext context) {
-    final bite = _bites.isEmpty ? null : _bites[_index];
+    final bite = _currentPage?.bite;
     Widget? panelFor(_OpenPanel? selection) => bite == null
         ? null
         : switch (selection) {
@@ -487,130 +499,150 @@ class _ReaderScreenState extends State<ReaderScreen>
                 final reader = Column(
                   children: [
                     Expanded(
-                      child: Listener(
-                        behavior: HitTestBehavior.opaque,
-                        onPointerDown: (event) {
-                          final insets = MediaQuery.systemGestureInsetsOf(
-                            context,
-                          );
-                          final width = MediaQuery.sizeOf(context).width;
-                          final leftEdge = insets.left.clamp(
-                            24,
-                            double.infinity,
-                          );
-                          final rightEdge = insets.right.clamp(
-                            24,
-                            double.infinity,
-                          );
-                          _ignoreHorizontalDrag =
-                              _selectionActive ||
-                              event.position.dx <= leftEdge ||
-                              event.position.dx >= width - rightEdge;
-                          _drag = Offset.zero;
-                          _horizontalOffset = 0;
-                        },
-                        onPointerMove: (event) {
-                          if (_ignoreHorizontalDrag || _selectionActive) return;
-                          _drag += event.delta;
-                          if (_drag.dx.abs() <= _drag.dy.abs()) return;
-                          setState(() {
-                            _horizontalOffset += event.delta.dx;
-                            _dragPreview = _horizontalOffset < 0
-                                ? _OpenPanel.notes
-                                : _OpenPanel.dictionary;
-                          });
-                          _resetFocusTimer();
-                        },
-                        onPointerUp: (event) {
-                          if (_ignoreHorizontalDrag || _selectionActive) return;
-                          if (_drag.distance < 8) {
-                            _toggleChrome();
-                            return;
-                          }
-                          var action = readerActionForDrag(_drag);
-                          setState(() {
-                            _horizontalOffset = 0;
-                            if (action != null) _dragPreview = null;
-                          });
-                          if (action == null) {
-                            _panelReturnTimer?.cancel();
-                            _panelReturnTimer = Timer(
-                              const Duration(milliseconds: 180),
-                              () {
-                                if (mounted) {
-                                  setState(() => _dragPreview = null);
-                                }
-                              },
-                            );
-                          }
-                          _perform(action);
-                        },
-                        onPointerCancel: (_) {
-                          _drag = Offset.zero;
-                          _horizontalOffset = 0;
-                          _dragPreview = null;
-                        },
-                        child: _pageController == null
-                            ? const Center(child: CircularProgressIndicator())
-                            : NotificationListener<ScrollNotification>(
-                                onNotification: (notification) {
-                                  if (notification is ScrollStartNotification) {
-                                    _resetFocusTimer();
-                                  } else if (notification
-                                      is ScrollEndNotification) {
-                                    _completePageChange();
-                                  }
-                                  return false;
-                                },
-                                child: PageView.builder(
-                                  controller: _pageController,
-                                  scrollDirection: Axis.vertical,
-                                  pageSnapping: true,
-                                  itemCount: _bites.length,
-                                  itemBuilder: (context, pageIndex) {
-                                    final pageBite = _bites[pageIndex];
-                                    return KeyedSubtree(
-                                      key: ValueKey(pageBite.id),
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 0,
-                                        ),
-                                        child: Center(
-                                          child: ConstrainedBox(
-                                            constraints: BoxConstraints(
-                                              maxWidth: _readingWidth,
+                      child: LayoutBuilder(
+                        builder: (context, viewport) {
+                          _paginate(viewport, textStyle!);
+                          return Listener(
+                            behavior: HitTestBehavior.opaque,
+                            onPointerDown: (event) {
+                              final insets = MediaQuery.systemGestureInsetsOf(
+                                context,
+                              );
+                              final width = MediaQuery.sizeOf(context).width;
+                              final leftEdge = insets.left.clamp(
+                                24,
+                                double.infinity,
+                              );
+                              final rightEdge = insets.right.clamp(
+                                24,
+                                double.infinity,
+                              );
+                              _ignoreHorizontalDrag =
+                                  _selectionActive ||
+                                  event.position.dx <= leftEdge ||
+                                  event.position.dx >= width - rightEdge;
+                              _drag = Offset.zero;
+                              _horizontalOffset = 0;
+                            },
+                            onPointerMove: (event) {
+                              if (_ignoreHorizontalDrag || _selectionActive) {
+                                return;
+                              }
+                              _drag += event.delta;
+                              if (_drag.dx.abs() <= _drag.dy.abs()) return;
+                              setState(() {
+                                _horizontalOffset += event.delta.dx;
+                                _dragPreview = _horizontalOffset < 0
+                                    ? _OpenPanel.notes
+                                    : _OpenPanel.dictionary;
+                              });
+                              _resetFocusTimer();
+                            },
+                            onPointerUp: (event) {
+                              if (_ignoreHorizontalDrag || _selectionActive) {
+                                return;
+                              }
+                              if (_drag.distance < 8) {
+                                _toggleChrome();
+                                return;
+                              }
+                              var action = readerActionForDrag(_drag);
+                              setState(() {
+                                _horizontalOffset = 0;
+                                if (action != null) _dragPreview = null;
+                              });
+                              if (action == null) {
+                                _panelReturnTimer?.cancel();
+                                _panelReturnTimer = Timer(
+                                  const Duration(milliseconds: 180),
+                                  () {
+                                    if (mounted) {
+                                      setState(() => _dragPreview = null);
+                                    }
+                                  },
+                                );
+                              }
+                              _perform(action);
+                            },
+                            onPointerCancel: (_) {
+                              _drag = Offset.zero;
+                              _horizontalOffset = 0;
+                              _dragPreview = null;
+                            },
+                            child: _pageController == null
+                                ? const Center(
+                                    child: CircularProgressIndicator(),
+                                  )
+                                : NotificationListener<ScrollNotification>(
+                                    onNotification: (notification) {
+                                      if (notification
+                                          is ScrollStartNotification) {
+                                        _resetFocusTimer();
+                                      } else if (notification
+                                          is ScrollEndNotification) {
+                                        _completePageChange();
+                                      }
+                                      return false;
+                                    },
+                                    child: PageView.builder(
+                                      controller: _pageController,
+                                      scrollDirection: Axis.vertical,
+                                      pageSnapping: true,
+                                      itemCount: _pages.length,
+                                      itemBuilder: (context, pageIndex) {
+                                        final page = _pages[pageIndex];
+                                        final pageBite = page.bite;
+                                        return KeyedSubtree(
+                                          key: ValueKey(
+                                            '${pageBite.id}:${page.startOffset}',
+                                          ),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 0,
                                             ),
-                                            child: Padding(
-                                              padding: EdgeInsets.symmetric(
-                                                horizontal: _pageMargin,
-                                              ),
-                                              child: Semantics(
-                                                label: 'Reading bite',
-                                                child: _BiteText(
-                                                  database: widget.database,
-                                                  book: widget.book,
-                                                  bite: pageBite,
-                                                  style: textStyle!,
-                                                  alignment: _alignment,
-                                                  onWord: (word) {
-                                                    _recentWord = word;
-                                                    _openPanel(
-                                                      _OpenPanel.dictionary,
-                                                    );
-                                                  },
-                                                  onSelectionChanged: (active) {
-                                                    _selectionActive = active;
-                                                  },
+                                            child: Center(
+                                              child: ConstrainedBox(
+                                                constraints: BoxConstraints(
+                                                  maxWidth: _readingWidth,
+                                                ),
+                                                child: Padding(
+                                                  padding: EdgeInsets.symmetric(
+                                                    horizontal: _pageMargin,
+                                                  ),
+                                                  child: Semantics(
+                                                    label: 'Reading bite',
+                                                    child: _BiteText(
+                                                      database: widget.database,
+                                                      book: widget.book,
+                                                      bite: pageBite,
+                                                      startOffset:
+                                                          page.startOffset,
+                                                      endOffset: page.endOffset,
+                                                      style: textStyle,
+                                                      alignment: _alignment,
+                                                      onWord: (word) {
+                                                        _recentWord = word;
+                                                        _openPanel(
+                                                          _OpenPanel.dictionary,
+                                                        );
+                                                      },
+                                                      onSelectionChanged:
+                                                          (active) {
+                                                            _selectionActive =
+                                                                active;
+                                                          },
+                                                    ),
+                                                  ),
                                                 ),
                                               ),
                                             ),
                                           ),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                          );
+                        },
                       ),
                     ),
                     AnimatedOpacity(
@@ -650,7 +682,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                               ),
                               IconButton(
                                 tooltip: 'Next bite',
-                                onPressed: _index >= _bites.length - 1
+                                onPressed: _index >= _pages.length - 1
                                     ? null
                                     : () => _perform(ReaderAction.next),
                                 icon: const Icon(Icons.keyboard_arrow_down),
@@ -723,6 +755,54 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   static String _firstWord(String text) =>
       RegExp(r'\S+').firstMatch(text)?.group(0) ?? 'book';
+
+  DisplayPage? get _currentPage =>
+      _pages.isEmpty ? null : _pages[_index.clamp(0, _pages.length - 1)];
+
+  void _paginate(BoxConstraints viewport, TextStyle style) {
+    final width = (_readingWidth.clamp(0, viewport.maxWidth) - 2 * _pageMargin)
+        .clamp(1.0, double.infinity);
+    final textScaler = MediaQuery.textScalerOf(context);
+    final signature = Object.hash(
+      viewport.maxWidth,
+      viewport.maxHeight,
+      width,
+      style.fontSize,
+      style.height,
+      _alignment,
+      textScaler,
+      _bites.length,
+    );
+    if (_paginationSignature == signature) return;
+    final current = _currentPage;
+    final biteId = current?.bite.id ?? _anchorBiteId;
+    final offset = current?.startOffset ?? _sourceOffset;
+    final pages = paginateBites(
+      bites: _bites,
+      width: width,
+      height: viewport.maxHeight,
+      style: style,
+      textAlign: _alignment,
+      textDirection: Directionality.of(context),
+      textScaler: textScaler,
+    );
+    final restored = pages.indexWhere(
+      (page) =>
+          page.bite.id == biteId &&
+          offset >= page.startOffset &&
+          (offset < page.endOffset ||
+              page.endOffset == page.bite.content.length),
+    );
+    _pages = pages;
+    _index = restored < 0 ? 0 : restored;
+    _paginationSignature = signature;
+    _restoringViewport = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !(_pageController?.hasClients ?? false)) return;
+      _pageController!.jumpToPage(_index);
+      _restoringViewport = false;
+    });
+  }
 }
 
 class _BiteText extends StatefulWidget {
@@ -730,6 +810,8 @@ class _BiteText extends StatefulWidget {
     required this.database,
     required this.book,
     required this.bite,
+    required this.startOffset,
+    required this.endOffset,
     required this.style,
     required this.alignment,
     required this.onWord,
@@ -739,6 +821,8 @@ class _BiteText extends StatefulWidget {
   final AppDatabase database;
   final Book book;
   final Bite bite;
+  final int startOffset;
+  final int endOffset;
   final TextStyle style;
   final TextAlign alignment;
   final ValueChanged<String> onWord;
@@ -813,8 +897,8 @@ class _BiteTextState extends State<_BiteText> {
     final content = widget.bite.content;
     final anchor = HighlightAnchor.fromSelection(
       content,
-      selection.start,
-      selection.end,
+      selection.start + widget.startOffset,
+      selection.end + widget.startOffset,
     );
     if (anchor.text.trim().isEmpty) return;
     final id = sha256
@@ -874,8 +958,8 @@ class _BiteTextState extends State<_BiteText> {
     if (selection == null) return;
     for (final highlight in _highlights.where(
       (highlight) =>
-          selection.start < highlight.endOffset &&
-          selection.end > highlight.startOffset,
+          selection.start + widget.startOffset < highlight.endOffset &&
+          selection.end + widget.startOffset > highlight.startOffset,
     )) {
       await widget.database.deleteHighlight(highlight.id, deleteNote: true);
     }
@@ -933,23 +1017,28 @@ class _BiteTextState extends State<_BiteText> {
             .toList()
           ..sort((a, b) => a.range!.start.compareTo(b.range!.start));
     final spans = <TextSpan>[];
-    var offset = 0;
+    var offset = widget.startOffset;
     for (final item in anchored) {
       final range = item.range!;
-      if (range.start < offset) continue;
-      if (range.start > offset) {
-        spans.add(TextSpan(text: content.substring(offset, range.start)));
+      if (range.end <= widget.startOffset || range.start >= widget.endOffset) {
+        continue;
+      }
+      final start = range.start.clamp(widget.startOffset, widget.endOffset);
+      final end = range.end.clamp(widget.startOffset, widget.endOffset);
+      if (end <= offset) continue;
+      if (start > offset) {
+        spans.add(TextSpan(text: content.substring(offset, start)));
       }
       spans.add(
         TextSpan(
-          text: content.substring(range.start, range.end),
+          text: content.substring(start, end),
           style: _highlightStyle(item.highlight),
         ),
       );
-      offset = range.end;
+      offset = end;
     }
-    if (offset < content.length) {
-      spans.add(TextSpan(text: content.substring(offset)));
+    if (offset < widget.endOffset) {
+      spans.add(TextSpan(text: content.substring(offset, widget.endOffset)));
     }
     return spans;
   }
@@ -982,8 +1071,8 @@ class _BiteTextState extends State<_BiteText> {
       final items = [...state.contextMenuButtonItems];
       if (selected != null) {
         final text = widget.bite.content.substring(
-          selected.start,
-          selected.end,
+          selected.start + widget.startOffset,
+          selected.end + widget.startOffset,
         );
         items.addAll([
           ContextMenuButtonItem(
@@ -1007,8 +1096,8 @@ class _BiteTextState extends State<_BiteText> {
           ),
           if (_highlights.any(
             (highlight) =>
-                selected.start < highlight.endOffset &&
-                selected.end > highlight.startOffset,
+                selected.start + widget.startOffset < highlight.endOffset &&
+                selected.end + widget.startOffset > highlight.startOffset,
           ))
             ContextMenuButtonItem(
               label: 'Remove highlight',
