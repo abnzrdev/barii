@@ -71,6 +71,7 @@ void main() {
       final database = AppDatabase.forTesting(NativeDatabase(file));
       expect((await database.allBooks()).single.title, 'Title');
       expect((await database.progressFor('book'))?.biteId, 'bite');
+      expect((await database.progressFor('book'))?.sourceOffset, 0);
       expect((await database.notesForBook('book')).single.noteText, 'Remember');
       expect(
         (await database.vocabularyForBook('book')).single.definition,

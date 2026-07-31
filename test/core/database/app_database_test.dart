@@ -10,9 +10,10 @@ void main() {
 
   test('saves and restores progress by stable bite ID', () async {
     await _createBook(database);
-    await database.saveProgress('book', 'bite', 0);
+    await database.saveProgress('book', 'bite', 0, 7);
 
     expect((await database.progressFor('book'))?.biteId, 'bite');
+    expect((await database.progressFor('book'))?.sourceOffset, 7);
   });
 
   test('persists note timestamps and vocabulary context', () async {

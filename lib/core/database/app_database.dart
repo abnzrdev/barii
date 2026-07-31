@@ -59,6 +59,7 @@ class ReadingProgress extends Table {
   TextColumn get biteId =>
       text().references(Bites, #id, onDelete: KeyAction.cascade)();
   IntColumn get bitePosition => integer()();
+  IntColumn get sourceOffset => integer().withDefault(const Constant(0))();
   DateTimeColumn get updatedAt => dateTime()();
 
   @override
@@ -245,7 +246,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -323,6 +324,9 @@ class AppDatabase extends _$AppDatabase {
           'CREATE INDEX highlight_notes_book_bite '
           'ON highlight_notes (book_id, bite_id)',
         );
+      }
+      if (from < 4) {
+        await migrator.addColumn(readingProgress, readingProgress.sourceOffset);
       }
     },
     beforeOpen: (_) => customStatement('PRAGMA foreign_keys = ON'),
@@ -419,15 +423,20 @@ class AppDatabase extends _$AppDatabase {
     return (await query.getSingleOrNull())?.readTable(sections).heading;
   }
 
-  Future<void> saveProgress(String bookId, String biteId, int position) =>
-      into(readingProgress).insertOnConflictUpdate(
-        ReadingProgressCompanion.insert(
-          bookId: bookId,
-          biteId: biteId,
-          bitePosition: position,
-          updatedAt: DateTime.now().toUtc(),
-        ),
-      );
+  Future<void> saveProgress(
+    String bookId,
+    String biteId,
+    int position, [
+    int sourceOffset = 0,
+  ]) => into(readingProgress).insertOnConflictUpdate(
+    ReadingProgressCompanion.insert(
+      bookId: bookId,
+      biteId: biteId,
+      bitePosition: position,
+      sourceOffset: Value(sourceOffset),
+      updatedAt: DateTime.now().toUtc(),
+    ),
+  );
 
   Future<ReadingProgressData?> progressFor(String bookId) => (select(
     readingProgress,

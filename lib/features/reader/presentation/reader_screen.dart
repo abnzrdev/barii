@@ -38,13 +38,16 @@ class ReaderScreen extends StatefulWidget {
   State<ReaderScreen> createState() => _ReaderScreenState();
 }
 
-class _ReaderScreenState extends State<ReaderScreen> {
+class _ReaderScreenState extends State<ReaderScreen>
+    with WidgetsBindingObserver {
   final _focusNode = FocusNode();
   PageController? _pageController;
   Timer? _focusTimer;
   Timer? _panelReturnTimer;
   List<Bite> _bites = const [];
   var _index = 0;
+  var _sourceOffset = 0;
+  var _restoringViewport = false;
   var _drag = Offset.zero;
   var _horizontalOffset = 0.0;
   var _ignoreHorizontalDrag = false;
@@ -64,7 +67,20 @@ class _ReaderScreenState extends State<ReaderScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (_bites.isEmpty || !(_pageController?.hasClients ?? false)) return;
+    final anchorIndex = _index;
+    _restoringViewport = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !(_pageController?.hasClients ?? false)) return;
+      _pageController!.jumpToPage(anchorIndex);
+      _restoringViewport = false;
+    });
   }
 
   Future<void> _load() async {
@@ -80,6 +96,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       setState(() {
         _bites = bites;
         _index = index;
+        _sourceOffset = progress?.sourceOffset ?? 0;
         _pageController = PageController(initialPage: index);
         _fontSize = preferences.fontSize;
         _lineHeight = preferences.lineHeight;
@@ -161,7 +178,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   Future<void> _completePageChange() async {
-    if (_bites.isEmpty || !(_pageController?.hasClients ?? false)) return;
+    if (_restoringViewport ||
+        _bites.isEmpty ||
+        !(_pageController?.hasClients ?? false)) {
+      return;
+    }
     final next = (_pageController!.page?.round() ?? _index).clamp(
       0,
       _bites.length - 1,
@@ -173,10 +194,16 @@ class _ReaderScreenState extends State<ReaderScreen> {
     if (next == _index || _bites.isEmpty) return;
     setState(() {
       _index = next;
+      _sourceOffset = 0;
       _panel = null;
       _recentWord = _firstWord(_bites[next].content);
     });
-    await widget.database.saveProgress(widget.book.id, _bites[next].id, next);
+    await widget.database.saveProgress(
+      widget.book.id,
+      _bites[next].id,
+      next,
+      _sourceOffset,
+    );
     await _feedback();
     _resetFocusTimer();
   }
@@ -366,6 +393,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pageController?.dispose();
     _focusTimer?.cancel();
     _panelReturnTimer?.cancel();

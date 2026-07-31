@@ -1345,6 +1345,18 @@ class $ReadingProgressTable extends ReadingProgress
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _sourceOffsetMeta = const VerificationMeta(
+    'sourceOffset',
+  );
+  @override
+  late final GeneratedColumn<int> sourceOffset = GeneratedColumn<int>(
+    'source_offset',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _updatedAtMeta = const VerificationMeta(
     'updatedAt',
   );
@@ -1361,6 +1373,7 @@ class $ReadingProgressTable extends ReadingProgress
     bookId,
     biteId,
     bitePosition,
+    sourceOffset,
     updatedAt,
   ];
   @override
@@ -1402,6 +1415,15 @@ class $ReadingProgressTable extends ReadingProgress
     } else if (isInserting) {
       context.missing(_bitePositionMeta);
     }
+    if (data.containsKey('source_offset')) {
+      context.handle(
+        _sourceOffsetMeta,
+        sourceOffset.isAcceptableOrUnknown(
+          data['source_offset']!,
+          _sourceOffsetMeta,
+        ),
+      );
+    }
     if (data.containsKey('updated_at')) {
       context.handle(
         _updatedAtMeta,
@@ -1431,6 +1453,10 @@ class $ReadingProgressTable extends ReadingProgress
         DriftSqlType.int,
         data['${effectivePrefix}bite_position'],
       )!,
+      sourceOffset: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}source_offset'],
+      )!,
       updatedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
@@ -1449,11 +1475,13 @@ class ReadingProgressData extends DataClass
   final String bookId;
   final String biteId;
   final int bitePosition;
+  final int sourceOffset;
   final DateTime updatedAt;
   const ReadingProgressData({
     required this.bookId,
     required this.biteId,
     required this.bitePosition,
+    required this.sourceOffset,
     required this.updatedAt,
   });
   @override
@@ -1462,6 +1490,7 @@ class ReadingProgressData extends DataClass
     map['book_id'] = Variable<String>(bookId);
     map['bite_id'] = Variable<String>(biteId);
     map['bite_position'] = Variable<int>(bitePosition);
+    map['source_offset'] = Variable<int>(sourceOffset);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
   }
@@ -1471,6 +1500,7 @@ class ReadingProgressData extends DataClass
       bookId: Value(bookId),
       biteId: Value(biteId),
       bitePosition: Value(bitePosition),
+      sourceOffset: Value(sourceOffset),
       updatedAt: Value(updatedAt),
     );
   }
@@ -1484,6 +1514,7 @@ class ReadingProgressData extends DataClass
       bookId: serializer.fromJson<String>(json['bookId']),
       biteId: serializer.fromJson<String>(json['biteId']),
       bitePosition: serializer.fromJson<int>(json['bitePosition']),
+      sourceOffset: serializer.fromJson<int>(json['sourceOffset']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
   }
@@ -1494,6 +1525,7 @@ class ReadingProgressData extends DataClass
       'bookId': serializer.toJson<String>(bookId),
       'biteId': serializer.toJson<String>(biteId),
       'bitePosition': serializer.toJson<int>(bitePosition),
+      'sourceOffset': serializer.toJson<int>(sourceOffset),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
   }
@@ -1502,11 +1534,13 @@ class ReadingProgressData extends DataClass
     String? bookId,
     String? biteId,
     int? bitePosition,
+    int? sourceOffset,
     DateTime? updatedAt,
   }) => ReadingProgressData(
     bookId: bookId ?? this.bookId,
     biteId: biteId ?? this.biteId,
     bitePosition: bitePosition ?? this.bitePosition,
+    sourceOffset: sourceOffset ?? this.sourceOffset,
     updatedAt: updatedAt ?? this.updatedAt,
   );
   ReadingProgressData copyWithCompanion(ReadingProgressCompanion data) {
@@ -1516,6 +1550,9 @@ class ReadingProgressData extends DataClass
       bitePosition: data.bitePosition.present
           ? data.bitePosition.value
           : this.bitePosition,
+      sourceOffset: data.sourceOffset.present
+          ? data.sourceOffset.value
+          : this.sourceOffset,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
@@ -1526,13 +1563,15 @@ class ReadingProgressData extends DataClass
           ..write('bookId: $bookId, ')
           ..write('biteId: $biteId, ')
           ..write('bitePosition: $bitePosition, ')
+          ..write('sourceOffset: $sourceOffset, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(bookId, biteId, bitePosition, updatedAt);
+  int get hashCode =>
+      Object.hash(bookId, biteId, bitePosition, sourceOffset, updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1540,6 +1579,7 @@ class ReadingProgressData extends DataClass
           other.bookId == this.bookId &&
           other.biteId == this.biteId &&
           other.bitePosition == this.bitePosition &&
+          other.sourceOffset == this.sourceOffset &&
           other.updatedAt == this.updatedAt);
 }
 
@@ -1547,12 +1587,14 @@ class ReadingProgressCompanion extends UpdateCompanion<ReadingProgressData> {
   final Value<String> bookId;
   final Value<String> biteId;
   final Value<int> bitePosition;
+  final Value<int> sourceOffset;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
   const ReadingProgressCompanion({
     this.bookId = const Value.absent(),
     this.biteId = const Value.absent(),
     this.bitePosition = const Value.absent(),
+    this.sourceOffset = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -1560,6 +1602,7 @@ class ReadingProgressCompanion extends UpdateCompanion<ReadingProgressData> {
     required String bookId,
     required String biteId,
     required int bitePosition,
+    this.sourceOffset = const Value.absent(),
     required DateTime updatedAt,
     this.rowid = const Value.absent(),
   }) : bookId = Value(bookId),
@@ -1570,6 +1613,7 @@ class ReadingProgressCompanion extends UpdateCompanion<ReadingProgressData> {
     Expression<String>? bookId,
     Expression<String>? biteId,
     Expression<int>? bitePosition,
+    Expression<int>? sourceOffset,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
   }) {
@@ -1577,6 +1621,7 @@ class ReadingProgressCompanion extends UpdateCompanion<ReadingProgressData> {
       if (bookId != null) 'book_id': bookId,
       if (biteId != null) 'bite_id': biteId,
       if (bitePosition != null) 'bite_position': bitePosition,
+      if (sourceOffset != null) 'source_offset': sourceOffset,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -1586,6 +1631,7 @@ class ReadingProgressCompanion extends UpdateCompanion<ReadingProgressData> {
     Value<String>? bookId,
     Value<String>? biteId,
     Value<int>? bitePosition,
+    Value<int>? sourceOffset,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
   }) {
@@ -1593,6 +1639,7 @@ class ReadingProgressCompanion extends UpdateCompanion<ReadingProgressData> {
       bookId: bookId ?? this.bookId,
       biteId: biteId ?? this.biteId,
       bitePosition: bitePosition ?? this.bitePosition,
+      sourceOffset: sourceOffset ?? this.sourceOffset,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
     );
@@ -1610,6 +1657,9 @@ class ReadingProgressCompanion extends UpdateCompanion<ReadingProgressData> {
     if (bitePosition.present) {
       map['bite_position'] = Variable<int>(bitePosition.value);
     }
+    if (sourceOffset.present) {
+      map['source_offset'] = Variable<int>(sourceOffset.value);
+    }
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
@@ -1625,6 +1675,7 @@ class ReadingProgressCompanion extends UpdateCompanion<ReadingProgressData> {
           ..write('bookId: $bookId, ')
           ..write('biteId: $biteId, ')
           ..write('bitePosition: $bitePosition, ')
+          ..write('sourceOffset: $sourceOffset, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -8201,6 +8252,7 @@ typedef $$ReadingProgressTableCreateCompanionBuilder =
       required String bookId,
       required String biteId,
       required int bitePosition,
+      Value<int> sourceOffset,
       required DateTime updatedAt,
       Value<int> rowid,
     });
@@ -8209,6 +8261,7 @@ typedef $$ReadingProgressTableUpdateCompanionBuilder =
       Value<String> bookId,
       Value<String> biteId,
       Value<int> bitePosition,
+      Value<int> sourceOffset,
       Value<DateTime> updatedAt,
       Value<int> rowid,
     });
@@ -8272,6 +8325,11 @@ class $$ReadingProgressTableFilterComposer
   });
   ColumnFilters<int> get bitePosition => $composableBuilder(
     column: $table.bitePosition,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sourceOffset => $composableBuilder(
+    column: $table.sourceOffset,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8341,6 +8399,11 @@ class $$ReadingProgressTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get sourceOffset => $composableBuilder(
+    column: $table.sourceOffset,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
@@ -8404,6 +8467,11 @@ class $$ReadingProgressTableAnnotationComposer
   });
   GeneratedColumn<int> get bitePosition => $composableBuilder(
     column: $table.bitePosition,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get sourceOffset => $composableBuilder(
+    column: $table.sourceOffset,
     builder: (column) => column,
   );
 
@@ -8490,12 +8558,14 @@ class $$ReadingProgressTableTableManager
                 Value<String> bookId = const Value.absent(),
                 Value<String> biteId = const Value.absent(),
                 Value<int> bitePosition = const Value.absent(),
+                Value<int> sourceOffset = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ReadingProgressCompanion(
                 bookId: bookId,
                 biteId: biteId,
                 bitePosition: bitePosition,
+                sourceOffset: sourceOffset,
                 updatedAt: updatedAt,
                 rowid: rowid,
               ),
@@ -8504,12 +8574,14 @@ class $$ReadingProgressTableTableManager
                 required String bookId,
                 required String biteId,
                 required int bitePosition,
+                Value<int> sourceOffset = const Value.absent(),
                 required DateTime updatedAt,
                 Value<int> rowid = const Value.absent(),
               }) => ReadingProgressCompanion.insert(
                 bookId: bookId,
                 biteId: biteId,
                 bitePosition: bitePosition,
+                sourceOffset: sourceOffset,
                 updatedAt: updatedAt,
                 rowid: rowid,
               ),
