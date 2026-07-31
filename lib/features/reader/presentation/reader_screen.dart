@@ -82,7 +82,6 @@ class _ReaderScreenState extends State<ReaderScreen>
     final anchor = _currentPage;
     if (anchor != null) {
       _anchorBiteId = anchor.bite.id;
-      _sourceOffset = anchor.startOffset;
     }
     _paginationSignature = null;
     _restoringViewport = true;
@@ -787,9 +786,8 @@ class _ReaderScreenState extends State<ReaderScreen>
       _bites.length,
     );
     if (_paginationSignature == signature) return;
-    final current = _currentPage;
-    final biteId = current?.bite.id ?? _anchorBiteId;
-    final offset = current?.startOffset ?? _sourceOffset;
+    final biteId = _anchorBiteId;
+    final offset = _sourceOffset;
     final pages = paginateBites(
       bites: _bites,
       width: width,
@@ -814,6 +812,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       if (!mounted || !(_pageController?.hasClients ?? false)) return;
       _pageController!.jumpToPage(_index);
       _restoringViewport = false;
+      setState(() {});
     });
   }
 }
