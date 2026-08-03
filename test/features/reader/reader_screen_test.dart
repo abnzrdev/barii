@@ -21,7 +21,9 @@ void main() {
     );
     await database.replaceContent(
       'book',
-      sections: const [StoredSection(id: 'section', position: 0)],
+      sections: const [
+        StoredSection(id: 'section', position: 0, heading: 'Heading'),
+      ],
       bites: const [
         StoredBite(
           id: 'bite-1',
@@ -132,8 +134,8 @@ void main() {
 
     await tester.drag(find.byType(PageView), const Offset(-300, 0));
     await tester.pumpAndSettle();
-    expect(find.text('Notes for this bite'), findsOneWidget);
-    await tester.tap(find.byTooltip('Close notes'));
+    expect(find.text('Notes'), findsOneWidget);
+    await tester.tap(find.byTooltip('Close reader panel'));
     await tester.pumpAndSettle();
 
     await tester.pumpWidget(const SizedBox.shrink());
@@ -201,10 +203,10 @@ void main() {
 
     await tester.sendKeyEvent(LogicalKeyboardKey.keyN);
     await tester.pumpAndSettle();
-    expect(find.text('Notes for this bite'), findsOneWidget);
+    expect(find.text('Notes'), findsOneWidget);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
-    expect(find.text('Notes for this bite'), findsNothing);
+    expect(find.byTooltip('Close reader panel'), findsNothing);
   });
 
   testWidgets('focus controls hide and return after a tap', (tester) async {
@@ -235,6 +237,67 @@ void main() {
           .opacity,
       1,
     );
+  });
+
+  testWidgets('hidden toolbar opens the unified reader panel', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReaderScreen(database: database, book: book),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Contents'), findsOneWidget);
+    expect(find.byTooltip('Search book'), findsOneWidget);
+    expect(find.byTooltip('Add bookmark'), findsOneWidget);
+    expect(find.byTooltip('Reader settings'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Contents'));
+    await tester.pumpAndSettle();
+    expect(find.text('Contents'), findsOneWidget);
+    expect(find.text('Search'), findsOneWidget);
+    expect(find.text('Bookmarks'), findsOneWidget);
+    expect(find.text('Notes'), findsOneWidget);
+    expect(find.text('Heading'), findsOneWidget);
+  });
+
+  testWidgets('bookmark toolbar action persists the current location', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReaderScreen(database: database, book: book),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Add bookmark'));
+    await tester.pumpAndSettle();
+    expect(await database.bookmarksForBook('book'), hasLength(1));
+    expect(find.byTooltip('Remove bookmark'), findsOneWidget);
+  });
+
+  testWidgets('whole-book search jumps to the exact source offset', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReaderScreen(database: database, book: book),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Search book'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(SearchBar), 'quiet');
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Second quiet sentence.').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Second quiet sentence.'), findsOneWidget);
+    final progress = await database.progressFor('book');
+    expect(progress?.biteId, 'bite-2');
+    expect(progress?.sourceOffset, 7);
   });
 
   testWidgets('automatic control hiding can be disabled', (tester) async {
@@ -277,9 +340,9 @@ void main() {
 
     await tester.drag(find.byType(PageView), const Offset(-300, 0));
     await tester.pumpAndSettle();
-    expect(find.text('Notes for this bite'), findsOneWidget);
+    expect(find.text('Notes'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Close notes'));
+    await tester.tap(find.byTooltip('Close reader panel'));
     await tester.pumpAndSettle();
     await tester.drag(find.byType(PageView), const Offset(300, 0));
     await tester.pumpAndSettle();
@@ -289,7 +352,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.drag(find.byType(PageView), const Offset(30, -400));
     await tester.pumpAndSettle();
-    expect(find.text('Notes for this bite'), findsNothing);
+    expect(find.byTooltip('Close reader panel'), findsNothing);
     expect(find.text('Offline dictionary'), findsNothing);
   });
 
@@ -307,16 +370,16 @@ void main() {
     final cancelled = await tester.startGesture(center);
     await cancelled.moveBy(const Offset(-120, 0));
     await tester.pump();
-    expect(find.text('Notes for this bite'), findsOneWidget);
+    expect(find.text('Contents'), findsOneWidget);
     await cancelled.cancel();
     await tester.pump();
-    expect(find.text('Notes for this bite'), findsNothing);
+    expect(find.byTooltip('Close reader panel'), findsNothing);
 
     final diagonal = await tester.startGesture(center);
     await diagonal.moveBy(const Offset(-90, -80));
     await diagonal.up();
     await tester.pump();
-    expect(find.text('Notes for this bite'), findsNothing);
+    expect(find.byTooltip('Close reader panel'), findsNothing);
     expect(find.text('Offline dictionary'), findsNothing);
   });
 

@@ -178,6 +178,22 @@ void main() {
     expect(await database.highlightsForBook('book'), isEmpty);
     expect(await database.highlightNote('highlight-note'), isNull);
   });
+
+  test('toggles a bookmark at an exact stable location', () async {
+    await _createBook(database);
+
+    await database.addBookmark(
+      bookId: 'book',
+      biteId: 'bite',
+      sourceOffset: 3,
+      now: DateTime.utc(2026, 8, 3),
+    );
+    expect(await database.bookmarksForBook('book'), hasLength(1));
+    expect(await database.isBookmarked('book', 'bite', 3), isTrue);
+
+    await database.removeBookmark('book', 'bite', 3);
+    expect(await database.bookmarksForBook('book'), isEmpty);
+  });
 }
 
 Future<void> _createBook(AppDatabase database) async {

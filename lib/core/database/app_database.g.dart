@@ -1874,6 +1874,333 @@ class ReadingProgressCompanion extends UpdateCompanion<ReadingProgressData> {
   }
 }
 
+class $BookmarksTable extends Bookmarks
+    with TableInfo<$BookmarksTable, Bookmark> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BookmarksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _bookIdMeta = const VerificationMeta('bookId');
+  @override
+  late final GeneratedColumn<String> bookId = GeneratedColumn<String>(
+    'book_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES books (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _biteIdMeta = const VerificationMeta('biteId');
+  @override
+  late final GeneratedColumn<String> biteId = GeneratedColumn<String>(
+    'bite_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES bites (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _sourceOffsetMeta = const VerificationMeta(
+    'sourceOffset',
+  );
+  @override
+  late final GeneratedColumn<int> sourceOffset = GeneratedColumn<int>(
+    'source_offset',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    bookId,
+    biteId,
+    sourceOffset,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'bookmarks';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Bookmark> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('book_id')) {
+      context.handle(
+        _bookIdMeta,
+        bookId.isAcceptableOrUnknown(data['book_id']!, _bookIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bookIdMeta);
+    }
+    if (data.containsKey('bite_id')) {
+      context.handle(
+        _biteIdMeta,
+        biteId.isAcceptableOrUnknown(data['bite_id']!, _biteIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_biteIdMeta);
+    }
+    if (data.containsKey('source_offset')) {
+      context.handle(
+        _sourceOffsetMeta,
+        sourceOffset.isAcceptableOrUnknown(
+          data['source_offset']!,
+          _sourceOffsetMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceOffsetMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {bookId, biteId, sourceOffset};
+  @override
+  Bookmark map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Bookmark(
+      bookId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}book_id'],
+      )!,
+      biteId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}bite_id'],
+      )!,
+      sourceOffset: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}source_offset'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $BookmarksTable createAlias(String alias) {
+    return $BookmarksTable(attachedDatabase, alias);
+  }
+}
+
+class Bookmark extends DataClass implements Insertable<Bookmark> {
+  final String bookId;
+  final String biteId;
+  final int sourceOffset;
+  final DateTime createdAt;
+  const Bookmark({
+    required this.bookId,
+    required this.biteId,
+    required this.sourceOffset,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['book_id'] = Variable<String>(bookId);
+    map['bite_id'] = Variable<String>(biteId);
+    map['source_offset'] = Variable<int>(sourceOffset);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  BookmarksCompanion toCompanion(bool nullToAbsent) {
+    return BookmarksCompanion(
+      bookId: Value(bookId),
+      biteId: Value(biteId),
+      sourceOffset: Value(sourceOffset),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory Bookmark.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Bookmark(
+      bookId: serializer.fromJson<String>(json['bookId']),
+      biteId: serializer.fromJson<String>(json['biteId']),
+      sourceOffset: serializer.fromJson<int>(json['sourceOffset']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'bookId': serializer.toJson<String>(bookId),
+      'biteId': serializer.toJson<String>(biteId),
+      'sourceOffset': serializer.toJson<int>(sourceOffset),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  Bookmark copyWith({
+    String? bookId,
+    String? biteId,
+    int? sourceOffset,
+    DateTime? createdAt,
+  }) => Bookmark(
+    bookId: bookId ?? this.bookId,
+    biteId: biteId ?? this.biteId,
+    sourceOffset: sourceOffset ?? this.sourceOffset,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  Bookmark copyWithCompanion(BookmarksCompanion data) {
+    return Bookmark(
+      bookId: data.bookId.present ? data.bookId.value : this.bookId,
+      biteId: data.biteId.present ? data.biteId.value : this.biteId,
+      sourceOffset: data.sourceOffset.present
+          ? data.sourceOffset.value
+          : this.sourceOffset,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Bookmark(')
+          ..write('bookId: $bookId, ')
+          ..write('biteId: $biteId, ')
+          ..write('sourceOffset: $sourceOffset, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(bookId, biteId, sourceOffset, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Bookmark &&
+          other.bookId == this.bookId &&
+          other.biteId == this.biteId &&
+          other.sourceOffset == this.sourceOffset &&
+          other.createdAt == this.createdAt);
+}
+
+class BookmarksCompanion extends UpdateCompanion<Bookmark> {
+  final Value<String> bookId;
+  final Value<String> biteId;
+  final Value<int> sourceOffset;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const BookmarksCompanion({
+    this.bookId = const Value.absent(),
+    this.biteId = const Value.absent(),
+    this.sourceOffset = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  BookmarksCompanion.insert({
+    required String bookId,
+    required String biteId,
+    required int sourceOffset,
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : bookId = Value(bookId),
+       biteId = Value(biteId),
+       sourceOffset = Value(sourceOffset),
+       createdAt = Value(createdAt);
+  static Insertable<Bookmark> custom({
+    Expression<String>? bookId,
+    Expression<String>? biteId,
+    Expression<int>? sourceOffset,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (bookId != null) 'book_id': bookId,
+      if (biteId != null) 'bite_id': biteId,
+      if (sourceOffset != null) 'source_offset': sourceOffset,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  BookmarksCompanion copyWith({
+    Value<String>? bookId,
+    Value<String>? biteId,
+    Value<int>? sourceOffset,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return BookmarksCompanion(
+      bookId: bookId ?? this.bookId,
+      biteId: biteId ?? this.biteId,
+      sourceOffset: sourceOffset ?? this.sourceOffset,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (bookId.present) {
+      map['book_id'] = Variable<String>(bookId.value);
+    }
+    if (biteId.present) {
+      map['bite_id'] = Variable<String>(biteId.value);
+    }
+    if (sourceOffset.present) {
+      map['source_offset'] = Variable<int>(sourceOffset.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BookmarksCompanion(')
+          ..write('bookId: $bookId, ')
+          ..write('biteId: $biteId, ')
+          ..write('sourceOffset: $sourceOffset, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $ReaderNotesTable extends ReaderNotes
     with TableInfo<$ReaderNotesTable, ReaderNote> {
   @override
@@ -6075,6 +6402,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ReadingProgressTable readingProgress = $ReadingProgressTable(
     this,
   );
+  late final $BookmarksTable bookmarks = $BookmarksTable(this);
   late final $ReaderNotesTable readerNotes = $ReaderNotesTable(this);
   late final $DictionarySourcesTable dictionarySources =
       $DictionarySourcesTable(this);
@@ -6095,6 +6423,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     sections,
     bites,
     readingProgress,
+    bookmarks,
     readerNotes,
     dictionarySources,
     vocabularyEntries,
@@ -6139,6 +6468,20 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('reading_progress', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'books',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('bookmarks', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'bites',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('bookmarks', kind: UpdateKind.delete)],
     ),
     WritePropagation(
       on: TableUpdateQuery.onTableName(
@@ -6304,6 +6647,24 @@ final class $$BooksTableReferences
     final cache = $_typedResult.readTableOrNull(
       _readingProgressRefsTable($_db),
     );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$BookmarksTable, List<Bookmark>>
+  _bookmarksRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.bookmarks,
+    aliasName: 'books__id__bookmarks__book_id',
+  );
+
+  $$BookmarksTableProcessedTableManager get bookmarksRefs {
+    final manager = $$BookmarksTableTableManager(
+      $_db,
+      $_db.bookmarks,
+    ).filter((f) => f.bookId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_bookmarksRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -6499,6 +6860,31 @@ class $$BooksTableFilterComposer extends Composer<_$AppDatabase, $BooksTable> {
           }) => $$ReadingProgressTableFilterComposer(
             $db: $db,
             $table: $db.readingProgress,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> bookmarksRefs(
+    Expression<bool> Function($$BookmarksTableFilterComposer f) f,
+  ) {
+    final $$BookmarksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.bookmarks,
+      getReferencedColumn: (t) => t.bookId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BookmarksTableFilterComposer(
+            $db: $db,
+            $table: $db.bookmarks,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -6769,6 +7155,31 @@ class $$BooksTableAnnotationComposer
     return f(composer);
   }
 
+  Expression<T> bookmarksRefs<T extends Object>(
+    Expression<T> Function($$BookmarksTableAnnotationComposer a) f,
+  ) {
+    final $$BookmarksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.bookmarks,
+      getReferencedColumn: (t) => t.bookId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BookmarksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.bookmarks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
   Expression<T> readerNotesRefs<T extends Object>(
     Expression<T> Function($$ReaderNotesTableAnnotationComposer a) f,
   ) {
@@ -6888,6 +7299,7 @@ class $$BooksTableTableManager
             bool sectionsRefs,
             bool bitesRefs,
             bool readingProgressRefs,
+            bool bookmarksRefs,
             bool readerNotesRefs,
             bool vocabularyEntriesRefs,
             bool highlightNotesRefs,
@@ -6960,6 +7372,7 @@ class $$BooksTableTableManager
                 sectionsRefs = false,
                 bitesRefs = false,
                 readingProgressRefs = false,
+                bookmarksRefs = false,
                 readerNotesRefs = false,
                 vocabularyEntriesRefs = false,
                 highlightNotesRefs = false,
@@ -6971,6 +7384,7 @@ class $$BooksTableTableManager
                     if (sectionsRefs) db.sections,
                     if (bitesRefs) db.bites,
                     if (readingProgressRefs) db.readingProgress,
+                    if (bookmarksRefs) db.bookmarks,
                     if (readerNotesRefs) db.readerNotes,
                     if (vocabularyEntriesRefs) db.vocabularyEntries,
                     if (highlightNotesRefs) db.highlightNotes,
@@ -7024,6 +7438,23 @@ class $$BooksTableTableManager
                                 table,
                                 p0,
                               ).readingProgressRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.bookId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (bookmarksRefs)
+                        await $_getPrefetchedData<Book, $BooksTable, Bookmark>(
+                          currentTable: table,
+                          referencedTable: $$BooksTableReferences
+                              ._bookmarksRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$BooksTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).bookmarksRefs,
                           referencedItemsForCurrentItem:
                               (item, referencedItems) => referencedItems.where(
                                 (e) => e.bookId == item.id,
@@ -7134,6 +7565,7 @@ typedef $$BooksTableProcessedTableManager =
         bool sectionsRefs,
         bool bitesRefs,
         bool readingProgressRefs,
+        bool bookmarksRefs,
         bool readerNotesRefs,
         bool vocabularyEntriesRefs,
         bool highlightNotesRefs,
@@ -7608,6 +8040,24 @@ final class $$BitesTableReferences
     );
   }
 
+  static MultiTypedResultKey<$BookmarksTable, List<Bookmark>>
+  _bookmarksRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.bookmarks,
+    aliasName: 'bites__id__bookmarks__bite_id',
+  );
+
+  $$BookmarksTableProcessedTableManager get bookmarksRefs {
+    final manager = $$BookmarksTableTableManager(
+      $_db,
+      $_db.bookmarks,
+    ).filter((f) => f.biteId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_bookmarksRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
   static MultiTypedResultKey<$ReaderNotesTable, List<ReaderNote>>
   _readerNotesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
     db.readerNotes,
@@ -7799,6 +8249,31 @@ class $$BitesTableFilterComposer extends Composer<_$AppDatabase, $BitesTable> {
           }) => $$ReadingProgressTableFilterComposer(
             $db: $db,
             $table: $db.readingProgress,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> bookmarksRefs(
+    Expression<bool> Function($$BookmarksTableFilterComposer f) f,
+  ) {
+    final $$BookmarksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.bookmarks,
+      getReferencedColumn: (t) => t.biteId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BookmarksTableFilterComposer(
+            $db: $db,
+            $table: $db.bookmarks,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -8119,6 +8594,31 @@ class $$BitesTableAnnotationComposer
     return f(composer);
   }
 
+  Expression<T> bookmarksRefs<T extends Object>(
+    Expression<T> Function($$BookmarksTableAnnotationComposer a) f,
+  ) {
+    final $$BookmarksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.bookmarks,
+      getReferencedColumn: (t) => t.biteId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BookmarksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.bookmarks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
   Expression<T> readerNotesRefs<T extends Object>(
     Expression<T> Function($$ReaderNotesTableAnnotationComposer a) f,
   ) {
@@ -8238,6 +8738,7 @@ class $$BitesTableTableManager
             bool bookId,
             bool sectionId,
             bool readingProgressRefs,
+            bool bookmarksRefs,
             bool readerNotesRefs,
             bool vocabularyEntriesRefs,
             bool highlightNotesRefs,
@@ -8322,6 +8823,7 @@ class $$BitesTableTableManager
                 bookId = false,
                 sectionId = false,
                 readingProgressRefs = false,
+                bookmarksRefs = false,
                 readerNotesRefs = false,
                 vocabularyEntriesRefs = false,
                 highlightNotesRefs = false,
@@ -8331,6 +8833,7 @@ class $$BitesTableTableManager
                   db: db,
                   explicitlyWatchedTables: [
                     if (readingProgressRefs) db.readingProgress,
+                    if (bookmarksRefs) db.bookmarks,
                     if (readerNotesRefs) db.readerNotes,
                     if (vocabularyEntriesRefs) db.vocabularyEntries,
                     if (highlightNotesRefs) db.highlightNotes,
@@ -8398,6 +8901,23 @@ class $$BitesTableTableManager
                                 table,
                                 p0,
                               ).readingProgressRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.biteId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (bookmarksRefs)
+                        await $_getPrefetchedData<Bite, $BitesTable, Bookmark>(
+                          currentTable: table,
+                          referencedTable: $$BitesTableReferences
+                              ._bookmarksRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$BitesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).bookmarksRefs,
                           referencedItemsForCurrentItem:
                               (item, referencedItems) => referencedItems.where(
                                 (e) => e.biteId == item.id,
@@ -8508,6 +9028,7 @@ typedef $$BitesTableProcessedTableManager =
         bool bookId,
         bool sectionId,
         bool readingProgressRefs,
+        bool bookmarksRefs,
         bool readerNotesRefs,
         bool vocabularyEntriesRefs,
         bool highlightNotesRefs,
@@ -8934,6 +9455,392 @@ typedef $$ReadingProgressTableProcessedTableManager =
       $$ReadingProgressTableUpdateCompanionBuilder,
       (ReadingProgressData, $$ReadingProgressTableReferences),
       ReadingProgressData,
+      PrefetchHooks Function({bool bookId, bool biteId})
+    >;
+typedef $$BookmarksTableCreateCompanionBuilder =
+    BookmarksCompanion Function({
+      required String bookId,
+      required String biteId,
+      required int sourceOffset,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$BookmarksTableUpdateCompanionBuilder =
+    BookmarksCompanion Function({
+      Value<String> bookId,
+      Value<String> biteId,
+      Value<int> sourceOffset,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+final class $$BookmarksTableReferences
+    extends BaseReferences<_$AppDatabase, $BookmarksTable, Bookmark> {
+  $$BookmarksTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $BooksTable _bookIdTable(_$AppDatabase db) =>
+      db.books.createAlias('bookmarks__book_id__books__id');
+
+  $$BooksTableProcessedTableManager get bookId {
+    final $_column = $_itemColumn<String>('book_id')!;
+
+    final manager = $$BooksTableTableManager(
+      $_db,
+      $_db.books,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_bookIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $BitesTable _biteIdTable(_$AppDatabase db) =>
+      db.bites.createAlias('bookmarks__bite_id__bites__id');
+
+  $$BitesTableProcessedTableManager get biteId {
+    final $_column = $_itemColumn<String>('bite_id')!;
+
+    final manager = $$BitesTableTableManager(
+      $_db,
+      $_db.bites,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_biteIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$BookmarksTableFilterComposer
+    extends Composer<_$AppDatabase, $BookmarksTable> {
+  $$BookmarksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get sourceOffset => $composableBuilder(
+    column: $table.sourceOffset,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$BooksTableFilterComposer get bookId {
+    final $$BooksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableFilterComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$BitesTableFilterComposer get biteId {
+    final $$BitesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.biteId,
+      referencedTable: $db.bites,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BitesTableFilterComposer(
+            $db: $db,
+            $table: $db.bites,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BookmarksTableOrderingComposer
+    extends Composer<_$AppDatabase, $BookmarksTable> {
+  $$BookmarksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get sourceOffset => $composableBuilder(
+    column: $table.sourceOffset,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$BooksTableOrderingComposer get bookId {
+    final $$BooksTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableOrderingComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$BitesTableOrderingComposer get biteId {
+    final $$BitesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.biteId,
+      referencedTable: $db.bites,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BitesTableOrderingComposer(
+            $db: $db,
+            $table: $db.bites,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BookmarksTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BookmarksTable> {
+  $$BookmarksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get sourceOffset => $composableBuilder(
+    column: $table.sourceOffset,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$BooksTableAnnotationComposer get bookId {
+    final $$BooksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$BitesTableAnnotationComposer get biteId {
+    final $$BitesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.biteId,
+      referencedTable: $db.bites,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BitesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.bites,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BookmarksTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $BookmarksTable,
+          Bookmark,
+          $$BookmarksTableFilterComposer,
+          $$BookmarksTableOrderingComposer,
+          $$BookmarksTableAnnotationComposer,
+          $$BookmarksTableCreateCompanionBuilder,
+          $$BookmarksTableUpdateCompanionBuilder,
+          (Bookmark, $$BookmarksTableReferences),
+          Bookmark,
+          PrefetchHooks Function({bool bookId, bool biteId})
+        > {
+  $$BookmarksTableTableManager(_$AppDatabase db, $BookmarksTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BookmarksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BookmarksTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BookmarksTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> bookId = const Value.absent(),
+                Value<String> biteId = const Value.absent(),
+                Value<int> sourceOffset = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BookmarksCompanion(
+                bookId: bookId,
+                biteId: biteId,
+                sourceOffset: sourceOffset,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String bookId,
+                required String biteId,
+                required int sourceOffset,
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => BookmarksCompanion.insert(
+                bookId: bookId,
+                biteId: biteId,
+                sourceOffset: sourceOffset,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$BookmarksTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({bookId = false, biteId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (bookId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.bookId,
+                                referencedTable: $$BookmarksTableReferences
+                                    ._bookIdTable(db),
+                                referencedColumn: $$BookmarksTableReferences
+                                    ._bookIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+                    if (biteId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.biteId,
+                                referencedTable: $$BookmarksTableReferences
+                                    ._biteIdTable(db),
+                                referencedColumn: $$BookmarksTableReferences
+                                    ._biteIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$BookmarksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $BookmarksTable,
+      Bookmark,
+      $$BookmarksTableFilterComposer,
+      $$BookmarksTableOrderingComposer,
+      $$BookmarksTableAnnotationComposer,
+      $$BookmarksTableCreateCompanionBuilder,
+      $$BookmarksTableUpdateCompanionBuilder,
+      (Bookmark, $$BookmarksTableReferences),
+      Bookmark,
       PrefetchHooks Function({bool bookId, bool biteId})
     >;
 typedef $$ReaderNotesTableCreateCompanionBuilder =
@@ -12507,6 +13414,8 @@ class $AppDatabaseManager {
       $$BitesTableTableManager(_db, _db.bites);
   $$ReadingProgressTableTableManager get readingProgress =>
       $$ReadingProgressTableTableManager(_db, _db.readingProgress);
+  $$BookmarksTableTableManager get bookmarks =>
+      $$BookmarksTableTableManager(_db, _db.bookmarks);
   $$ReaderNotesTableTableManager get readerNotes =>
       $$ReaderNotesTableTableManager(_db, _db.readerNotes);
   $$DictionarySourcesTableTableManager get dictionarySources =>

@@ -70,6 +70,18 @@ class ReadingProgress extends Table {
   Set<Column> get primaryKey => {bookId};
 }
 
+class Bookmarks extends Table {
+  TextColumn get bookId =>
+      text().references(Books, #id, onDelete: KeyAction.cascade)();
+  TextColumn get biteId =>
+      text().references(Bites, #id, onDelete: KeyAction.cascade)();
+  IntColumn get sourceOffset => integer()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {bookId, biteId, sourceOffset};
+}
+
 class ReaderNotes extends Table {
   TextColumn get id => text()();
   TextColumn get bookId =>
@@ -244,6 +256,7 @@ class StoredBite {
     Sections,
     Bites,
     ReadingProgress,
+    Bookmarks,
     ReaderNotes,
     VocabularyEntries,
     DictionarySources,
@@ -258,7 +271,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -270,6 +283,10 @@ class AppDatabase extends _$AppDatabase {
       );
       await customStatement(
         'CREATE INDEX notes_book_bite ON reader_notes (book_id, bite_id)',
+      );
+      await customStatement(
+        'CREATE INDEX bookmarks_book_location '
+        'ON bookmarks (book_id, bite_id, source_offset)',
       );
       await customStatement(
         'CREATE INDEX vocabulary_book_word '
@@ -345,6 +362,13 @@ class AppDatabase extends _$AppDatabase {
         await migrator.addColumn(bites, bites.assetPath);
         await migrator.addColumn(bites, bites.altText);
         await migrator.addColumn(bites, bites.caption);
+      }
+      if (from < 6) {
+        await migrator.createTable(bookmarks);
+        await customStatement(
+          'CREATE INDEX bookmarks_book_location '
+          'ON bookmarks (book_id, bite_id, source_offset)',
+        );
       }
     },
     beforeOpen: (_) => customStatement('PRAGMA foreign_keys = ON'),
@@ -463,6 +487,56 @@ class AppDatabase extends _$AppDatabase {
   Future<ReadingProgressData?> progressFor(String bookId) => (select(
     readingProgress,
   )..where((row) => row.bookId.equals(bookId))).getSingleOrNull();
+
+  Future<void> addBookmark({
+    required String bookId,
+    required String biteId,
+    required int sourceOffset,
+    required DateTime now,
+  }) => into(bookmarks).insert(
+    BookmarksCompanion.insert(
+      bookId: bookId,
+      biteId: biteId,
+      sourceOffset: sourceOffset,
+      createdAt: now,
+    ),
+    mode: InsertMode.insertOrIgnore,
+  );
+
+  Future<void> removeBookmark(String bookId, String biteId, int sourceOffset) =>
+      (delete(bookmarks)..where(
+            (row) =>
+                row.bookId.equals(bookId) &
+                row.biteId.equals(biteId) &
+                row.sourceOffset.equals(sourceOffset),
+          ))
+          .go();
+
+  Future<bool> isBookmarked(
+    String bookId,
+    String biteId,
+    int sourceOffset,
+  ) async =>
+      await (select(bookmarks)..where(
+            (row) =>
+                row.bookId.equals(bookId) &
+                row.biteId.equals(biteId) &
+                row.sourceOffset.equals(sourceOffset),
+          ))
+          .getSingleOrNull() !=
+      null;
+
+  Future<List<Bookmark>> bookmarksForBook(String bookId) =>
+      (select(bookmarks)
+            ..where((row) => row.bookId.equals(bookId))
+            ..orderBy([(row) => OrderingTerm.desc(row.createdAt)]))
+          .get();
+
+  Future<List<Section>> sectionsForBook(String bookId) =>
+      (select(sections)
+            ..where((row) => row.bookId.equals(bookId))
+            ..orderBy([(row) => OrderingTerm.asc(row.position)]))
+          .get();
 
   Future<void> saveNote({
     required String id,

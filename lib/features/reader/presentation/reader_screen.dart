@@ -11,12 +11,12 @@ import '../../../core/database/app_database.dart';
 import '../../dictionary/data/bundled_dictionary.dart';
 import '../../dictionary/domain/dictionary_repository.dart';
 import '../../dictionary/presentation/dictionary_panel.dart';
-import '../../notes/presentation/notes_panel.dart';
 import '../domain/highlight_anchor.dart';
 import 'bite_paginator.dart';
 import 'reader_navigation.dart';
+import 'reader_panel.dart';
 
-enum _OpenPanel { notes, dictionary }
+enum _OpenPanel { reader, dictionary }
 
 class ReaderScreen extends StatefulWidget {
   const ReaderScreen({
@@ -57,6 +57,8 @@ class _ReaderScreenState extends State<ReaderScreen>
   var _ignoreHorizontalDrag = false;
   var _selectionActive = false;
   _OpenPanel? _dragPreview;
+  var _readerTab = ReaderPanelTab.contents;
+  var _bookmarked = false;
   var _fontSize = 20.0;
   var _lineHeight = 1.6;
   var _readingWidth = 680.0;
@@ -122,6 +124,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       });
       _focusNode.requestFocus();
       _resetFocusTimer();
+      _refreshBookmark();
     }
   }
 
@@ -160,6 +163,11 @@ class _ReaderScreenState extends State<ReaderScreen>
       _panel = panel;
     });
     _feedback();
+  }
+
+  void _openReaderPanel(ReaderPanelTab tab) {
+    _readerTab = tab;
+    _openPanel(_OpenPanel.reader);
   }
 
   void _closePanel() {
@@ -215,6 +223,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       page.bite.position,
       _sourceOffset,
     );
+    await _refreshBookmark();
     await _feedback();
     _resetFocusTimer();
   }
@@ -226,7 +235,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       case ReaderAction.next:
         _move(1);
       case ReaderAction.notes:
-        _openPanel(_OpenPanel.notes);
+        _openReaderPanel(ReaderPanelTab.notes);
       case ReaderAction.dictionary:
         _openPanel(_OpenPanel.dictionary);
       case ReaderAction.toggleControls:
@@ -240,6 +249,71 @@ class _ReaderScreenState extends State<ReaderScreen>
       case null:
         break;
     }
+  }
+
+  Future<void> _refreshBookmark() async {
+    final page = _currentPage;
+    if (page == null) return;
+    final bookmarked = await widget.database.isBookmarked(
+      widget.book.id,
+      page.bite.id,
+      page.startOffset,
+    );
+    if (mounted) setState(() => _bookmarked = bookmarked);
+  }
+
+  Future<void> _toggleBookmark() async {
+    final page = _currentPage;
+    if (page == null) return;
+    if (_bookmarked) {
+      await widget.database.removeBookmark(
+        widget.book.id,
+        page.bite.id,
+        page.startOffset,
+      );
+    } else {
+      await widget.database.addBookmark(
+        bookId: widget.book.id,
+        biteId: page.bite.id,
+        sourceOffset: page.startOffset,
+        now: DateTime.now().toUtc(),
+      );
+    }
+    await _refreshBookmark();
+    await _feedback();
+  }
+
+  Future<void> _jumpTo(ReaderLocation location) async {
+    final page = _pages.indexWhere(
+      (page) =>
+          page.bite.id == location.biteId &&
+          location.sourceOffset >= page.startOffset &&
+          (location.sourceOffset < page.endOffset ||
+              page.endOffset == page.bite.content.length),
+    );
+    if (page < 0) return;
+    _closePanel();
+    await _pageController?.animateToPage(
+      page,
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+    );
+    final target = _pages[page];
+    setState(() {
+      _index = page;
+      _anchorBiteId = target.bite.id;
+      _sourceOffset = location.sourceOffset;
+      _recentWord = _firstWord(target.text);
+    });
+    await widget.database.saveProgress(
+      widget.book.id,
+      target.bite.id,
+      target.bite.position,
+      location.sourceOffset,
+    );
+    await _refreshBookmark();
   }
 
   Map<ShortcutActivator, VoidCallback> _shortcuts() {
@@ -417,12 +491,14 @@ class _ReaderScreenState extends State<ReaderScreen>
     Widget? panelFor(_OpenPanel? selection) => bite == null
         ? null
         : switch (selection) {
-            _OpenPanel.notes => NotesPanel(
+            _OpenPanel.reader => ReaderPanel(
               database: widget.database,
               book: widget.book,
-              bite: bite,
+              bites: _bites,
+              currentBite: bite,
+              initialTab: _readerTab,
+              onNavigate: _jumpTo,
               onClose: _closePanel,
-              onSaved: _feedback,
             ),
             _OpenPanel.dictionary => DictionaryPanel(
               database: widget.database,
@@ -482,10 +558,38 @@ class _ReaderScreenState extends State<ReaderScreen>
                       : const Duration(milliseconds: 180),
                   child: IgnorePointer(
                     ignoring: !_chromeVisible,
-                    child: IconButton(
-                      tooltip: 'Reader settings',
-                      onPressed: _showSettings,
-                      icon: const Icon(Icons.text_fields),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: 'Contents',
+                          onPressed: () =>
+                              _openReaderPanel(ReaderPanelTab.contents),
+                          icon: const Icon(Icons.list_alt),
+                        ),
+                        IconButton(
+                          tooltip: 'Search book',
+                          onPressed: () =>
+                              _openReaderPanel(ReaderPanelTab.search),
+                          icon: const Icon(Icons.search),
+                        ),
+                        IconButton(
+                          tooltip: _bookmarked
+                              ? 'Remove bookmark'
+                              : 'Add bookmark',
+                          onPressed: bite == null ? null : _toggleBookmark,
+                          icon: Icon(
+                            _bookmarked
+                                ? Icons.bookmark
+                                : Icons.bookmark_border,
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Reader settings',
+                          onPressed: _showSettings,
+                          icon: const Icon(Icons.text_fields),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -531,7 +635,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                               setState(() {
                                 _horizontalOffset += event.delta.dx;
                                 _dragPreview = _horizontalOffset < 0
-                                    ? _OpenPanel.notes
+                                    ? _OpenPanel.reader
                                     : _OpenPanel.dictionary;
                               });
                               _resetFocusTimer();
@@ -720,7 +824,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                   0,
                   1,
                 );
-                final translation = previewSelection == _OpenPanel.notes
+                final translation = previewSelection == _OpenPanel.reader
                     ? panelWidth * (1 - revealed)
                     : -panelWidth * (1 - revealed);
                 return Stack(
@@ -731,7 +835,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                       top: wide ? 0 : constraints.maxHeight * 0.25,
                       bottom: 0,
                       width: panelWidth,
-                      right: previewSelection == _OpenPanel.notes ? 0 : null,
+                      right: previewSelection == _OpenPanel.reader ? 0 : null,
                       left: previewSelection == _OpenPanel.dictionary
                           ? 0
                           : null,
