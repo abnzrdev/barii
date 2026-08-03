@@ -40,8 +40,36 @@ offset. Preference and theme writes share one serialized future chain.
 
 ## Physical-device evidence
 
-Pending: the requested Samsung `SM_M145F` (`R9ZX30B0CHB`) did not appear in
-`adb devices -l` or USB enumeration during this review. No physical-device
-timing or no-ANR claim is recorded until the device is visible and the profile
-scenario is rerun for at least 20 seconds.
+The repaired reader was profiled on the requested Samsung `SM_M145F`
+(`R9ZX30B0CHB`, Android 15, 1080 × 2400) with Flutter's VM timeline and frame
+performance capture. The test continuously dragged all four layout sliders for
+20.48 seconds, changed themes repeatedly, rotated the settings layout to
+landscape and back, then verified the stable bite/source offset and persisted
+settings after reopening the reader.
 
+The profile run completed in 1 minute 57 seconds with 2,867 measured frames.
+Average/90th/99th-percentile UI build times were 0.808/0.933/6.460 ms; the worst
+was 45.708 ms and 15 frames missed the build budget. Average/90th/99th-percentile
+raster times were 11.227/15.382/19.163 ms; the worst was 24.613 ms and 216
+frames missed the raster budget. The timeline contains `Reader.paginateBite`
+events, confirming that the expensive method remained observable while the
+debounce/cancellation path prevented it from running on every drag tick.
+
+`adb logcat` recorded no ANR, input-dispatch timeout, crash, or BookBites
+skipped-frame warning during the sustained interaction interval. Startup did
+show skipped frames before the activity was displayed; that is outside this
+settings repair and remains a candidate for the later comparison benchmark.
+
+Capture command:
+
+```sh
+flutter drive --profile --no-start-paused --no-dds \
+  --dart-define=BOOKBITES_SETTINGS_PROFILE_ONLY=true \
+  --driver=test_driver/integration_test.dart \
+  --target=integration_test/reader_android_test.dart \
+  -d R9ZX30B0CHB
+```
+
+The generated DevTools-compatible timeline and frame report is
+`build/integration_response_data.json`; it is a local build artifact and is not
+committed.
