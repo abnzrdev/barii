@@ -41,6 +41,30 @@ void main() {
       content.substring(restored.startOffset, restored.endOffset),
     );
   });
+
+  test('overflow pages do not strand a one-line tail', () {
+    final content = List.generate(42, (index) => 'word$index').join(' ');
+    final pages = paginateBites(
+      bites: [_bite(content)],
+      width: 240,
+      height: 120,
+      style: const TextStyle(fontSize: 20, height: 1.4),
+      textAlign: TextAlign.start,
+      textDirection: TextDirection.ltr,
+      textScaler: TextScaler.noScaling,
+    );
+
+    expect(pages.length, greaterThan(1));
+    expect(pages.map((page) => page.text).join(), content);
+    final tail = TextPainter(
+      text: TextSpan(
+        text: pages.last.text,
+        style: const TextStyle(fontSize: 20, height: 1.4),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: 240);
+    expect(tail.computeLineMetrics(), hasLength(greaterThan(1)));
+  });
 }
 
 List<DisplayPage> _pages(Bite bite, double width) => paginateBites(

@@ -293,6 +293,33 @@ void main() {
     expect(find.text('Offline dictionary'), findsNothing);
   });
 
+  testWidgets('cancelled and diagonal drags clear panel previews immediately', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReaderScreen(database: database, book: book),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final center = tester.getCenter(find.byType(PageView));
+    final cancelled = await tester.startGesture(center);
+    await cancelled.moveBy(const Offset(-120, 0));
+    await tester.pump();
+    expect(find.text('Notes for this bite'), findsOneWidget);
+    await cancelled.cancel();
+    await tester.pump();
+    expect(find.text('Notes for this bite'), findsNothing);
+
+    final diagonal = await tester.startGesture(center);
+    await diagonal.moveBy(const Offset(-90, -80));
+    await diagonal.up();
+    await tester.pump();
+    expect(find.text('Notes for this bite'), findsNothing);
+    expect(find.text('Offline dictionary'), findsNothing);
+  });
+
   testWidgets('Android Back closes an open panel before the reader', (
     tester,
   ) async {

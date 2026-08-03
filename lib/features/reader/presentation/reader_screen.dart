@@ -45,7 +45,6 @@ class _ReaderScreenState extends State<ReaderScreen>
   final _focusNode = FocusNode();
   PageController? _pageController;
   Timer? _focusTimer;
-  Timer? _panelReturnTimer;
   List<Bite> _bites = const [];
   List<DisplayPage> _pages = const [];
   var _index = 0;
@@ -408,7 +407,6 @@ class _ReaderScreenState extends State<ReaderScreen>
     WidgetsBinding.instance.removeObserver(this);
     _pageController?.dispose();
     _focusTimer?.cancel();
-    _panelReturnTimer?.cancel();
     _focusNode.dispose();
     super.dispose();
   }
@@ -549,25 +547,16 @@ class _ReaderScreenState extends State<ReaderScreen>
                               var action = readerActionForDrag(_drag);
                               setState(() {
                                 _horizontalOffset = 0;
-                                if (action != null) _dragPreview = null;
+                                _dragPreview = null;
                               });
-                              if (action == null) {
-                                _panelReturnTimer?.cancel();
-                                _panelReturnTimer = Timer(
-                                  const Duration(milliseconds: 180),
-                                  () {
-                                    if (mounted) {
-                                      setState(() => _dragPreview = null);
-                                    }
-                                  },
-                                );
-                              }
                               _perform(action);
                             },
                             onPointerCancel: (_) {
-                              _drag = Offset.zero;
-                              _horizontalOffset = 0;
-                              _dragPreview = null;
+                              setState(() {
+                                _drag = Offset.zero;
+                                _horizontalOffset = 0;
+                                _dragPreview = null;
+                              });
                             },
                             child: _pageController == null
                                 ? const Center(
