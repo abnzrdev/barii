@@ -376,8 +376,11 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      MaterialApp(
-        home: ReaderScreen(database: database, book: book),
+      MediaQuery(
+        data: const MediaQueryData(disableAnimations: true),
+        child: MaterialApp(
+          home: ReaderScreen(database: database, book: book),
+        ),
       ),
     );
     await tester.pumpAndSettle();

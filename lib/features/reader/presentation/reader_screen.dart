@@ -298,13 +298,15 @@ class _ReaderScreenState extends State<ReaderScreen>
     );
     if (page < 0) return;
     _closePanel();
-    await _pageController?.animateToPage(
-      page,
-      duration: MediaQuery.disableAnimationsOf(context)
-          ? Duration.zero
-          : const Duration(milliseconds: 240),
-      curve: Curves.easeOutCubic,
-    );
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _pageController?.jumpToPage(page);
+    } else {
+      await _pageController?.animateToPage(
+        page,
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+      );
+    }
     final target = _pages[page];
     setState(() {
       _index = page;
