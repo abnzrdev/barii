@@ -65,6 +65,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   var _pageMargin = 24.0;
   var _autoHideControls = true;
   var _hapticsEnabled = true;
+  var _showProgress = false;
   var _chromeVisible = true;
   var _alignment = TextAlign.start;
   String _recentWord = 'book';
@@ -115,6 +116,7 @@ class _ReaderScreenState extends State<ReaderScreen>
         _pageMargin = preferences.pageMargin;
         _autoHideControls = preferences.autoHideControls;
         _hapticsEnabled = preferences.hapticsEnabled;
+        _showProgress = preferences.showProgress;
         _alignment = switch (preferences.alignment) {
           'center' => TextAlign.center,
           'justify' => TextAlign.justify,
@@ -456,6 +458,15 @@ class _ReaderScreenState extends State<ReaderScreen>
                   setSheetState(() {});
                 },
               ),
+              SwitchListTile(
+                title: const Text('Subtle progress'),
+                subtitle: const Text('Shown only with reader controls'),
+                value: _showProgress,
+                onChanged: (value) {
+                  setState(() => _showProgress = value);
+                  setSheetState(() {});
+                },
+              ),
             ],
           ),
         ),
@@ -492,6 +503,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       pageMargin: _pageMargin,
       autoHideControls: _autoHideControls,
       hapticsEnabled: _hapticsEnabled,
+      showProgress: _showProgress,
     );
     _resetFocusTimer();
   }
@@ -620,6 +632,14 @@ class _ReaderScreenState extends State<ReaderScreen>
                 final wide = constraints.maxWidth >= 900;
                 final reader = Column(
                   children: [
+                    if (_showProgress && _chromeVisible)
+                      LinearProgressIndicator(
+                        value: _pages.length < 2
+                            ? 0
+                            : _index / (_pages.length - 1),
+                        minHeight: 2,
+                        backgroundColor: Colors.transparent,
+                      ),
                     Expanded(
                       child: LayoutBuilder(
                         builder: (context, viewport) {

@@ -82,6 +82,7 @@ void main() {
     expect(preferences.pageMargin, 32);
     expect(preferences.autoHideControls, isFalse);
     expect(preferences.hapticsEnabled, isFalse);
+    expect(preferences.showProgress, isFalse);
   });
 
   test('persists dictionary source state and priority', () async {

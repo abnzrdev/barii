@@ -211,6 +211,7 @@ class ReaderPreferences extends Table {
       boolean().withDefault(const Constant(true))();
   BoolColumn get hapticsEnabled =>
       boolean().withDefault(const Constant(true))();
+  BoolColumn get showProgress => boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -271,7 +272,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -368,6 +369,12 @@ class AppDatabase extends _$AppDatabase {
         await customStatement(
           'CREATE INDEX bookmarks_book_location '
           'ON bookmarks (book_id, bite_id, source_offset)',
+        );
+      }
+      if (from < 7) {
+        await migrator.addColumn(
+          readerPreferences,
+          readerPreferences.showProgress,
         );
       }
     },
@@ -819,6 +826,7 @@ class AppDatabase extends _$AppDatabase {
     required double pageMargin,
     required bool autoHideControls,
     required bool hapticsEnabled,
+    bool showProgress = false,
   }) async {
     await ensurePreferences();
     await update(readerPreferences).write(
@@ -830,6 +838,7 @@ class AppDatabase extends _$AppDatabase {
         pageMargin: Value(pageMargin),
         autoHideControls: Value(autoHideControls),
         hapticsEnabled: Value(hapticsEnabled),
+        showProgress: Value(showProgress),
       ),
     );
   }

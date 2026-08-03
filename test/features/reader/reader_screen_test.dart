@@ -328,6 +328,37 @@ void main() {
     );
   });
 
+  testWidgets('optional progress appears only with visible controls', (
+    tester,
+  ) async {
+    await database.savePreferences(
+      fontSize: 20,
+      lineHeight: 1.6,
+      alignment: 'start',
+      readingWidth: 680,
+      pageMargin: 24,
+      autoHideControls: true,
+      hapticsEnabled: true,
+      showProgress: true,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReaderScreen(database: database, book: book),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final indicator = tester.widget<LinearProgressIndicator>(
+      find.byType(LinearProgressIndicator),
+    );
+    expect(indicator.minHeight, 2);
+    expect(find.textContaining('%'), findsNothing);
+
+    await tester.tap(find.byType(PageView));
+    await tester.pump();
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+  });
+
   testWidgets('horizontal swipes open panels but vertical diagonals do not', (
     tester,
   ) async {
