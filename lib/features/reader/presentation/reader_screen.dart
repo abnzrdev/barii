@@ -343,19 +343,17 @@ class _ReaderScreenState extends State<ReaderScreen>
     _focusTimer?.cancel();
     if (!_chromeVisible) setState(() => _chromeVisible = true);
     var selectedTheme = widget.themeMode;
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setSheetState) => SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Reader settings'),
-                SegmentedButton<ThemeMode>(
+    Widget settings(BuildContext context) => StatefulBuilder(
+      builder: (context, setSheetState) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Reader settings'),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SegmentedButton<ThemeMode>(
                   segments: const [
                     ButtonSegment(
                       value: ThemeMode.system,
@@ -372,55 +370,58 @@ class _ReaderScreenState extends State<ReaderScreen>
                     setSheetState(() {});
                   },
                 ),
-                Semantics(
-                  label: 'Font size',
-                  child: Slider(
-                    value: _fontSize,
-                    min: 16,
-                    max: 32,
-                    onChanged: (value) {
-                      setState(() => _fontSize = value);
-                      setSheetState(() {});
-                    },
-                  ),
+              ),
+              Semantics(
+                label: 'Font size',
+                child: Slider(
+                  value: _fontSize,
+                  min: 16,
+                  max: 32,
+                  onChanged: (value) {
+                    setState(() => _fontSize = value);
+                    setSheetState(() {});
+                  },
                 ),
-                Semantics(
-                  label: 'Line spacing',
-                  child: Slider(
-                    value: _lineHeight,
-                    min: 1.2,
-                    max: 2,
-                    onChanged: (value) {
-                      setState(() => _lineHeight = value);
-                      setSheetState(() {});
-                    },
-                  ),
+              ),
+              Semantics(
+                label: 'Line spacing',
+                child: Slider(
+                  value: _lineHeight,
+                  min: 1.2,
+                  max: 2,
+                  onChanged: (value) {
+                    setState(() => _lineHeight = value);
+                    setSheetState(() {});
+                  },
                 ),
-                Semantics(
-                  label: 'Reading width',
-                  child: Slider(
-                    value: _readingWidth,
-                    min: 420,
-                    max: 900,
-                    onChanged: (value) {
-                      setState(() => _readingWidth = value);
-                      setSheetState(() {});
-                    },
-                  ),
+              ),
+              Semantics(
+                label: 'Reading width',
+                child: Slider(
+                  value: _readingWidth,
+                  min: 420,
+                  max: 900,
+                  onChanged: (value) {
+                    setState(() => _readingWidth = value);
+                    setSheetState(() {});
+                  },
                 ),
-                Semantics(
-                  label: 'Horizontal page margin',
-                  child: Slider(
-                    value: _pageMargin,
-                    min: 12,
-                    max: 64,
-                    onChanged: (value) {
-                      setState(() => _pageMargin = value);
-                      setSheetState(() {});
-                    },
-                  ),
+              ),
+              Semantics(
+                label: 'Horizontal page margin',
+                child: Slider(
+                  value: _pageMargin,
+                  min: 12,
+                  max: 64,
+                  onChanged: (value) {
+                    setState(() => _pageMargin = value);
+                    setSheetState(() {});
+                  },
                 ),
-                SegmentedButton<TextAlign>(
+              ),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SegmentedButton<TextAlign>(
                   segments: const [
                     ButtonSegment(value: TextAlign.start, label: Text('Start')),
                     ButtonSegment(
@@ -438,28 +439,47 @@ class _ReaderScreenState extends State<ReaderScreen>
                     setSheetState(() {});
                   },
                 ),
-                SwitchListTile(
-                  title: const Text('Automatically hide reader controls'),
-                  value: _autoHideControls,
-                  onChanged: (value) {
-                    setState(() => _autoHideControls = value);
-                    setSheetState(() {});
-                  },
-                ),
-                SwitchListTile(
-                  title: const Text('Haptic feedback'),
-                  value: _hapticsEnabled,
-                  onChanged: (value) {
-                    setState(() => _hapticsEnabled = value);
-                    setSheetState(() {});
-                  },
-                ),
-              ],
-            ),
+              ),
+              SwitchListTile(
+                title: const Text('Automatically hide reader controls'),
+                value: _autoHideControls,
+                onChanged: (value) {
+                  setState(() => _autoHideControls = value);
+                  setSheetState(() {});
+                },
+              ),
+              SwitchListTile(
+                title: const Text('Haptic feedback'),
+                value: _hapticsEnabled,
+                onChanged: (value) {
+                  setState(() => _hapticsEnabled = value);
+                  setSheetState(() {});
+                },
+              ),
+            ],
           ),
         ),
       ),
     );
+    if (MediaQuery.sizeOf(context).width >= 700) {
+      await showDialog<void>(
+        context: context,
+        builder: (context) => Dialog(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560, maxHeight: 700),
+            child: settings(context),
+          ),
+        ),
+      );
+    } else {
+      await showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        isScrollControlled: true,
+        builder: (context) =>
+            FractionallySizedBox(heightFactor: 0.9, child: settings(context)),
+      );
+    }
     await widget.database.savePreferences(
       fontSize: _fontSize,
       lineHeight: _lineHeight,
