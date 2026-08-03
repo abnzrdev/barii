@@ -156,6 +156,62 @@ void main() {
     expect(find.text('https://example.com'), findsOneWidget);
   });
 
+  testWidgets('keeps EPUB presentation compact without dropping content', (
+    tester,
+  ) async {
+    await database.replaceContent(
+      'book',
+      sections: const [StoredSection(id: 'section', position: 0)],
+      bites: const [
+        StoredBite(
+          id: 'styled',
+          sectionId: 'section',
+          position: 0,
+          text: 'A Quiet Heading\n  • Nested item',
+          sourceStart: 0,
+          sourceEnd: 31,
+          markup:
+              '{"marks":[{"start":0,"end":15,"kind":"heading"},{"start":16,"end":31,"kind":"list"}],"anchors":{}}',
+        ),
+        StoredBite(
+          id: 'figure',
+          sectionId: 'section',
+          position: 1,
+          text: 'Diagram\nA calm caption',
+          sourceStart: 32,
+          sourceEnd: 54,
+          kind: 'figure',
+          assetPath: '/tmp/bookbites-missing.png',
+          altText: 'Diagram',
+          caption: 'A calm caption',
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReaderScreen(database: database, book: book),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final selectable = tester.widget<SelectableText>(
+      find.byType(SelectableText),
+    );
+    final root = selectable.textSpan!;
+    final heading = root.children!.whereType<TextSpan>().first;
+    expect(
+      heading.style!.fontSize!,
+      lessThanOrEqualTo(root.style!.fontSize! * 1.1),
+    );
+    expect(root.toPlainText(), contains('A Quiet Heading\n  • Nested item'));
+    expect(root.toPlainText().split('\n').last, startsWith('  • '));
+
+    await tester.tap(find.byTooltip('Next bite'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Image>(find.byType(Image)).fit, BoxFit.contain);
+    expect(find.text('A calm caption'), findsOneWidget);
+  });
+
   testWidgets('internal links jump to anchors and support back navigation', (
     tester,
   ) async {

@@ -1602,8 +1602,8 @@ class _BiteTextState extends State<_BiteText> {
     )) {
       final next = switch (mark.kind) {
         'heading' => TextStyle(
-          fontWeight: FontWeight.w700,
-          fontSize: (widget.style.fontSize ?? 20) * 1.25,
+          fontWeight: FontWeight.w600,
+          fontSize: widget.style.fontSize,
         ),
         'bold' => const TextStyle(fontWeight: FontWeight.bold),
         'italic' => const TextStyle(fontStyle: FontStyle.italic),
