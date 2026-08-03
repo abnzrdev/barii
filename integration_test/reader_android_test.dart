@@ -270,7 +270,7 @@ void main() {
     );
     expect(await database.highlightsForBite('linked'), hasLength(1));
 
-    await tester.drag(find.byType(PageView), const Offset(-300, 0));
+    await tester.tap(find.byTooltip('Notes'));
     await tester.pumpAndSettle();
     expect(find.text('Notes for this bite'), findsOneWidget);
     await tester.enterText(find.byType(TextField).last, 'Phone note');
@@ -280,7 +280,7 @@ void main() {
     await tester.tap(find.byTooltip('Close notes'));
     await tester.pumpAndSettle();
 
-    await tester.drag(find.byType(PageView), const Offset(300, 0));
+    await tester.tap(find.byTooltip('Dictionary'));
     await tester.pumpAndSettle();
     expect(find.text('Offline dictionary'), findsOneWidget);
     await tester.tap(find.byTooltip('Close dictionary'));
