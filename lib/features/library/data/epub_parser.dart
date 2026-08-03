@@ -112,6 +112,7 @@ class EpubParser {
               index: sections.length,
               heading: parsed.heading ?? titlesByFile[source.name],
               paragraphs: parsed.blocks
+                  .where((block) => block.kind != 'heading')
                   .map(
                     (block) => block.kind == 'list'
                         ? block.text?.replaceFirst(RegExp(r'^\s*•\s*'), '')
@@ -155,7 +156,6 @@ class EpubParser {
     final heading = _clean(
       document.querySelector('h1, h2, h3, h4, h5, h6')?.text,
     );
-    final firstHeading = document.querySelector('h1, h2, h3, h4, h5, h6');
     final blocks = <SourceBlock>[];
     final assets = <String, ParsedAsset>{};
     var inlineSvg = 0;
@@ -168,7 +168,6 @@ class EpubParser {
         continue;
       }
       if (_isTextBlock(element)) {
-        if (identical(element, firstHeading)) continue;
         if (element.querySelector('p, li, blockquote, aside') != null) continue;
         final block = _richBlock(element, fileName);
         if (block != null) blocks.add(block);
@@ -235,7 +234,7 @@ class EpubParser {
       RegExp(r'^h[1-6]$').hasMatch(element.localName ?? '');
 
   static SourceBlock? _richBlock(Element element, String fileName) {
-    var text = _clean(element.text);
+    var text = _clean(_textWithoutNestedLists(element));
     if (text == null) return null;
     var prefix = '';
     final listItem = element.localName == 'li'
@@ -250,7 +249,19 @@ class EpubParser {
       ) {
         if (parent.localName == 'ul' || parent.localName == 'ol') depth++;
       }
-      prefix = '${List.filled((depth - 1).clamp(0, 8), '  ').join()}• ';
+      final indentation = List.filled((depth - 1).clamp(0, 8), '  ').join();
+      final parent = listItem.parent;
+      if (parent?.localName == 'ol') {
+        final number =
+            parent!.children
+                .where((child) => child.localName == 'li')
+                .toList()
+                .indexOf(listItem) +
+            1;
+        prefix = '$indentation$number. ';
+      } else {
+        prefix = '$indentation• ';
+      }
       text = '$prefix$text';
     }
     final marks = <SourceMark>[];
@@ -291,6 +302,27 @@ class EpubParser {
       marks: marks,
       anchor: id == null ? null : '$fileName#$id',
     );
+  }
+
+  static String _textWithoutNestedLists(Element element) {
+    final parts = <String>[];
+    void collect(Node node) {
+      if (node is Text) {
+        parts.add(node.data);
+        return;
+      }
+      if (node is! Element) return;
+      if (!identical(node, element) &&
+          (node.localName == 'ol' || node.localName == 'ul')) {
+        return;
+      }
+      for (final child in node.nodes) {
+        collect(child);
+      }
+    }
+
+    collect(element);
+    return parts.join(' ');
   }
 
   static Element? _ancestor(Element element, String name) {

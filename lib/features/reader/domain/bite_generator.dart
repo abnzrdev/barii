@@ -102,6 +102,9 @@ class BiteGenerator {
           ? section.paragraphs.map(SourceBlock.text).toList()
           : section.blocks;
       final heading = section.heading?.trim();
+      final prependHeading = !blocks.any(
+        (block) => block.kind == 'heading' && block.text?.trim() == heading,
+      );
       final units = <_Unit>[];
       var sourceOffset = 0;
       var firstInSection = true;
@@ -109,13 +112,20 @@ class BiteGenerator {
       void flush() {
         if (units.isEmpty) return;
         final body = units.map((unit) => unit.text).join('\n\n');
-        final text = firstInSection && heading != null && heading.isNotEmpty
+        final text =
+            firstInSection &&
+                prependHeading &&
+                heading != null &&
+                heading.isNotEmpty
             ? '$heading\n\n$body'
             : body;
         final marks = <SourceMark>[];
         final anchors = <String, int>{};
         var outputOffset = 0;
-        if (firstInSection && heading != null && heading.isNotEmpty) {
+        if (firstInSection &&
+            prependHeading &&
+            heading != null &&
+            heading.isNotEmpty) {
           marks.add(SourceMark(start: 0, end: heading.length, kind: 'heading'));
           outputOffset = heading.length + 2;
         }
@@ -185,7 +195,13 @@ class BiteGenerator {
           continue;
         }
 
-        final paragraph = block.text?.replaceAll(RegExp(r'\s+'), ' ').trim();
+        final raw = block.text;
+        final indentation = block.kind == 'list' && raw != null
+            ? RegExp(r'^ *').firstMatch(raw)?.group(0) ?? ''
+            : '';
+        final paragraph = raw == null
+            ? null
+            : '$indentation${raw.substring(indentation.length).replaceAll(RegExp(r'\s+'), ' ').trim()}';
         if (paragraph == null || paragraph.isEmpty) continue;
         final paragraphUnits = <_Unit>[];
         var part = <String>[];
@@ -194,7 +210,10 @@ class BiteGenerator {
         var partWords = 0;
         var partStart = sourceOffset;
         for (final match in _sentenceMatches(paragraph)) {
-          final sentence = match.group(0)!.trim();
+          final trimmedSentence = match.group(0)!.trim();
+          final sentence = match.start == 0
+              ? '$indentation$trimmedSentence'
+              : trimmedSentence;
           final sentenceWords = _wordCount(sentence);
           if (part.isNotEmpty && partWords + sentenceWords > maxWords) {
             final value = part.join(' ');
@@ -212,8 +231,9 @@ class BiteGenerator {
             partWords = 0;
             partStart = sourceOffset;
           }
-          final sentenceStart =
-              match.start + match.group(0)!.indexOf(RegExp(r'\S'));
+          final sentenceStart = match.start == 0 && indentation.isNotEmpty
+              ? 0
+              : match.start + match.group(0)!.indexOf(RegExp(r'\S'));
           final sentenceEnd = sentenceStart + sentence.length;
           final outputStart = part.isEmpty ? 0 : part.join(' ').length + 1;
           for (final mark in block.marks) {

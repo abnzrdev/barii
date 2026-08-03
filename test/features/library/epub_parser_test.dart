@@ -1,4 +1,5 @@
 import 'package:bookbites/features/library/data/epub_parser.dart';
+import 'package:bookbites/features/reader/domain/bite_generator.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/epub_fixture.dart';
@@ -113,6 +114,15 @@ void main() {
     expect(blocks.any((block) => block.kind == 'blockquote'), isTrue);
     expect(blocks.where((block) => block.kind == 'list'), hasLength(2));
     expect(
+      blocks.where((block) => block.kind == 'list').map((block) => block.text),
+      ['1. Outer item', '  • Nested item'],
+    );
+    expect(
+      blocks.where((block) => block.text?.contains('Nested item') ?? false),
+      hasLength(1),
+    );
+    expect(blocks.first.text, 'Chapter One');
+    expect(
       blocks.expand((block) => block.marks).map((mark) => mark.kind),
       containsAll(['bold', 'italic', 'link']),
     );
@@ -127,4 +137,33 @@ void main() {
       contains('one.xhtml#footnote'),
     );
   });
+
+  test(
+    'canonical blocks round-trip through bites without loss or duplication',
+    () async {
+      final publication = await parser.parse(epubFixtureBytes(richText: true));
+      final section = publication.sections.first;
+      final canonical = section.blocks
+          .where((block) => !block.isFigure)
+          .map((block) => block.text!)
+          .join('\n\n');
+      final bites = const BiteGenerator(
+        targetWords: 6,
+        maxWords: 10,
+      ).generate(bookFingerprint: 'canonical', sections: [section]);
+      final recombined = bites.map((bite) => bite.text).join('\n\n');
+
+      expect(recombined, canonical);
+      expect('Nested item'.allMatches(recombined), hasLength(1));
+      expect(
+        recombined.indexOf('Outer item'),
+        lessThan(recombined.indexOf('Nested item')),
+      );
+      for (final bite in bites) {
+        final markup = bite.markup ?? '';
+        expect(markup, isNot(contains('"start":-')));
+        expect(bite.sourceStart, lessThanOrEqualTo(bite.sourceEnd));
+      }
+    },
+  );
 }
