@@ -3,9 +3,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/database/app_database.dart';
 import '../../dictionary/data/bundled_dictionary.dart';
@@ -59,6 +61,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   _OpenPanel? _dragPreview;
   var _readerTab = ReaderPanelTab.contents;
   var _bookmarked = false;
+  final _linkHistory = <ReaderLocation>[];
   var _fontSize = 20.0;
   var _lineHeight = 1.6;
   var _readingWidth = 680.0;
@@ -318,6 +321,52 @@ class _ReaderScreenState extends State<ReaderScreen>
     await _refreshBookmark();
   }
 
+  Future<void> _followLink(String href) async {
+    final uri = Uri.tryParse(href);
+    if (uri == null) return;
+    if (uri.scheme == 'http' || uri.scheme == 'https') {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Open external link?'),
+          content: Text(href),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Open'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed == true) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+      return;
+    }
+    for (final bite in _bites) {
+      final offset = _RichMetadata.parse(bite.markup).anchors[href];
+      if (offset == null) continue;
+      final current = _currentPage;
+      if (current != null) {
+        _linkHistory.add(ReaderLocation(current.bite.id, _sourceOffset));
+      }
+      await _jumpTo(ReaderLocation(bite.id, offset));
+      return;
+    }
+  }
+
+  Future<void> _backFromLink() async {
+    if (_linkHistory.isEmpty) {
+      await Navigator.maybePop(context);
+      return;
+    }
+    await _jumpTo(_linkHistory.removeLast());
+  }
+
   Map<ShortcutActivator, VoidCallback> _shortcuts() {
     final bindings = <ShortcutActivator, VoidCallback>{
       const SingleActivator(LogicalKeyboardKey.escape): () =>
@@ -548,9 +597,14 @@ class _ReaderScreenState extends State<ReaderScreen>
       context,
     ).textTheme.bodyLarge?.copyWith(fontSize: _fontSize, height: _lineHeight);
     return PopScope(
-      canPop: _panel == null,
+      canPop: _panel == null && _linkHistory.isEmpty,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _closePanel();
+        if (didPop) return;
+        if (_panel != null) {
+          _closePanel();
+        } else {
+          _backFromLink();
+        }
       },
       child: CallbackShortcuts(
         bindings: _shortcuts(),
@@ -567,9 +621,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                     : const Duration(milliseconds: 180),
                 child: IgnorePointer(
                   ignoring: !_chromeVisible,
-                  child: BackButton(
-                    onPressed: () => Navigator.maybePop(context),
-                  ),
+                  child: BackButton(onPressed: _backFromLink),
                 ),
               ),
               title: AnimatedOpacity(
@@ -776,6 +828,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                                                                   _selectionActive =
                                                                       active;
                                                                 },
+                                                            onLink: _followLink,
                                                           ),
                                                   ),
                                                 ),
@@ -1039,6 +1092,7 @@ class _BiteText extends StatefulWidget {
     required this.alignment,
     required this.onWord,
     required this.onSelectionChanged,
+    required this.onLink,
   });
 
   final AppDatabase database;
@@ -1050,6 +1104,7 @@ class _BiteText extends StatefulWidget {
   final TextAlign alignment;
   final ValueChanged<String> onWord;
   final ValueChanged<bool> onSelectionChanged;
+  final ValueChanged<String> onLink;
 
   @override
   State<_BiteText> createState() => _BiteTextState();
@@ -1057,6 +1112,7 @@ class _BiteText extends StatefulWidget {
 
 class _BiteTextState extends State<_BiteText> {
   List<Highlight> _highlights = const [];
+  final _linkRecognizers = <TapGestureRecognizer>[];
 
   @override
   void initState() {
@@ -1087,6 +1143,14 @@ class _BiteTextState extends State<_BiteText> {
       }
     }
     if (mounted) setState(() => _highlights = highlights);
+  }
+
+  @override
+  void dispose() {
+    for (final recognizer in _linkRecognizers) {
+      recognizer.dispose();
+    }
+    super.dispose();
   }
 
   TextSelection? _selection(EditableTextState state) {
@@ -1222,6 +1286,11 @@ class _BiteTextState extends State<_BiteText> {
 
   List<TextSpan> _spans() {
     final content = widget.bite.content;
+    for (final recognizer in _linkRecognizers) {
+      recognizer.dispose();
+    }
+    _linkRecognizers.clear();
+    final metadata = _RichMetadata.parse(widget.bite.markup);
     final anchored =
         _highlights
             .map(
@@ -1239,31 +1308,89 @@ class _BiteTextState extends State<_BiteText> {
             .where((item) => item.range != null)
             .toList()
           ..sort((a, b) => a.range!.start.compareTo(b.range!.start));
-    final spans = <TextSpan>[];
-    var offset = widget.startOffset;
+    final boundaries = <int>{widget.startOffset, widget.endOffset};
+    for (final mark in metadata.marks) {
+      if (mark.end > widget.startOffset && mark.start < widget.endOffset) {
+        boundaries
+          ..add(mark.start.clamp(widget.startOffset, widget.endOffset))
+          ..add(mark.end.clamp(widget.startOffset, widget.endOffset));
+      }
+    }
     for (final item in anchored) {
       final range = item.range!;
-      if (range.end <= widget.startOffset || range.start >= widget.endOffset) {
-        continue;
+      if (range.end > widget.startOffset && range.start < widget.endOffset) {
+        boundaries
+          ..add(range.start.clamp(widget.startOffset, widget.endOffset))
+          ..add(range.end.clamp(widget.startOffset, widget.endOffset));
       }
-      final start = range.start.clamp(widget.startOffset, widget.endOffset);
-      final end = range.end.clamp(widget.startOffset, widget.endOffset);
-      if (end <= offset) continue;
-      if (start > offset) {
-        spans.add(TextSpan(text: content.substring(offset, start)));
-      }
-      spans.add(
-        TextSpan(
-          text: content.substring(start, end),
-          style: _highlightStyle(item.highlight),
+    }
+    final points = boundaries.toList()..sort();
+    return [
+      for (var index = 0; index < points.length - 1; index++)
+        _richSpan(
+          content,
+          points[index],
+          points[index + 1],
+          metadata,
+          anchored,
         ),
-      );
-      offset = end;
+    ];
+  }
+
+  TextSpan _richSpan(
+    String content,
+    int start,
+    int end,
+    _RichMetadata metadata,
+    List<({Highlight highlight, ({int start, int end})? range})> highlights,
+  ) {
+    TextStyle? style;
+    String? href;
+    for (final mark in metadata.marks.where(
+      (mark) => mark.start <= start && mark.end >= end,
+    )) {
+      final next = switch (mark.kind) {
+        'heading' => TextStyle(
+          fontWeight: FontWeight.w700,
+          fontSize: (widget.style.fontSize ?? 20) * 1.25,
+        ),
+        'bold' => const TextStyle(fontWeight: FontWeight.bold),
+        'italic' => const TextStyle(fontStyle: FontStyle.italic),
+        'blockquote' => TextStyle(
+          fontStyle: FontStyle.italic,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+        'footnote' => TextStyle(
+          fontSize: (widget.style.fontSize ?? 20) * 0.9,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+        'link' => TextStyle(
+          color: Theme.of(context).colorScheme.primary,
+          decoration: TextDecoration.underline,
+        ),
+        _ => null,
+      };
+      if (next != null) style = style?.merge(next) ?? next;
+      if (mark.kind == 'link') href = mark.href;
     }
-    if (offset < widget.endOffset) {
-      spans.add(TextSpan(text: content.substring(offset, widget.endOffset)));
+    for (final item in highlights) {
+      final range = item.range;
+      if (range != null && range.start <= start && range.end >= end) {
+        final next = _highlightStyle(item.highlight);
+        style = style?.merge(next) ?? next;
+      }
     }
-    return spans;
+    GestureRecognizer? recognizer;
+    if (href != null) {
+      final link = TapGestureRecognizer()..onTap = () => widget.onLink(href!);
+      _linkRecognizers.add(link);
+      recognizer = link;
+    }
+    return TextSpan(
+      text: content.substring(start, end),
+      style: style,
+      recognizer: recognizer,
+    );
   }
 
   TextStyle _highlightStyle(Highlight highlight) {
@@ -1334,4 +1461,47 @@ class _BiteTextState extends State<_BiteText> {
       );
     },
   );
+}
+
+class _RichMetadata {
+  const _RichMetadata(this.marks, this.anchors);
+
+  final List<_RichMark> marks;
+  final Map<String, int> anchors;
+
+  static _RichMetadata parse(String? source) {
+    if (source == null || source.isEmpty) {
+      return const _RichMetadata([], {});
+    }
+    try {
+      final json = jsonDecode(source) as Map<String, dynamic>;
+      return _RichMetadata(
+        [
+          for (final value in json['marks'] as List<dynamic>? ?? const [])
+            _RichMark.fromJson(value as Map<String, dynamic>),
+        ],
+        (json['anchors'] as Map<String, dynamic>? ?? const {}).map(
+          (key, value) => MapEntry(key, value as int),
+        ),
+      );
+    } on FormatException {
+      return const _RichMetadata([], {});
+    }
+  }
+}
+
+class _RichMark {
+  const _RichMark(this.start, this.end, this.kind, this.href);
+
+  factory _RichMark.fromJson(Map<String, dynamic> json) => _RichMark(
+    json['start'] as int,
+    json['end'] as int,
+    json['kind'] as String,
+    json['href'] as String?,
+  );
+
+  final int start;
+  final int end;
+  final String kind;
+  final String? href;
 }

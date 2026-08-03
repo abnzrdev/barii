@@ -47,6 +47,7 @@ class Bites extends Table {
   TextColumn get assetPath => text().nullable()();
   TextColumn get altText => text().nullable()();
   TextColumn get caption => text().nullable()();
+  TextColumn get markup => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -237,6 +238,7 @@ class StoredBite {
     this.assetPath,
     this.altText,
     this.caption,
+    this.markup,
   });
 
   final String id;
@@ -249,6 +251,7 @@ class StoredBite {
   final String? assetPath;
   final String? altText;
   final String? caption;
+  final String? markup;
 }
 
 @DriftDatabase(
@@ -272,7 +275,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -377,6 +380,9 @@ class AppDatabase extends _$AppDatabase {
           readerPreferences.showProgress,
         );
       }
+      if (from < 8) {
+        await migrator.addColumn(bites, bites.markup);
+      }
     },
     beforeOpen: (_) => customStatement('PRAGMA foreign_keys = ON'),
   );
@@ -437,6 +443,7 @@ class AppDatabase extends _$AppDatabase {
             assetPath: Value(bite.assetPath),
             altText: Value(bite.altText),
             caption: Value(bite.caption),
+            markup: Value(bite.markup),
           ),
         ),
       );

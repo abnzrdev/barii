@@ -143,6 +143,23 @@ void main() {
     },
   );
 
+  test('persists rich EPUB metadata with generated bites', () async {
+    final file = File('${source.path}/rich.epub');
+    await file.writeAsBytes(epubFixtureBytes(richText: true));
+    final service = BookImportService(
+      database: database,
+      storageDirectory: storage,
+    );
+
+    final book = await service.importFile(file.path);
+    final rich = (await database.bitesForBook(
+      book.id,
+    )).where((bite) => bite.markup?.contains('https://example.com') ?? false);
+
+    expect(rich, hasLength(1));
+    expect(rich.single.markup, contains('one.xhtml#footnote'));
+  });
+
   test('rejects unsupported extensions and missing files', () async {
     final service = BookImportService(
       database: database,

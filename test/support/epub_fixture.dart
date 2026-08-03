@@ -7,6 +7,7 @@ List<int> epubFixtureBytes({
   bool anchoredNavigation = false,
   bool emptyContent = false,
   bool figures = false,
+  bool richText = false,
 }) {
   final archive = Archive()
     ..addFile(ArchiveFile.string('mimetype', 'application/epub+zip'))
@@ -58,6 +59,7 @@ ${figures ? '<item id="png" href="images/dot.png" media-type="image/png"/><item 
 ${figures ? '<figure><img src="images/dot.png" alt="Green dot"/><figcaption>PNG caption</figcaption></figure><img src="./images/photo.jpg" alt="JPEG portrait"/><img src="images/shape.svg" alt="External SVG"/><svg aria-label="Inline SVG" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4"/></svg>' : ''}
 ${nestedList ? '<ul><li><p>If you are a coach, build a reliable system.</p></li></ul>' : ''}
 ${anchoredNavigation ? '<h2 id="start">Start</h2><p>Intentional refrain.</p><h2 id="part-one">Part One</h2><ul><li><p>Previously duplicated sentence.</p></li></ul><h2 id="part-two">Part Two</h2><p>Intentional refrain.</p><p>Unicode punctuation: “calm”—always.</p>' : ''}
+${richText ? '<h2 id="details">Details</h2><p><strong>Bold words</strong> and <em>italic words</em> with <a href="#footnote">a footnote</a> and <a href="https://example.com">an external source</a>.</p><blockquote>Quoted wisdom.</blockquote><ol><li><p>Outer item</p><ul><li><p>Nested item</p></li></ul></li></ol><aside id="footnote" epub:type="footnote">Footnote text.</aside>' : ''}
 </body></html>''',
       ),
     )

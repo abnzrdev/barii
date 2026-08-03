@@ -112,7 +112,11 @@ class EpubParser {
               index: sections.length,
               heading: parsed.heading ?? titlesByFile[source.name],
               paragraphs: parsed.blocks
-                  .map((block) => block.text)
+                  .map(
+                    (block) => block.kind == 'list'
+                        ? block.text?.replaceFirst(RegExp(r'^\s*•\s*'), '')
+                        : block.text,
+                  )
                   .whereType<String>()
                   .toList(),
               blocks: parsed.blocks,
@@ -151,21 +155,23 @@ class EpubParser {
     final heading = _clean(
       document.querySelector('h1, h2, h3, h4, h5, h6')?.text,
     );
+    final firstHeading = document.querySelector('h1, h2, h3, h4, h5, h6');
     final blocks = <SourceBlock>[];
     final assets = <String, ParsedAsset>{};
     var inlineSvg = 0;
     for (final element
         in document.body?.querySelectorAll(
-              'p, li, blockquote, figure, img, svg',
+              'h1, h2, h3, h4, h5, h6, p, li, blockquote, aside, figure, img, svg',
             ) ??
             const <Element>[]) {
       if (_hasAncestor(element, 'figure') && element.localName != 'figure') {
         continue;
       }
       if (_isTextBlock(element)) {
-        if (element.querySelector('p, li, blockquote') != null) continue;
-        final text = _clean(element.text);
-        if (text != null) blocks.add(SourceBlock.text(text));
+        if (identical(element, firstHeading)) continue;
+        if (element.querySelector('p, li, blockquote, aside') != null) continue;
+        final block = _richBlock(element, fileName);
+        if (block != null) blocks.add(block);
         continue;
       }
       final imageElement = element.localName == 'figure'
@@ -224,7 +230,100 @@ class EpubParser {
   static bool _isTextBlock(Element element) =>
       element.localName == 'p' ||
       element.localName == 'li' ||
-      element.localName == 'blockquote';
+      element.localName == 'blockquote' ||
+      element.localName == 'aside' ||
+      RegExp(r'^h[1-6]$').hasMatch(element.localName ?? '');
+
+  static SourceBlock? _richBlock(Element element, String fileName) {
+    var text = _clean(element.text);
+    if (text == null) return null;
+    var prefix = '';
+    final listItem = element.localName == 'li'
+        ? element
+        : _ancestor(element, 'li');
+    if (listItem != null) {
+      var depth = 0;
+      for (
+        var parent = listItem.parent;
+        parent != null;
+        parent = parent.parent
+      ) {
+        if (parent.localName == 'ul' || parent.localName == 'ol') depth++;
+      }
+      prefix = '${List.filled((depth - 1).clamp(0, 8), '  ').join()}• ';
+      text = '$prefix$text';
+    }
+    final marks = <SourceMark>[];
+    for (final child in element.querySelectorAll('strong, b, em, i, a')) {
+      final fragment = _clean(child.text);
+      if (fragment == null) continue;
+      final start = text.indexOf(fragment, prefix.length);
+      if (start < 0) continue;
+      final name = child.localName;
+      marks.add(
+        SourceMark(
+          start: start,
+          end: start + fragment.length,
+          kind: name == 'strong' || name == 'b'
+              ? 'bold'
+              : name == 'em' || name == 'i'
+              ? 'italic'
+              : 'link',
+          href: name == 'a'
+              ? _resolveHref(fileName, child.attributes['href'])
+              : null,
+        ),
+      );
+    }
+    final id = element.id.isNotEmpty ? element.id : _nearestId(element);
+    final kind = listItem != null
+        ? 'list'
+        : element.localName == 'blockquote'
+        ? 'blockquote'
+        : element.localName == 'aside'
+        ? 'footnote'
+        : RegExp(r'^h[1-6]$').hasMatch(element.localName ?? '')
+        ? 'heading'
+        : 'paragraph';
+    return SourceBlock.text(
+      text,
+      kind: kind,
+      marks: marks,
+      anchor: id == null ? null : '$fileName#$id',
+    );
+  }
+
+  static Element? _ancestor(Element element, String name) {
+    for (var parent = element.parent; parent != null; parent = parent.parent) {
+      if (parent.localName == name) return parent;
+    }
+    return null;
+  }
+
+  static String? _nearestId(Element element) {
+    for (
+      var current = element.parent;
+      current != null;
+      current = current.parent
+    ) {
+      if (current.id.isNotEmpty) return current.id;
+    }
+    return null;
+  }
+
+  static String? _resolveHref(String fileName, String? href) {
+    final value = href?.trim();
+    if (value == null || value.isEmpty) return null;
+    final uri = Uri.tryParse(value);
+    if (uri == null) return null;
+    if (uri.hasScheme) return value;
+    final target = uri.path.isEmpty
+        ? fileName
+        : path.posix.normalize(
+            path.posix.join(path.posix.dirname(fileName), uri.path),
+          );
+    return uri.fragment.isEmpty ? target : '$target#${uri.fragment}';
+  }
 
   static bool _hasAncestor(Element element, String name) {
     for (var parent = element.parent; parent != null; parent = parent.parent) {

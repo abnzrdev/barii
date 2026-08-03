@@ -1,6 +1,7 @@
 import 'package:bookbites/core/database/app_database.dart';
 import 'package:bookbites/features/reader/presentation/reader_screen.dart';
 import 'package:drift/native.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -107,6 +108,100 @@ void main() {
       find.textContaining('Previously duplicated sentence.'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('renders rich styles and confirms external links', (
+    tester,
+  ) async {
+    await database.replaceContent(
+      'book',
+      sections: const [StoredSection(id: 'section', position: 0)],
+      bites: const [
+        StoredBite(
+          id: 'rich',
+          sectionId: 'section',
+          position: 0,
+          text: 'Heading Bold italic external',
+          sourceStart: 0,
+          sourceEnd: 28,
+          markup:
+              '{"marks":[{"start":0,"end":7,"kind":"heading"},{"start":8,"end":12,"kind":"bold"},{"start":13,"end":19,"kind":"italic"},{"start":20,"end":28,"kind":"link","href":"https://example.com"}],"anchors":{}}',
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReaderScreen(database: database, book: book),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final selectable = tester.widget<SelectableText>(
+      find.byType(SelectableText),
+    );
+    final spans = selectable.textSpan!.children!.whereType<TextSpan>().toList();
+    expect(
+      spans.any((span) => span.style?.fontWeight == FontWeight.bold),
+      isTrue,
+    );
+    expect(
+      spans.any((span) => span.style?.fontStyle == FontStyle.italic),
+      isTrue,
+    );
+    final link = spans.singleWhere((span) => span.recognizer != null);
+    (link.recognizer! as TapGestureRecognizer).onTap!();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Open external link?'), findsOneWidget);
+    expect(find.text('https://example.com'), findsOneWidget);
+  });
+
+  testWidgets('internal links jump to anchors and support back navigation', (
+    tester,
+  ) async {
+    await database.replaceContent(
+      'book',
+      sections: const [StoredSection(id: 'section', position: 0)],
+      bites: const [
+        StoredBite(
+          id: 'source',
+          sectionId: 'section',
+          position: 0,
+          text: 'Jump there.',
+          sourceStart: 0,
+          sourceEnd: 11,
+          markup:
+              '{"marks":[{"start":0,"end":4,"kind":"link","href":"chapter.xhtml#target"}],"anchors":{}}',
+        ),
+        StoredBite(
+          id: 'target',
+          sectionId: 'section',
+          position: 1,
+          text: 'Target text.',
+          sourceStart: 12,
+          sourceEnd: 24,
+          markup: '{"marks":[],"anchors":{"chapter.xhtml#target":0}}',
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReaderScreen(database: database, book: book),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final source = tester.widget<SelectableText>(find.byType(SelectableText));
+    final link = source.textSpan!.children!.whereType<TextSpan>().singleWhere(
+      (span) => span.recognizer != null,
+    );
+    (link.recognizer! as TapGestureRecognizer).onTap!();
+    await tester.pumpAndSettle();
+    expect(find.text('Target text.'), findsOneWidget);
+
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.text('Jump there.'), findsOneWidget);
   });
 
   testWidgets('native selection toolbar can persist a highlight', (

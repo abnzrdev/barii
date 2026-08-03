@@ -955,6 +955,15 @@ class $BitesTable extends Bites with TableInfo<$BitesTable, Bite> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _markupMeta = const VerificationMeta('markup');
+  @override
+  late final GeneratedColumn<String> markup = GeneratedColumn<String>(
+    'markup',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -968,6 +977,7 @@ class $BitesTable extends Bites with TableInfo<$BitesTable, Bite> {
     assetPath,
     altText,
     caption,
+    markup,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1061,6 +1071,12 @@ class $BitesTable extends Bites with TableInfo<$BitesTable, Bite> {
         caption.isAcceptableOrUnknown(data['caption']!, _captionMeta),
       );
     }
+    if (data.containsKey('markup')) {
+      context.handle(
+        _markupMeta,
+        markup.isAcceptableOrUnknown(data['markup']!, _markupMeta),
+      );
+    }
     return context;
   }
 
@@ -1118,6 +1134,10 @@ class $BitesTable extends Bites with TableInfo<$BitesTable, Bite> {
         DriftSqlType.string,
         data['${effectivePrefix}caption'],
       ),
+      markup: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}markup'],
+      ),
     );
   }
 
@@ -1139,6 +1159,7 @@ class Bite extends DataClass implements Insertable<Bite> {
   final String? assetPath;
   final String? altText;
   final String? caption;
+  final String? markup;
   const Bite({
     required this.id,
     required this.bookId,
@@ -1151,6 +1172,7 @@ class Bite extends DataClass implements Insertable<Bite> {
     this.assetPath,
     this.altText,
     this.caption,
+    this.markup,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1171,6 +1193,9 @@ class Bite extends DataClass implements Insertable<Bite> {
     }
     if (!nullToAbsent || caption != null) {
       map['caption'] = Variable<String>(caption);
+    }
+    if (!nullToAbsent || markup != null) {
+      map['markup'] = Variable<String>(markup);
     }
     return map;
   }
@@ -1194,6 +1219,9 @@ class Bite extends DataClass implements Insertable<Bite> {
       caption: caption == null && nullToAbsent
           ? const Value.absent()
           : Value(caption),
+      markup: markup == null && nullToAbsent
+          ? const Value.absent()
+          : Value(markup),
     );
   }
 
@@ -1214,6 +1242,7 @@ class Bite extends DataClass implements Insertable<Bite> {
       assetPath: serializer.fromJson<String?>(json['assetPath']),
       altText: serializer.fromJson<String?>(json['altText']),
       caption: serializer.fromJson<String?>(json['caption']),
+      markup: serializer.fromJson<String?>(json['markup']),
     );
   }
   @override
@@ -1231,6 +1260,7 @@ class Bite extends DataClass implements Insertable<Bite> {
       'assetPath': serializer.toJson<String?>(assetPath),
       'altText': serializer.toJson<String?>(altText),
       'caption': serializer.toJson<String?>(caption),
+      'markup': serializer.toJson<String?>(markup),
     };
   }
 
@@ -1246,6 +1276,7 @@ class Bite extends DataClass implements Insertable<Bite> {
     Value<String?> assetPath = const Value.absent(),
     Value<String?> altText = const Value.absent(),
     Value<String?> caption = const Value.absent(),
+    Value<String?> markup = const Value.absent(),
   }) => Bite(
     id: id ?? this.id,
     bookId: bookId ?? this.bookId,
@@ -1258,6 +1289,7 @@ class Bite extends DataClass implements Insertable<Bite> {
     assetPath: assetPath.present ? assetPath.value : this.assetPath,
     altText: altText.present ? altText.value : this.altText,
     caption: caption.present ? caption.value : this.caption,
+    markup: markup.present ? markup.value : this.markup,
   );
   Bite copyWithCompanion(BitesCompanion data) {
     return Bite(
@@ -1274,6 +1306,7 @@ class Bite extends DataClass implements Insertable<Bite> {
       assetPath: data.assetPath.present ? data.assetPath.value : this.assetPath,
       altText: data.altText.present ? data.altText.value : this.altText,
       caption: data.caption.present ? data.caption.value : this.caption,
+      markup: data.markup.present ? data.markup.value : this.markup,
     );
   }
 
@@ -1290,7 +1323,8 @@ class Bite extends DataClass implements Insertable<Bite> {
           ..write('kind: $kind, ')
           ..write('assetPath: $assetPath, ')
           ..write('altText: $altText, ')
-          ..write('caption: $caption')
+          ..write('caption: $caption, ')
+          ..write('markup: $markup')
           ..write(')'))
         .toString();
   }
@@ -1308,6 +1342,7 @@ class Bite extends DataClass implements Insertable<Bite> {
     assetPath,
     altText,
     caption,
+    markup,
   );
   @override
   bool operator ==(Object other) =>
@@ -1323,7 +1358,8 @@ class Bite extends DataClass implements Insertable<Bite> {
           other.kind == this.kind &&
           other.assetPath == this.assetPath &&
           other.altText == this.altText &&
-          other.caption == this.caption);
+          other.caption == this.caption &&
+          other.markup == this.markup);
 }
 
 class BitesCompanion extends UpdateCompanion<Bite> {
@@ -1338,6 +1374,7 @@ class BitesCompanion extends UpdateCompanion<Bite> {
   final Value<String?> assetPath;
   final Value<String?> altText;
   final Value<String?> caption;
+  final Value<String?> markup;
   final Value<int> rowid;
   const BitesCompanion({
     this.id = const Value.absent(),
@@ -1351,6 +1388,7 @@ class BitesCompanion extends UpdateCompanion<Bite> {
     this.assetPath = const Value.absent(),
     this.altText = const Value.absent(),
     this.caption = const Value.absent(),
+    this.markup = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   BitesCompanion.insert({
@@ -1365,6 +1403,7 @@ class BitesCompanion extends UpdateCompanion<Bite> {
     this.assetPath = const Value.absent(),
     this.altText = const Value.absent(),
     this.caption = const Value.absent(),
+    this.markup = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        bookId = Value(bookId),
@@ -1385,6 +1424,7 @@ class BitesCompanion extends UpdateCompanion<Bite> {
     Expression<String>? assetPath,
     Expression<String>? altText,
     Expression<String>? caption,
+    Expression<String>? markup,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1399,6 +1439,7 @@ class BitesCompanion extends UpdateCompanion<Bite> {
       if (assetPath != null) 'asset_path': assetPath,
       if (altText != null) 'alt_text': altText,
       if (caption != null) 'caption': caption,
+      if (markup != null) 'markup': markup,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1415,6 +1456,7 @@ class BitesCompanion extends UpdateCompanion<Bite> {
     Value<String?>? assetPath,
     Value<String?>? altText,
     Value<String?>? caption,
+    Value<String?>? markup,
     Value<int>? rowid,
   }) {
     return BitesCompanion(
@@ -1429,6 +1471,7 @@ class BitesCompanion extends UpdateCompanion<Bite> {
       assetPath: assetPath ?? this.assetPath,
       altText: altText ?? this.altText,
       caption: caption ?? this.caption,
+      markup: markup ?? this.markup,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1469,6 +1512,9 @@ class BitesCompanion extends UpdateCompanion<Bite> {
     if (caption.present) {
       map['caption'] = Variable<String>(caption.value);
     }
+    if (markup.present) {
+      map['markup'] = Variable<String>(markup.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1489,6 +1535,7 @@ class BitesCompanion extends UpdateCompanion<Bite> {
           ..write('assetPath: $assetPath, ')
           ..write('altText: $altText, ')
           ..write('caption: $caption, ')
+          ..write('markup: $markup, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -8018,6 +8065,7 @@ typedef $$BitesTableCreateCompanionBuilder =
       Value<String?> assetPath,
       Value<String?> altText,
       Value<String?> caption,
+      Value<String?> markup,
       Value<int> rowid,
     });
 typedef $$BitesTableUpdateCompanionBuilder =
@@ -8033,6 +8081,7 @@ typedef $$BitesTableUpdateCompanionBuilder =
       Value<String?> assetPath,
       Value<String?> altText,
       Value<String?> caption,
+      Value<String?> markup,
       Value<int> rowid,
     });
 
@@ -8238,6 +8287,11 @@ class $$BitesTableFilterComposer extends Composer<_$AppDatabase, $BitesTable> {
 
   ColumnFilters<String> get caption => $composableBuilder(
     column: $table.caption,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get markup => $composableBuilder(
+    column: $table.markup,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8492,6 +8546,11 @@ class $$BitesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get markup => $composableBuilder(
+    column: $table.markup,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$BooksTableOrderingComposer get bookId {
     final $$BooksTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -8576,6 +8635,9 @@ class $$BitesTableAnnotationComposer
 
   GeneratedColumn<String> get caption =>
       $composableBuilder(column: $table.caption, builder: (column) => column);
+
+  GeneratedColumn<String> get markup =>
+      $composableBuilder(column: $table.markup, builder: (column) => column);
 
   $$BooksTableAnnotationComposer get bookId {
     final $$BooksTableAnnotationComposer composer = $composerBuilder(
@@ -8823,6 +8885,7 @@ class $$BitesTableTableManager
                 Value<String?> assetPath = const Value.absent(),
                 Value<String?> altText = const Value.absent(),
                 Value<String?> caption = const Value.absent(),
+                Value<String?> markup = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => BitesCompanion(
                 id: id,
@@ -8836,6 +8899,7 @@ class $$BitesTableTableManager
                 assetPath: assetPath,
                 altText: altText,
                 caption: caption,
+                markup: markup,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -8851,6 +8915,7 @@ class $$BitesTableTableManager
                 Value<String?> assetPath = const Value.absent(),
                 Value<String?> altText = const Value.absent(),
                 Value<String?> caption = const Value.absent(),
+                Value<String?> markup = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => BitesCompanion.insert(
                 id: id,
@@ -8864,6 +8929,7 @@ class $$BitesTableTableManager
                 assetPath: assetPath,
                 altText: altText,
                 caption: caption,
+                markup: markup,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

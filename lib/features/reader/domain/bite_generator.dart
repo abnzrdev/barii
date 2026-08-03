@@ -3,20 +3,44 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 
 class SourceBlock {
-  const SourceBlock.text(this.text)
-    : assetKey = null,
-      altText = null,
-      caption = null;
+  const SourceBlock.text(
+    this.text, {
+    this.kind = 'paragraph',
+    this.marks = const [],
+    this.anchor,
+  }) : assetKey = null,
+       altText = null,
+       caption = null;
 
   const SourceBlock.figure({required this.assetKey, this.altText, this.caption})
-    : text = null;
+    : text = null,
+      kind = 'figure',
+      marks = const [],
+      anchor = null;
 
   final String? text;
   final String? assetKey;
   final String? altText;
   final String? caption;
+  final String kind;
+  final List<SourceMark> marks;
+  final String? anchor;
 
   bool get isFigure => assetKey != null;
+}
+
+class SourceMark {
+  const SourceMark({
+    required this.start,
+    required this.end,
+    required this.kind,
+    this.href,
+  });
+
+  final int start;
+  final int end;
+  final String kind;
+  final String? href;
 }
 
 class SourceSection {
@@ -45,6 +69,7 @@ class GeneratedBite {
     this.assetKey,
     this.altText,
     this.caption,
+    this.markup,
   });
 
   final String id;
@@ -57,6 +82,7 @@ class GeneratedBite {
   final String? assetKey;
   final String? altText;
   final String? caption;
+  final String? markup;
 }
 
 class BiteGenerator {
@@ -86,6 +112,29 @@ class BiteGenerator {
         final text = firstInSection && heading != null && heading.isNotEmpty
             ? '$heading\n\n$body'
             : body;
+        final marks = <SourceMark>[];
+        final anchors = <String, int>{};
+        var outputOffset = 0;
+        if (firstInSection && heading != null && heading.isNotEmpty) {
+          marks.add(SourceMark(start: 0, end: heading.length, kind: 'heading'));
+          outputOffset = heading.length + 2;
+        }
+        for (final unit in units) {
+          marks.addAll(
+            unit.marks.map(
+              (mark) => SourceMark(
+                start: outputOffset + mark.start,
+                end: outputOffset + mark.end,
+                kind: mark.kind,
+                href: mark.href,
+              ),
+            ),
+          );
+          for (final anchor in unit.anchors.entries) {
+            anchors[anchor.key] = outputOffset + anchor.value;
+          }
+          outputOffset += unit.text.length + 2;
+        }
         final start = units.first.start;
         final end = units.last.end;
         result.add(
@@ -96,6 +145,7 @@ class BiteGenerator {
             text: text,
             sourceStart: start,
             sourceEnd: end,
+            markup: _markup(marks, anchors),
           ),
         );
         firstInSection = false;
@@ -139,22 +189,64 @@ class BiteGenerator {
         if (paragraph == null || paragraph.isEmpty) continue;
         final paragraphUnits = <_Unit>[];
         var part = <String>[];
+        var partMarks = <SourceMark>[];
+        var partAnchors = <String, int>{};
         var partWords = 0;
         var partStart = sourceOffset;
-        for (final sentence in _sentences(paragraph)) {
+        for (final match in _sentenceMatches(paragraph)) {
+          final sentence = match.group(0)!.trim();
           final sentenceWords = _wordCount(sentence);
           if (part.isNotEmpty && partWords + sentenceWords > maxWords) {
-            paragraphUnits.add(_Unit(part.join(' '), partStart, sourceOffset));
+            final value = part.join(' ');
+            if (block.kind != 'paragraph') {
+              partMarks.add(
+                SourceMark(start: 0, end: value.length, kind: block.kind),
+              );
+            }
+            paragraphUnits.add(
+              _Unit(value, partStart, sourceOffset, partMarks, partAnchors),
+            );
             part = [];
+            partMarks = [];
+            partAnchors = {};
             partWords = 0;
             partStart = sourceOffset;
+          }
+          final sentenceStart =
+              match.start + match.group(0)!.indexOf(RegExp(r'\S'));
+          final sentenceEnd = sentenceStart + sentence.length;
+          final outputStart = part.isEmpty ? 0 : part.join(' ').length + 1;
+          for (final mark in block.marks) {
+            final start = mark.start.clamp(sentenceStart, sentenceEnd);
+            final end = mark.end.clamp(sentenceStart, sentenceEnd);
+            if (start < end) {
+              partMarks.add(
+                SourceMark(
+                  start: outputStart + start - sentenceStart,
+                  end: outputStart + end - sentenceStart,
+                  kind: mark.kind,
+                  href: mark.href,
+                ),
+              );
+            }
+          }
+          if (part.isEmpty && block.anchor != null) {
+            partAnchors[block.anchor!] = 0;
           }
           part.add(sentence);
           partWords += sentenceWords;
           sourceOffset += sentence.length + 1;
         }
         if (part.isNotEmpty) {
-          paragraphUnits.add(_Unit(part.join(' '), partStart, sourceOffset));
+          final value = part.join(' ');
+          if (block.kind != 'paragraph') {
+            partMarks.add(
+              SourceMark(start: 0, end: value.length, kind: block.kind),
+            );
+          }
+          paragraphUnits.add(
+            _Unit(value, partStart, sourceOffset, partMarks, partAnchors),
+          );
         }
         for (final unit in paragraphUnits) {
           final words = units.fold<int>(
@@ -189,22 +281,42 @@ class BiteGenerator {
       )
       .toString();
 
-  static List<String> _sentences(String text) {
-    final matches = RegExp(r'.+?(?:[.!?。！？]+(?=\s|$)|$)', dotAll: true)
-        .allMatches(text)
-        .map((match) => match.group(0)!.trim())
-        .where((sentence) => sentence.isNotEmpty)
-        .toList();
-    return matches.isEmpty ? [text] : matches;
-  }
+  static Iterable<RegExpMatch> _sentenceMatches(String text) => RegExp(
+    r'.+?(?:[.!?。！？]+(?=\s|$)|$)',
+    dotAll: true,
+  ).allMatches(text).where((match) => match.group(0)!.trim().isNotEmpty);
+
+  static String? _markup(List<SourceMark> marks, Map<String, int> anchors) =>
+      marks.isEmpty && anchors.isEmpty
+      ? null
+      : jsonEncode({
+          'marks': [
+            for (final mark in marks)
+              {
+                'start': mark.start,
+                'end': mark.end,
+                'kind': mark.kind,
+                if (mark.href != null) 'href': mark.href,
+              },
+          ],
+          'anchors': anchors,
+        });
 
   static int _wordCount(String text) => RegExp(r'\S+').allMatches(text).length;
 }
 
 class _Unit {
-  const _Unit(this.text, this.start, this.end);
+  const _Unit(
+    this.text,
+    this.start,
+    this.end, [
+    this.marks = const [],
+    this.anchors = const {},
+  ]);
 
   final String text;
   final int start;
   final int end;
+  final List<SourceMark> marks;
+  final Map<String, int> anchors;
 }

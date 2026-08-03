@@ -113,6 +113,7 @@ class BookImportService {
                   assetPath: assetPaths[bite.assetKey],
                   altText: bite.altText,
                   caption: bite.caption,
+                  markup: bite.markup,
                 ),
               )
               .toList(),

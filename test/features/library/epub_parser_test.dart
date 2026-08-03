@@ -104,4 +104,27 @@ void main() {
       expect(publication.assets.keys, everyElement(isNot(startsWith('../'))));
     },
   );
+
+  test('preserves rich text roles, links, and stable anchors', () async {
+    final publication = await parser.parse(epubFixtureBytes(richText: true));
+    final blocks = publication.sections.first.blocks;
+
+    expect(blocks.any((block) => block.kind == 'heading'), isTrue);
+    expect(blocks.any((block) => block.kind == 'blockquote'), isTrue);
+    expect(blocks.where((block) => block.kind == 'list'), hasLength(2));
+    expect(
+      blocks.expand((block) => block.marks).map((mark) => mark.kind),
+      containsAll(['bold', 'italic', 'link']),
+    );
+    expect(
+      blocks.expand((block) => block.marks).map((mark) => mark.href),
+      containsAll(['one.xhtml#footnote', 'https://example.com']),
+    );
+    expect(
+      blocks
+          .where((block) => block.anchor != null)
+          .map((block) => block.anchor),
+      contains('one.xhtml#footnote'),
+    );
+  });
 }

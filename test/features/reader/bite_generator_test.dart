@@ -135,4 +135,35 @@ void main() {
     );
     expect(regenerated.single.id, first.single.id);
   });
+
+  test('carries rich marks and anchors into generated bite offsets', () {
+    final bite = generator
+        .generate(
+          bookFingerprint: 'rich',
+          sections: const [
+            SourceSection(
+              index: 0,
+              blocks: [
+                SourceBlock.text(
+                  'Bold link.',
+                  marks: [
+                    SourceMark(start: 0, end: 4, kind: 'bold'),
+                    SourceMark(
+                      start: 5,
+                      end: 9,
+                      kind: 'link',
+                      href: 'chapter.xhtml#target',
+                    ),
+                  ],
+                  anchor: 'chapter.xhtml#start',
+                ),
+              ],
+            ),
+          ],
+        )
+        .single;
+
+    expect(bite.markup, contains('chapter.xhtml#target'));
+    expect(bite.markup, contains('chapter.xhtml#start'));
+  });
 }
