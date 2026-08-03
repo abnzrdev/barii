@@ -124,8 +124,12 @@ class _ReaderScreenState extends State<ReaderScreen>
         _pageController = PageController();
         _fontSize = preferences.fontSize;
         _lineHeight = preferences.lineHeight;
+        _paginationFontSize = preferences.fontSize;
+        _paginationLineHeight = preferences.lineHeight;
         _readingWidth = preferences.readingWidth;
         _pageMargin = preferences.pageMargin;
+        _paginationReadingWidth = preferences.readingWidth;
+        _paginationPageMargin = preferences.pageMargin;
         _autoHideControls = preferences.autoHideControls;
         _hapticsEnabled = preferences.hapticsEnabled;
         _showProgress = preferences.showProgress;
@@ -412,7 +416,25 @@ class _ReaderScreenState extends State<ReaderScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Reader settings'),
+              const Text('Reader settings', style: TextStyle(fontSize: 20)),
+              const _SettingsSection('Theme'),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Color theme'),
+                subtitle: Text('Current: ${selectedTheme.name}'),
+                trailing: IconButton(
+                  tooltip: 'Reset color theme',
+                  onPressed: () {
+                    selectedTheme = ThemeMode.system;
+                    widget.onThemeChanged?.call(selectedTheme);
+                    _serializeWrite(
+                      () => widget.database.saveTheme(selectedTheme.name),
+                    );
+                    setSheetState(() {});
+                  },
+                  icon: const Icon(Icons.restart_alt),
+                ),
+              ),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: SegmentedButton<ThemeMode>(
@@ -435,6 +457,17 @@ class _ReaderScreenState extends State<ReaderScreen>
                   },
                 ),
               ),
+              const _SettingsSection('Font'),
+              _SettingsValue(
+                label: 'Font size',
+                value: '${_fontSize.round()} sp',
+                range: '16–32 sp',
+                onReset: () {
+                  setState(() => _fontSize = 20);
+                  setSheetState(() {});
+                  _finishStyleDrag();
+                },
+              ),
               Semantics(
                 label: 'Font size',
                 child: Slider(
@@ -447,6 +480,17 @@ class _ReaderScreenState extends State<ReaderScreen>
                   },
                   onChangeEnd: (_) => _finishStyleDrag(),
                 ),
+              ),
+              const _SettingsSection('Layout'),
+              _SettingsValue(
+                label: 'Line spacing',
+                value: _lineHeight.toStringAsFixed(1),
+                range: '1.2–2.0',
+                onReset: () {
+                  setState(() => _lineHeight = 1.6);
+                  setSheetState(() {});
+                  _finishStyleDrag();
+                },
               ),
               Semantics(
                 label: 'Line spacing',
@@ -461,6 +505,16 @@ class _ReaderScreenState extends State<ReaderScreen>
                   onChangeEnd: (_) => _finishStyleDrag(),
                 ),
               ),
+              _SettingsValue(
+                label: 'Reading width',
+                value: '${_readingWidth.round()} px',
+                range: '420–900 px',
+                onReset: () {
+                  setState(() => _readingWidth = 680);
+                  setSheetState(() {});
+                  _finishStyleDrag();
+                },
+              ),
               Semantics(
                 label: 'Reading width',
                 child: Slider(
@@ -474,6 +528,16 @@ class _ReaderScreenState extends State<ReaderScreen>
                   onChangeEnd: (_) => _finishStyleDrag(),
                 ),
               ),
+              _SettingsValue(
+                label: 'Horizontal margin',
+                value: '${_pageMargin.round()} px',
+                range: '12–64 px',
+                onReset: () {
+                  setState(() => _pageMargin = 24);
+                  setSheetState(() {});
+                  _finishStyleDrag();
+                },
+              ),
               Semantics(
                 label: 'Horizontal page margin',
                 child: Slider(
@@ -486,6 +550,19 @@ class _ReaderScreenState extends State<ReaderScreen>
                   },
                   onChangeEnd: (_) => _finishStyleDrag(),
                 ),
+              ),
+              _SettingsValue(
+                label: 'Text alignment',
+                value: _alignment.name,
+                range: 'Start, center, or justify',
+                onReset: () {
+                  setState(() {
+                    _alignment = TextAlign.start;
+                    _paginationSignature = null;
+                  });
+                  setSheetState(() {});
+                  _savePreferences();
+                },
               ),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -508,8 +585,21 @@ class _ReaderScreenState extends State<ReaderScreen>
                   },
                 ),
               ),
+              const _SettingsSection('Behavior'),
               SwitchListTile(
                 title: const Text('Automatically hide reader controls'),
+                subtitle: Text(
+                  'Current: ${_autoHideControls ? 'On' : 'Off'} · Range: On or off',
+                ),
+                secondary: IconButton(
+                  tooltip: 'Reset automatically hide reader controls',
+                  onPressed: () {
+                    setState(() => _autoHideControls = true);
+                    setSheetState(() {});
+                    _savePreferences();
+                  },
+                  icon: const Icon(Icons.restart_alt),
+                ),
                 value: _autoHideControls,
                 onChanged: (value) {
                   setState(() => _autoHideControls = value);
@@ -518,6 +608,18 @@ class _ReaderScreenState extends State<ReaderScreen>
               ),
               SwitchListTile(
                 title: const Text('Haptic feedback'),
+                subtitle: Text(
+                  'Current: ${_hapticsEnabled ? 'On' : 'Off'} · Range: On or off',
+                ),
+                secondary: IconButton(
+                  tooltip: 'Reset haptic feedback',
+                  onPressed: () {
+                    setState(() => _hapticsEnabled = true);
+                    setSheetState(() {});
+                    _savePreferences();
+                  },
+                  icon: const Icon(Icons.restart_alt),
+                ),
                 value: _hapticsEnabled,
                 onChanged: (value) {
                   setState(() => _hapticsEnabled = value);
@@ -526,7 +628,18 @@ class _ReaderScreenState extends State<ReaderScreen>
               ),
               SwitchListTile(
                 title: const Text('Subtle progress'),
-                subtitle: const Text('Shown only with reader controls'),
+                subtitle: Text(
+                  'Current: ${_showProgress ? 'On' : 'Off'} · Range: On or off · Shown only with controls',
+                ),
+                secondary: IconButton(
+                  tooltip: 'Reset subtle progress',
+                  onPressed: () {
+                    setState(() => _showProgress = false);
+                    setSheetState(() {});
+                    _savePreferences();
+                  },
+                  icon: const Icon(Icons.restart_alt),
+                ),
                 value: _showProgress,
                 onChanged: (value) {
                   setState(() => _showProgress = value);
@@ -1007,8 +1120,10 @@ class _ReaderScreenState extends State<ReaderScreen>
       _pages.isEmpty ? null : _pages[_index.clamp(0, _pages.length - 1)];
 
   void _paginate(BoxConstraints viewport, TextStyle style) {
-    final width = (_readingWidth.clamp(0, viewport.maxWidth) - 2 * _pageMargin)
-        .clamp(1.0, double.infinity);
+    final width =
+        (_paginationReadingWidth.clamp(0, viewport.maxWidth) -
+                2 * _paginationPageMargin)
+            .clamp(1.0, double.infinity);
     final textScaler = MediaQuery.textScalerOf(context);
     final signature = Object.hash(
       viewport.maxWidth,
@@ -1096,6 +1211,47 @@ class _ReaderScreenState extends State<ReaderScreen>
       setState(() {});
     });
   }
+}
+
+class _SettingsSection extends StatelessWidget {
+  const _SettingsSection(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: AlignmentDirectional.centerStart,
+    child: Padding(
+      padding: const EdgeInsets.only(top: 20, bottom: 4),
+      child: Text(label, style: Theme.of(context).textTheme.titleMedium),
+    ),
+  );
+}
+
+class _SettingsValue extends StatelessWidget {
+  const _SettingsValue({
+    required this.label,
+    required this.value,
+    required this.range,
+    required this.onReset,
+  });
+
+  final String label;
+  final String value;
+  final String range;
+  final VoidCallback onReset;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    contentPadding: EdgeInsets.zero,
+    title: Text(label),
+    subtitle: Text('Current: $value · Range: $range'),
+    trailing: IconButton(
+      tooltip: 'Reset $label',
+      onPressed: onReset,
+      icon: const Icon(Icons.restart_alt),
+    ),
+  );
 }
 
 class _FigurePage extends StatelessWidget {
