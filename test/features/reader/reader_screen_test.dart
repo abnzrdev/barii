@@ -670,6 +670,34 @@ void main() {
     expect(find.text('Reader settings'), findsOneWidget);
   });
 
+  testWidgets('font drag previews without losing the stable location', (
+    tester,
+  ) async {
+    await database.saveProgress(book.id, 'bite-2', 1, 7);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReaderScreen(database: database, book: book),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Reader settings'));
+    await tester.pumpAndSettle();
+
+    final slider = find.byType(Slider).first;
+    final gesture = await tester.startGesture(tester.getCenter(slider));
+    for (var index = 0; index < 20; index++) {
+      await gesture.moveBy(Offset(index.isEven ? 8 : -8, 0));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await gesture.up();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(find.text('Second quiet sentence.'), findsOneWidget);
+    expect((await database.progressFor(book.id))?.sourceOffset, 7);
+    expect((await database.preferences()).fontSize, isNot(20));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('many-bite books build only nearby pages', (tester) async {
     await database.replaceContent(
       'book',

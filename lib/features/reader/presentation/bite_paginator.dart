@@ -16,6 +16,43 @@ class DisplayPage {
   String get text => bite.content.substring(startOffset, endOffset);
 }
 
+class BitePaginationCache {
+  final _pages = <Object, List<DisplayPage>>{};
+
+  List<DisplayPage> pagesFor({
+    required Bite bite,
+    required double width,
+    required double height,
+    required TextStyle style,
+    required TextAlign textAlign,
+    required TextDirection textDirection,
+    required TextScaler textScaler,
+  }) {
+    final key = Object.hash(
+      bite.id,
+      bite.content,
+      width,
+      height,
+      style,
+      textAlign,
+      textDirection,
+      textScaler,
+    );
+    return _pages.putIfAbsent(
+      key,
+      () => paginateBites(
+        bites: [bite],
+        width: width,
+        height: height,
+        style: style,
+        textAlign: textAlign,
+        textDirection: textDirection,
+        textScaler: textScaler,
+      ),
+    );
+  }
+}
+
 List<DisplayPage> paginateBites({
   required List<Bite> bites,
   required double width,

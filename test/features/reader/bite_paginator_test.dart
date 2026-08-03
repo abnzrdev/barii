@@ -4,6 +4,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'pagination cache reuses a bite only for the same viewport and style',
+    () {
+      final cache = BitePaginationCache();
+      final bite = _bite(List.filled(30, 'cached words').join(' '));
+
+      List<DisplayPage> paginate({double fontSize = 20}) => cache.pagesFor(
+        bite: bite,
+        width: 240,
+        height: 160,
+        style: TextStyle(fontSize: fontSize, height: 1.5),
+        textAlign: TextAlign.start,
+        textDirection: TextDirection.ltr,
+        textScaler: TextScaler.noScaling,
+      );
+
+      final first = paginate();
+      expect(paginate(), same(first));
+      expect(paginate(fontSize: 24), isNot(same(first)));
+    },
+  );
+
   test('measured pages preserve every source character exactly once', () {
     final content = List.generate(
       80,

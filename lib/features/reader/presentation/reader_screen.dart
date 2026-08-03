@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
@@ -47,12 +48,16 @@ class _ReaderScreenState extends State<ReaderScreen>
   final _focusNode = FocusNode();
   PageController? _pageController;
   Timer? _focusTimer;
+  Timer? _repaginationTimer;
+  Future<void> _databaseWrites = Future.value();
+  final _paginationCache = BitePaginationCache();
   List<Bite> _bites = const [];
   List<DisplayPage> _pages = const [];
   var _index = 0;
   var _sourceOffset = 0;
   var _restoringViewport = false;
   int? _paginationSignature;
+  var _paginationGeneration = 0;
   String? _anchorBiteId;
   var _drag = Offset.zero;
   var _horizontalOffset = 0.0;
@@ -64,8 +69,12 @@ class _ReaderScreenState extends State<ReaderScreen>
   final _linkHistory = <ReaderLocation>[];
   var _fontSize = 20.0;
   var _lineHeight = 1.6;
+  var _paginationFontSize = 20.0;
+  var _paginationLineHeight = 1.6;
   var _readingWidth = 680.0;
   var _pageMargin = 24.0;
+  var _paginationReadingWidth = 680.0;
+  var _paginationPageMargin = 24.0;
   var _autoHideControls = true;
   var _hapticsEnabled = true;
   var _showProgress = false;
@@ -419,7 +428,9 @@ class _ReaderScreenState extends State<ReaderScreen>
                   onSelectionChanged: (value) {
                     selectedTheme = value.first;
                     widget.onThemeChanged?.call(value.first);
-                    widget.database.saveTheme(value.first.name);
+                    _serializeWrite(
+                      () => widget.database.saveTheme(value.first.name),
+                    );
                     setSheetState(() {});
                   },
                 ),
@@ -434,6 +445,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                     setState(() => _fontSize = value);
                     setSheetState(() {});
                   },
+                  onChangeEnd: (_) => _finishStyleDrag(),
                 ),
               ),
               Semantics(
@@ -446,6 +458,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                     setState(() => _lineHeight = value);
                     setSheetState(() {});
                   },
+                  onChangeEnd: (_) => _finishStyleDrag(),
                 ),
               ),
               Semantics(
@@ -458,6 +471,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                     setState(() => _readingWidth = value);
                     setSheetState(() {});
                   },
+                  onChangeEnd: (_) => _finishStyleDrag(),
                 ),
               ),
               Semantics(
@@ -470,6 +484,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                     setState(() => _pageMargin = value);
                     setSheetState(() {});
                   },
+                  onChangeEnd: (_) => _finishStyleDrag(),
                 ),
               ),
               SingleChildScrollView(
@@ -542,7 +557,27 @@ class _ReaderScreenState extends State<ReaderScreen>
             FractionallySizedBox(heightFactor: 0.9, child: settings(context)),
       );
     }
-    await widget.database.savePreferences(
+    await _savePreferences();
+    _resetFocusTimer();
+  }
+
+  void _finishStyleDrag() {
+    _repaginationTimer?.cancel();
+    _repaginationTimer = Timer(const Duration(milliseconds: 180), () {
+      if (!mounted) return;
+      setState(() {
+        _paginationFontSize = _fontSize;
+        _paginationLineHeight = _lineHeight;
+        _paginationReadingWidth = _readingWidth;
+        _paginationPageMargin = _pageMargin;
+        _paginationSignature = null;
+      });
+    });
+    _savePreferences();
+  }
+
+  Future<void> _savePreferences() => _serializeWrite(
+    () => widget.database.savePreferences(
       fontSize: _fontSize,
       lineHeight: _lineHeight,
       alignment: switch (_alignment) {
@@ -555,8 +590,13 @@ class _ReaderScreenState extends State<ReaderScreen>
       autoHideControls: _autoHideControls,
       hapticsEnabled: _hapticsEnabled,
       showProgress: _showProgress,
-    );
-    _resetFocusTimer();
+    ),
+  );
+
+  Future<void> _serializeWrite(Future<void> Function() write) {
+    final operation = _databaseWrites.catchError((_) {}).then((_) => write());
+    _databaseWrites = operation.catchError((_) {});
+    return operation;
   }
 
   @override
@@ -564,6 +604,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     WidgetsBinding.instance.removeObserver(this);
     _pageController?.dispose();
     _focusTimer?.cancel();
+    _repaginationTimer?.cancel();
     _focusNode.dispose();
     super.dispose();
   }
@@ -595,9 +636,15 @@ class _ReaderScreenState extends State<ReaderScreen>
             null => null,
           };
     final panel = panelFor(_panel);
-    final textStyle = Theme.of(
-      context,
-    ).textTheme.bodyLarge?.copyWith(fontSize: _fontSize, height: _lineHeight);
+    final textStyle =
+        (Theme.of(context).textTheme.bodyLarge ?? const TextStyle()).copyWith(
+          fontSize: _fontSize,
+          height: _lineHeight,
+        );
+    final paginationStyle = textStyle.copyWith(
+      fontSize: _paginationFontSize,
+      height: _paginationLineHeight,
+    );
     return PopScope(
       canPop: _panel == null && _linkHistory.isEmpty,
       onPopInvokedWithResult: (didPop, _) {
@@ -697,7 +744,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                     Expanded(
                       child: LayoutBuilder(
                         builder: (context, viewport) {
-                          _paginate(viewport, textStyle!);
+                          _paginate(viewport, paginationStyle);
                           return Listener(
                             behavior: HitTestBehavior.opaque,
                             onPointerDown: (event) {
@@ -974,17 +1021,62 @@ class _ReaderScreenState extends State<ReaderScreen>
       _bites.length,
     );
     if (_paginationSignature == signature) return;
+    _paginationSignature = signature;
+    final generation = ++_paginationGeneration;
     final biteId = _anchorBiteId;
     final offset = _sourceOffset;
-    final pages = paginateBites(
-      bites: _bites,
-      width: width,
-      height: viewport.maxHeight,
-      style: style,
-      textAlign: _alignment,
-      textDirection: Directionality.of(context),
-      textScaler: textScaler,
+    unawaited(
+      _repaginate(
+        generation: generation,
+        signature: signature,
+        biteId: biteId,
+        offset: offset,
+        width: width,
+        height: viewport.maxHeight,
+        style: style,
+        direction: Directionality.of(context),
+        textScaler: textScaler,
+      ),
     );
+  }
+
+  Future<void> _repaginate({
+    required int generation,
+    required int signature,
+    required String? biteId,
+    required int offset,
+    required double width,
+    required double height,
+    required TextStyle style,
+    required TextDirection direction,
+    required TextScaler textScaler,
+  }) async {
+    final pages = <DisplayPage>[];
+    await WidgetsBinding.instance.endOfFrame;
+    for (final bite in _bites) {
+      if (!mounted || generation != _paginationGeneration) return;
+      pages.addAll(
+        Timeline.timeSync(
+          'Reader.paginateBite',
+          () => _paginationCache.pagesFor(
+            bite: bite,
+            width: width,
+            height: height,
+            style: style,
+            textAlign: _alignment,
+            textDirection: direction,
+            textScaler: textScaler,
+          ),
+          arguments: {'biteId': bite.id, 'characters': bite.content.length},
+        ),
+      );
+      await WidgetsBinding.instance.endOfFrame;
+    }
+    if (!mounted ||
+        generation != _paginationGeneration ||
+        signature != _paginationSignature) {
+      return;
+    }
     final restored = pages.indexWhere(
       (page) =>
           page.bite.id == biteId &&
@@ -992,10 +1084,11 @@ class _ReaderScreenState extends State<ReaderScreen>
           (offset < page.endOffset ||
               page.endOffset == page.bite.content.length),
     );
-    _pages = pages;
-    _index = restored < 0 ? 0 : restored;
-    _paginationSignature = signature;
-    _restoringViewport = true;
+    setState(() {
+      _pages = pages;
+      _index = restored < 0 ? 0 : restored;
+      _restoringViewport = true;
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !(_pageController?.hasClients ?? false)) return;
       _pageController!.jumpToPage(_index);
