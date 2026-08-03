@@ -417,46 +417,6 @@ class _ReaderScreenState extends State<ReaderScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text('Reader settings', style: TextStyle(fontSize: 20)),
-              const _SettingsSection('Theme'),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Color theme'),
-                subtitle: Text('Current: ${selectedTheme.name}'),
-                trailing: IconButton(
-                  tooltip: 'Reset color theme',
-                  onPressed: () {
-                    selectedTheme = ThemeMode.system;
-                    widget.onThemeChanged?.call(selectedTheme);
-                    _serializeWrite(
-                      () => widget.database.saveTheme(selectedTheme.name),
-                    );
-                    setSheetState(() {});
-                  },
-                  icon: const Icon(Icons.restart_alt),
-                ),
-              ),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: SegmentedButton<ThemeMode>(
-                  segments: const [
-                    ButtonSegment(
-                      value: ThemeMode.system,
-                      label: Text('System'),
-                    ),
-                    ButtonSegment(value: ThemeMode.light, label: Text('Light')),
-                    ButtonSegment(value: ThemeMode.dark, label: Text('Dark')),
-                  ],
-                  selected: {selectedTheme},
-                  onSelectionChanged: (value) {
-                    selectedTheme = value.first;
-                    widget.onThemeChanged?.call(value.first);
-                    _serializeWrite(
-                      () => widget.database.saveTheme(value.first.name),
-                    );
-                    setSheetState(() {});
-                  },
-                ),
-              ),
               const _SettingsSection('Font'),
               _SettingsValue(
                 label: 'Font size',
@@ -581,6 +541,46 @@ class _ReaderScreenState extends State<ReaderScreen>
                   selected: {_alignment},
                   onSelectionChanged: (value) {
                     setState(() => _alignment = value.first);
+                    setSheetState(() {});
+                  },
+                ),
+              ),
+              const _SettingsSection('Theme'),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Color theme'),
+                subtitle: Text('Current: ${selectedTheme.name}'),
+                trailing: IconButton(
+                  tooltip: 'Reset color theme',
+                  onPressed: () {
+                    selectedTheme = ThemeMode.system;
+                    widget.onThemeChanged?.call(selectedTheme);
+                    _serializeWrite(
+                      () => widget.database.saveTheme(selectedTheme.name),
+                    );
+                    setSheetState(() {});
+                  },
+                  icon: const Icon(Icons.restart_alt),
+                ),
+              ),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SegmentedButton<ThemeMode>(
+                  segments: const [
+                    ButtonSegment(
+                      value: ThemeMode.system,
+                      label: Text('System'),
+                    ),
+                    ButtonSegment(value: ThemeMode.light, label: Text('Light')),
+                    ButtonSegment(value: ThemeMode.dark, label: Text('Dark')),
+                  ],
+                  selected: {selectedTheme},
+                  onSelectionChanged: (value) {
+                    selectedTheme = value.first;
+                    widget.onThemeChanged?.call(value.first);
+                    _serializeWrite(
+                      () => widget.database.saveTheme(value.first.name),
+                    );
                     setSheetState(() {});
                   },
                 ),

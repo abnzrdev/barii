@@ -28,7 +28,7 @@ class BitePaginationCache {
     required TextDirection textDirection,
     required TextScaler textScaler,
   }) {
-    final key = Object.hash(
+    final key = (
       bite.id,
       bite.content,
       width,

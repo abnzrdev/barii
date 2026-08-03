@@ -670,6 +670,47 @@ void main() {
     expect(find.text('Reader settings'), findsOneWidget);
   });
 
+  testWidgets(
+    'settings sections stay ordered and scroll in large-text landscape',
+    (tester) async {
+      tester.view.physicalSize = const Size(640, 360);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+          child: MaterialApp(
+            home: ReaderScreen(database: database, book: book),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Reader settings'));
+      await tester.pumpAndSettle();
+
+      final scrollable = find.byType(Scrollable).last;
+      final sectionOffsets = <String, double>{};
+      for (final section in ['Font', 'Layout', 'Theme', 'Behavior']) {
+        await tester.scrollUntilVisible(
+          find.text(section),
+          150,
+          scrollable: scrollable,
+        );
+        sectionOffsets[section] =
+            tester.getTopLeft(find.text(section)).dy +
+            tester.state<ScrollableState>(scrollable).position.pixels;
+      }
+
+      expect(
+        sectionOffsets.values,
+        orderedEquals(sectionOffsets.values.toList()..sort()),
+      );
+      expect(find.byTooltip('Reset subtle progress'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('font drag previews without losing the stable location', (
     tester,
   ) async {
