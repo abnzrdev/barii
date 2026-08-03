@@ -265,11 +265,14 @@ class EpubParser {
       text = '$prefix$text';
     }
     final marks = <SourceMark>[];
+    final nextMatch = <String, int>{};
     for (final child in element.querySelectorAll('strong, b, em, i, a')) {
       final fragment = _clean(child.text);
       if (fragment == null) continue;
-      final start = text.indexOf(fragment, prefix.length);
+      var start = text.indexOf(fragment, nextMatch[fragment] ?? prefix.length);
+      if (start < 0) start = text.indexOf(fragment, prefix.length);
       if (start < 0) continue;
+      nextMatch[fragment] = start + fragment.length;
       final name = child.localName;
       marks.add(
         SourceMark(
@@ -322,7 +325,7 @@ class EpubParser {
     }
 
     collect(element);
-    return parts.join(' ');
+    return parts.join();
   }
 
   static Element? _ancestor(Element element, String name) {

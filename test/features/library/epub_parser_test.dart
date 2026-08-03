@@ -123,6 +123,21 @@ void main() {
     );
     expect(blocks.first.text, 'Chapter One');
     expect(
+      blocks.map((block) => block.text),
+      contains(
+        'Bold words and italic words with a footnote and an external source.',
+      ),
+    );
+    final repeated = blocks.singleWhere(
+      (block) => block.text == 'Echo then Echo.',
+    );
+    final boldEchoes = repeated.marks.where((mark) => mark.kind == 'bold');
+    expect(boldEchoes.map((mark) => mark.start), [0, 10]);
+    expect(
+      boldEchoes.map((mark) => repeated.text!.substring(mark.start, mark.end)),
+      everyElement('Echo'),
+    );
+    expect(
       blocks.expand((block) => block.marks).map((mark) => mark.kind),
       containsAll(['bold', 'italic', 'link']),
     );
