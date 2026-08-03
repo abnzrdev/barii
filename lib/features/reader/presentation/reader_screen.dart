@@ -78,6 +78,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   var _autoHideControls = true;
   var _hapticsEnabled = true;
   var _showProgress = false;
+  var _plainReadingMode = false;
   var _chromeVisible = true;
   var _alignment = TextAlign.start;
   String _recentWord = 'book';
@@ -133,6 +134,7 @@ class _ReaderScreenState extends State<ReaderScreen>
         _autoHideControls = preferences.autoHideControls;
         _hapticsEnabled = preferences.hapticsEnabled;
         _showProgress = preferences.showProgress;
+        _plainReadingMode = preferences.plainReadingMode;
         _alignment = switch (preferences.alignment) {
           'center' => TextAlign.center,
           'justify' => TextAlign.justify,
@@ -442,6 +444,20 @@ class _ReaderScreenState extends State<ReaderScreen>
                 ),
               ),
               const _SettingsSection('Layout'),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Plain reading mode'),
+                subtitle: const Text('Show calm paragraph content only'),
+                value: _plainReadingMode,
+                onChanged: (value) {
+                  setState(() {
+                    _plainReadingMode = value;
+                    _paginationSignature = null;
+                  });
+                  setSheetState(() {});
+                  _savePreferences();
+                },
+              ),
               _SettingsValue(
                 label: 'Line spacing',
                 value: _lineHeight.toStringAsFixed(1),
@@ -703,6 +719,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       autoHideControls: _autoHideControls,
       hapticsEnabled: _hapticsEnabled,
       showProgress: _showProgress,
+      plainReadingMode: _plainReadingMode,
     ),
   );
 
@@ -991,6 +1008,8 @@ class _ReaderScreenState extends State<ReaderScreen>
                                                                       active;
                                                                 },
                                                             onLink: _followLink,
+                                                            plainReadingMode:
+                                                                _plainReadingMode,
                                                           ),
                                                   ),
                                                 ),
@@ -1134,6 +1153,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       _alignment,
       textScaler,
       _bites.length,
+      _plainReadingMode,
     );
     if (_paginationSignature == signature) return;
     _paginationSignature = signature;
@@ -1170,20 +1190,32 @@ class _ReaderScreenState extends State<ReaderScreen>
     await WidgetsBinding.instance.endOfFrame;
     for (final bite in _bites) {
       if (!mounted || generation != _paginationGeneration) return;
-      pages.addAll(
-        Timeline.timeSync(
-          'Reader.paginateBite',
-          () => _paginationCache.pagesFor(
-            bite: bite,
-            width: width,
-            height: height,
-            style: style,
-            textAlign: _alignment,
-            textDirection: direction,
-            textScaler: textScaler,
-          ),
-          arguments: {'biteId': bite.id, 'characters': bite.content.length},
+      final bitePages = Timeline.timeSync(
+        'Reader.paginateBite',
+        () => _paginationCache.pagesFor(
+          bite: bite,
+          width: width,
+          height: height,
+          style: style,
+          textAlign: _alignment,
+          textDirection: direction,
+          textScaler: textScaler,
         ),
+        arguments: {'biteId': bite.id, 'characters': bite.content.length},
+      );
+      pages.addAll(
+        _plainReadingMode && bite.kind != 'figure'
+            ? bitePages.where((page) {
+                final headings = _RichMetadata.parse(
+                  bite.markup,
+                ).marks.where((mark) => mark.kind == 'heading');
+                return !headings.any(
+                  (heading) =>
+                      heading.start <= page.startOffset &&
+                      heading.end >= page.endOffset,
+                );
+              })
+            : bitePages,
       );
       await WidgetsBinding.instance.endOfFrame;
     }
@@ -1199,9 +1231,21 @@ class _ReaderScreenState extends State<ReaderScreen>
           (offset < page.endOffset ||
               page.endOffset == page.bite.content.length),
     );
+    final anchorBite = _bites.indexWhere((bite) => bite.id == biteId);
+    final following = restored >= 0
+        ? restored
+        : pages.indexWhere((page) {
+            final pageBite = _bites.indexWhere(
+              (bite) => bite.id == page.bite.id,
+            );
+            return pageBite > anchorBite ||
+                (pageBite == anchorBite && page.endOffset > offset);
+          });
     setState(() {
       _pages = pages;
-      _index = restored < 0 ? 0 : restored;
+      _index = following < 0
+          ? (pages.isEmpty ? 0 : pages.length - 1)
+          : following;
       _restoringViewport = true;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1344,6 +1388,7 @@ class _BiteText extends StatefulWidget {
     required this.onWord,
     required this.onSelectionChanged,
     required this.onLink,
+    required this.plainReadingMode,
   });
 
   final AppDatabase database;
@@ -1356,6 +1401,7 @@ class _BiteText extends StatefulWidget {
   final ValueChanged<String> onWord;
   final ValueChanged<bool> onSelectionChanged;
   final ValueChanged<String> onLink;
+  final bool plainReadingMode;
 
   @override
   State<_BiteText> createState() => _BiteTextState();
@@ -1597,20 +1643,27 @@ class _BiteTextState extends State<_BiteText> {
   ) {
     TextStyle? style;
     String? href;
+    var text = content.substring(start, end);
     for (final mark in metadata.marks.where(
       (mark) => mark.start <= start && mark.end >= end,
     )) {
       final next = switch (mark.kind) {
-        'heading' => TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: widget.style.fontSize,
-        ),
+        'heading' =>
+          widget.plainReadingMode
+              ? const TextStyle(fontSize: 0, height: 0)
+              : TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: widget.style.fontSize,
+                ),
         'bold' => const TextStyle(fontWeight: FontWeight.bold),
         'italic' => const TextStyle(fontStyle: FontStyle.italic),
-        'blockquote' => TextStyle(
-          fontStyle: FontStyle.italic,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
+        'blockquote' =>
+          widget.plainReadingMode
+              ? null
+              : TextStyle(
+                  fontStyle: FontStyle.italic,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
         'footnote' => TextStyle(
           fontSize: (widget.style.fontSize ?? 20) * 0.9,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -1623,6 +1676,16 @@ class _BiteTextState extends State<_BiteText> {
       };
       if (next != null) style = style?.merge(next) ?? next;
       if (mark.kind == 'link') href = mark.href;
+      if (widget.plainReadingMode && mark.kind == 'heading') {
+        text = '\u200B' * text.length;
+      }
+      if (widget.plainReadingMode &&
+          (mark.kind == 'list' || mark.kind == 'blockquote')) {
+        text = text.replaceAllMapped(
+          RegExp(r'^\s*(?:(?:[-*+•‣◦]|\d+[.)])\s+|>\s*)', multiLine: true),
+          (match) => '\u200B' * match.group(0)!.length,
+        );
+      }
     }
     for (final item in highlights) {
       final range = item.range;
@@ -1637,11 +1700,7 @@ class _BiteTextState extends State<_BiteText> {
       _linkRecognizers.add(link);
       recognizer = link;
     }
-    return TextSpan(
-      text: content.substring(start, end),
-      style: style,
-      recognizer: recognizer,
-    );
+    return TextSpan(text: text, style: style, recognizer: recognizer);
   }
 
   TextStyle _highlightStyle(Highlight highlight) {

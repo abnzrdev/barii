@@ -212,6 +212,62 @@ void main() {
     expect(find.text('A calm caption'), findsOneWidget);
   });
 
+  testWidgets('plain reading mode hides and restores headings', (tester) async {
+    await database.replaceContent(
+      'book',
+      sections: const [StoredSection(id: 'section', position: 0)],
+      bites: const [
+        StoredBite(
+          id: 'plain-mode',
+          sectionId: 'section',
+          position: 0,
+          text: '1.4. A Busy Heading\nA calm paragraph remains.',
+          sourceStart: 0,
+          sourceEnd: 46,
+          markup:
+              '{"marks":[{"start":0,"end":19,"kind":"heading"}],"anchors":{}}',
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReaderScreen(database: database, book: book),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Reader settings'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Plain reading mode'),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(find.text('Plain reading mode'));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(8, 8));
+    await tester.pumpAndSettle();
+
+    TextSpan content() =>
+        tester.widget<SelectableText>(find.byType(SelectableText)).textSpan!;
+    expect(content().toPlainText(), isNot(contains('1.4. A Busy Heading')));
+    expect(find.textContaining('A calm paragraph remains.'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Reader settings'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Plain reading mode'),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(find.text('Plain reading mode'));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(8, 8));
+    await tester.pumpAndSettle();
+
+    expect(content().toPlainText(), contains('1.4. A Busy Heading'));
+  });
+
   testWidgets('internal links jump to anchors and support back navigation', (
     tester,
   ) async {

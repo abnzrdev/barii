@@ -213,6 +213,8 @@ class ReaderPreferences extends Table {
   BoolColumn get hapticsEnabled =>
       boolean().withDefault(const Constant(true))();
   BoolColumn get showProgress => boolean().withDefault(const Constant(false))();
+  BoolColumn get plainReadingMode =>
+      boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -275,7 +277,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -382,6 +384,12 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 8) {
         await migrator.addColumn(bites, bites.markup);
+      }
+      if (from < 9) {
+        await migrator.addColumn(
+          readerPreferences,
+          readerPreferences.plainReadingMode,
+        );
       }
     },
     beforeOpen: (_) => customStatement('PRAGMA foreign_keys = ON'),
@@ -834,6 +842,7 @@ class AppDatabase extends _$AppDatabase {
     required bool autoHideControls,
     required bool hapticsEnabled,
     bool showProgress = false,
+    bool plainReadingMode = false,
   }) async {
     await ensurePreferences();
     await update(readerPreferences).write(
@@ -846,6 +855,7 @@ class AppDatabase extends _$AppDatabase {
         autoHideControls: Value(autoHideControls),
         hapticsEnabled: Value(hapticsEnabled),
         showProgress: Value(showProgress),
+        plainReadingMode: Value(plainReadingMode),
       ),
     );
   }

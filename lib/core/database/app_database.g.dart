@@ -6015,6 +6015,21 @@ class $ReaderPreferencesTable extends ReaderPreferences
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _plainReadingModeMeta = const VerificationMeta(
+    'plainReadingMode',
+  );
+  @override
+  late final GeneratedColumn<bool> plainReadingMode = GeneratedColumn<bool>(
+    'plain_reading_mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("plain_reading_mode" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -6027,6 +6042,7 @@ class $ReaderPreferencesTable extends ReaderPreferences
     autoHideControls,
     hapticsEnabled,
     showProgress,
+    plainReadingMode,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -6109,6 +6125,15 @@ class $ReaderPreferencesTable extends ReaderPreferences
         ),
       );
     }
+    if (data.containsKey('plain_reading_mode')) {
+      context.handle(
+        _plainReadingModeMeta,
+        plainReadingMode.isAcceptableOrUnknown(
+          data['plain_reading_mode']!,
+          _plainReadingModeMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -6158,6 +6183,10 @@ class $ReaderPreferencesTable extends ReaderPreferences
         DriftSqlType.bool,
         data['${effectivePrefix}show_progress'],
       )!,
+      plainReadingMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}plain_reading_mode'],
+      )!,
     );
   }
 
@@ -6179,6 +6208,7 @@ class ReaderPreference extends DataClass
   final bool autoHideControls;
   final bool hapticsEnabled;
   final bool showProgress;
+  final bool plainReadingMode;
   const ReaderPreference({
     required this.id,
     required this.theme,
@@ -6190,6 +6220,7 @@ class ReaderPreference extends DataClass
     required this.autoHideControls,
     required this.hapticsEnabled,
     required this.showProgress,
+    required this.plainReadingMode,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -6204,6 +6235,7 @@ class ReaderPreference extends DataClass
     map['auto_hide_controls'] = Variable<bool>(autoHideControls);
     map['haptics_enabled'] = Variable<bool>(hapticsEnabled);
     map['show_progress'] = Variable<bool>(showProgress);
+    map['plain_reading_mode'] = Variable<bool>(plainReadingMode);
     return map;
   }
 
@@ -6219,6 +6251,7 @@ class ReaderPreference extends DataClass
       autoHideControls: Value(autoHideControls),
       hapticsEnabled: Value(hapticsEnabled),
       showProgress: Value(showProgress),
+      plainReadingMode: Value(plainReadingMode),
     );
   }
 
@@ -6238,6 +6271,7 @@ class ReaderPreference extends DataClass
       autoHideControls: serializer.fromJson<bool>(json['autoHideControls']),
       hapticsEnabled: serializer.fromJson<bool>(json['hapticsEnabled']),
       showProgress: serializer.fromJson<bool>(json['showProgress']),
+      plainReadingMode: serializer.fromJson<bool>(json['plainReadingMode']),
     );
   }
   @override
@@ -6254,6 +6288,7 @@ class ReaderPreference extends DataClass
       'autoHideControls': serializer.toJson<bool>(autoHideControls),
       'hapticsEnabled': serializer.toJson<bool>(hapticsEnabled),
       'showProgress': serializer.toJson<bool>(showProgress),
+      'plainReadingMode': serializer.toJson<bool>(plainReadingMode),
     };
   }
 
@@ -6268,6 +6303,7 @@ class ReaderPreference extends DataClass
     bool? autoHideControls,
     bool? hapticsEnabled,
     bool? showProgress,
+    bool? plainReadingMode,
   }) => ReaderPreference(
     id: id ?? this.id,
     theme: theme ?? this.theme,
@@ -6279,6 +6315,7 @@ class ReaderPreference extends DataClass
     autoHideControls: autoHideControls ?? this.autoHideControls,
     hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
     showProgress: showProgress ?? this.showProgress,
+    plainReadingMode: plainReadingMode ?? this.plainReadingMode,
   );
   ReaderPreference copyWithCompanion(ReaderPreferencesCompanion data) {
     return ReaderPreference(
@@ -6304,6 +6341,9 @@ class ReaderPreference extends DataClass
       showProgress: data.showProgress.present
           ? data.showProgress.value
           : this.showProgress,
+      plainReadingMode: data.plainReadingMode.present
+          ? data.plainReadingMode.value
+          : this.plainReadingMode,
     );
   }
 
@@ -6319,7 +6359,8 @@ class ReaderPreference extends DataClass
           ..write('pageMargin: $pageMargin, ')
           ..write('autoHideControls: $autoHideControls, ')
           ..write('hapticsEnabled: $hapticsEnabled, ')
-          ..write('showProgress: $showProgress')
+          ..write('showProgress: $showProgress, ')
+          ..write('plainReadingMode: $plainReadingMode')
           ..write(')'))
         .toString();
   }
@@ -6336,6 +6377,7 @@ class ReaderPreference extends DataClass
     autoHideControls,
     hapticsEnabled,
     showProgress,
+    plainReadingMode,
   );
   @override
   bool operator ==(Object other) =>
@@ -6350,7 +6392,8 @@ class ReaderPreference extends DataClass
           other.pageMargin == this.pageMargin &&
           other.autoHideControls == this.autoHideControls &&
           other.hapticsEnabled == this.hapticsEnabled &&
-          other.showProgress == this.showProgress);
+          other.showProgress == this.showProgress &&
+          other.plainReadingMode == this.plainReadingMode);
 }
 
 class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
@@ -6364,6 +6407,7 @@ class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
   final Value<bool> autoHideControls;
   final Value<bool> hapticsEnabled;
   final Value<bool> showProgress;
+  final Value<bool> plainReadingMode;
   const ReaderPreferencesCompanion({
     this.id = const Value.absent(),
     this.theme = const Value.absent(),
@@ -6375,6 +6419,7 @@ class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
     this.autoHideControls = const Value.absent(),
     this.hapticsEnabled = const Value.absent(),
     this.showProgress = const Value.absent(),
+    this.plainReadingMode = const Value.absent(),
   });
   ReaderPreferencesCompanion.insert({
     this.id = const Value.absent(),
@@ -6387,6 +6432,7 @@ class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
     this.autoHideControls = const Value.absent(),
     this.hapticsEnabled = const Value.absent(),
     this.showProgress = const Value.absent(),
+    this.plainReadingMode = const Value.absent(),
   });
   static Insertable<ReaderPreference> custom({
     Expression<int>? id,
@@ -6399,6 +6445,7 @@ class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
     Expression<bool>? autoHideControls,
     Expression<bool>? hapticsEnabled,
     Expression<bool>? showProgress,
+    Expression<bool>? plainReadingMode,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -6411,6 +6458,7 @@ class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
       if (autoHideControls != null) 'auto_hide_controls': autoHideControls,
       if (hapticsEnabled != null) 'haptics_enabled': hapticsEnabled,
       if (showProgress != null) 'show_progress': showProgress,
+      if (plainReadingMode != null) 'plain_reading_mode': plainReadingMode,
     });
   }
 
@@ -6425,6 +6473,7 @@ class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
     Value<bool>? autoHideControls,
     Value<bool>? hapticsEnabled,
     Value<bool>? showProgress,
+    Value<bool>? plainReadingMode,
   }) {
     return ReaderPreferencesCompanion(
       id: id ?? this.id,
@@ -6437,6 +6486,7 @@ class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
       autoHideControls: autoHideControls ?? this.autoHideControls,
       hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
       showProgress: showProgress ?? this.showProgress,
+      plainReadingMode: plainReadingMode ?? this.plainReadingMode,
     );
   }
 
@@ -6473,6 +6523,9 @@ class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
     if (showProgress.present) {
       map['show_progress'] = Variable<bool>(showProgress.value);
     }
+    if (plainReadingMode.present) {
+      map['plain_reading_mode'] = Variable<bool>(plainReadingMode.value);
+    }
     return map;
   }
 
@@ -6488,7 +6541,8 @@ class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
           ..write('pageMargin: $pageMargin, ')
           ..write('autoHideControls: $autoHideControls, ')
           ..write('hapticsEnabled: $hapticsEnabled, ')
-          ..write('showProgress: $showProgress')
+          ..write('showProgress: $showProgress, ')
+          ..write('plainReadingMode: $plainReadingMode')
           ..write(')'))
         .toString();
   }
@@ -13241,6 +13295,7 @@ typedef $$ReaderPreferencesTableCreateCompanionBuilder =
       Value<bool> autoHideControls,
       Value<bool> hapticsEnabled,
       Value<bool> showProgress,
+      Value<bool> plainReadingMode,
     });
 typedef $$ReaderPreferencesTableUpdateCompanionBuilder =
     ReaderPreferencesCompanion Function({
@@ -13254,6 +13309,7 @@ typedef $$ReaderPreferencesTableUpdateCompanionBuilder =
       Value<bool> autoHideControls,
       Value<bool> hapticsEnabled,
       Value<bool> showProgress,
+      Value<bool> plainReadingMode,
     });
 
 class $$ReaderPreferencesTableFilterComposer
@@ -13312,6 +13368,11 @@ class $$ReaderPreferencesTableFilterComposer
 
   ColumnFilters<bool> get showProgress => $composableBuilder(
     column: $table.showProgress,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get plainReadingMode => $composableBuilder(
+    column: $table.plainReadingMode,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -13374,6 +13435,11 @@ class $$ReaderPreferencesTableOrderingComposer
     column: $table.showProgress,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get plainReadingMode => $composableBuilder(
+    column: $table.plainReadingMode,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ReaderPreferencesTableAnnotationComposer
@@ -13424,6 +13490,11 @@ class $$ReaderPreferencesTableAnnotationComposer
 
   GeneratedColumn<bool> get showProgress => $composableBuilder(
     column: $table.showProgress,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get plainReadingMode => $composableBuilder(
+    column: $table.plainReadingMode,
     builder: (column) => column,
   );
 }
@@ -13478,6 +13549,7 @@ class $$ReaderPreferencesTableTableManager
                 Value<bool> autoHideControls = const Value.absent(),
                 Value<bool> hapticsEnabled = const Value.absent(),
                 Value<bool> showProgress = const Value.absent(),
+                Value<bool> plainReadingMode = const Value.absent(),
               }) => ReaderPreferencesCompanion(
                 id: id,
                 theme: theme,
@@ -13489,6 +13561,7 @@ class $$ReaderPreferencesTableTableManager
                 autoHideControls: autoHideControls,
                 hapticsEnabled: hapticsEnabled,
                 showProgress: showProgress,
+                plainReadingMode: plainReadingMode,
               ),
           createCompanionCallback:
               ({
@@ -13502,6 +13575,7 @@ class $$ReaderPreferencesTableTableManager
                 Value<bool> autoHideControls = const Value.absent(),
                 Value<bool> hapticsEnabled = const Value.absent(),
                 Value<bool> showProgress = const Value.absent(),
+                Value<bool> plainReadingMode = const Value.absent(),
               }) => ReaderPreferencesCompanion.insert(
                 id: id,
                 theme: theme,
@@ -13513,6 +13587,7 @@ class $$ReaderPreferencesTableTableManager
                 autoHideControls: autoHideControls,
                 hapticsEnabled: hapticsEnabled,
                 showProgress: showProgress,
+                plainReadingMode: plainReadingMode,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
