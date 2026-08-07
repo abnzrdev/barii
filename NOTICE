@@ -1,0 +1,26 @@
+BookBites
+Copyright (C) 2026 BookBites contributors
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+
+BookBites is free software licensed under the GNU Affero General Public
+License version 3, or (at your option) any later version.
+
+Readest attribution
+===================
+
+BookBites uses Readest as an engineering reference and may copy, port,
+translate, or adapt selected Readest source code under the compatible
+AGPL-3.0-or-later license.
+
+Readest
+Repository: https://github.com/readest/readest
+License: AGPL-3.0-or-later
+Copyright: Readest contributors
+
+For source copied or substantially adapted from Readest, BookBites should
+preserve relevant copyright notices and record the upstream file/commit
+and the modifications made.
+
+Third-party dependencies, fonts, dictionaries, book data, and other
+assets remain governed by their respective licenses.
