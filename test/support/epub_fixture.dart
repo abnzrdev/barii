@@ -8,6 +8,7 @@ List<int> epubFixtureBytes({
   bool emptyContent = false,
   bool figures = false,
   bool richText = false,
+  bool canonicalSemantics = false,
 }) {
   final archive = Archive()
     ..addFile(ArchiveFile.string('mimetype', 'application/epub+zip'))
@@ -25,13 +26,14 @@ media-type="application/oebps-package+xml"/></rootfiles></container>'''),
 unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
 <dc:identifier id="id">fixture</dc:identifier>
 <dc:title>Fixture Book</dc:title><dc:creator>Fixture Author</dc:creator>
-<dc:language>en</dc:language></metadata><manifest>
+<dc:language>${canonicalSemantics ? 'ar' : 'en'}</dc:language>
+${canonicalSemantics ? '<meta property="rendition:layout">pre-paginated</meta>' : ''}</metadata><manifest>
 <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml"
 properties="nav"/><item id="one" href="one.xhtml"
 media-type="application/xhtml+xml"/><item id="two" href="two.xhtml"
 media-type="application/xhtml+xml"/>
 ${figures ? '<item id="png" href="images/dot.png" media-type="image/png"/><item id="jpg" href="images/photo.jpg" media-type="image/jpeg"/><item id="svg" href="images/shape.svg" media-type="image/svg+xml"/>' : ''}</manifest>
-<spine><itemref idref="one"/><itemref idref="two"/></spine></package>''',
+<spine page-progression-direction="${canonicalSemantics ? 'rtl' : 'ltr'}"><itemref idref="one"/>${canonicalSemantics ? '<itemref idref="one" linear="no"/>' : ''}<itemref idref="two"/></spine></package>''',
       ),
     )
     ..addFile(
@@ -54,8 +56,9 @@ ${figures ? '<item id="png" href="images/dot.png" media-type="image/png"/><item 
         'OEBPS/one.xhtml',
         emptyContent
             ? '<html><body><script>remove me</script></body></html>'
-            : '''<html><body><h1>Chapter One</h1><script>remove me</script>
+            : '''<html${canonicalSemantics ? ' lang="ar" dir="rtl"' : ''}><body><h1>Chapter One</h1><script>remove me</script>
 <p>First safe sentence.</p><p>Second safe sentence.</p>
+${canonicalSemantics ? '<p id="semantic-start">Alpha <strong>bold <em id="inner-mark">inner</em></strong> omega.</p>' : ''}
 ${figures ? '<figure><img src="images/dot.png" alt="Green dot"/><figcaption>PNG caption</figcaption></figure><img src="./images/photo.jpg" alt="JPEG portrait"/><img src="images/shape.svg" alt="External SVG"/><svg aria-label="Inline SVG" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4"/></svg>' : ''}
 ${nestedList ? '<ul><li><p>If you are a coach, build a reliable system.</p></li></ul>' : ''}
 ${anchoredNavigation ? '<h2 id="start">Start</h2><p>Intentional refrain.</p><h2 id="part-one">Part One</h2><ul><li><p>Previously duplicated sentence.</p></li></ul><h2 id="part-two">Part Two</h2><p>Intentional refrain.</p><p>Unicode punctuation: “calm”—always.</p>' : ''}

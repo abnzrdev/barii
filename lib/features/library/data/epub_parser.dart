@@ -7,22 +7,17 @@ import 'package:epubx/epubx.dart';
 import 'package:html/dom.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:image/image.dart' as image;
-import 'package:path/path.dart' as path;
 
+import '../domain/canonical_publication.dart';
 import '../../reader/domain/bite_generator.dart';
-
-class ParsedAsset {
-  const ParsedAsset({required this.bytes, required this.extension});
-
-  final Uint8List bytes;
-  final String extension;
-}
+import 'canonical_bite_projection.dart';
 
 class ParsedPublication {
   const ParsedPublication({
     required this.title,
     required this.author,
     required this.sections,
+    this.canonical,
     this.assets = const {},
     this.cover,
   });
@@ -30,6 +25,7 @@ class ParsedPublication {
   final String title;
   final String author;
   final List<SourceSection> sections;
+  final CanonicalPublication? canonical;
   final Map<String, ParsedAsset> assets;
   final Uint8List? cover;
 }
@@ -60,8 +56,6 @@ class EpubParser {
       final packageTask = TimelineTask()..start('Epub.packageParse');
       final book = await EpubReader.readBook(bytes);
       packageTask.finish();
-      final sections = <SourceSection>[];
-      final assets = <String, ParsedAsset>{};
       final titlesByFile = <String, String>{};
       void collectTitles(List<EpubChapter>? chapters) {
         for (final chapter in chapters ?? const <EpubChapter>[]) {
@@ -82,77 +76,43 @@ class EpubParser {
         filesByName[_normalizePath(entry.key)] = entry.value;
         filesByName[_normalizePath(entry.value.FileName)] = entry.value;
       }
-      final orderedFiles = <({String name, EpubTextContentFile file})>[];
-      final processed = <String>{};
-      final manifest = {
-        for (final item
-            in book.Schema?.Package?.Manifest?.Items ??
-                const <EpubManifestItem>[])
-          if (item.Id != null) item.Id!: item,
-      };
-      for (final item
-          in book.Schema?.Package?.Spine?.Items ?? const <EpubSpineItemRef>[]) {
-        final href = _normalizePath(manifest[item.IdRef]?.Href);
-        final file = filesByName[href];
-        if (file != null && processed.add(href)) {
-          orderedFiles.add((name: href, file: file));
-        }
-      }
-      if (orderedFiles.isEmpty) {
-        for (final entry in htmlFiles.entries) {
-          final name = _normalizePath(entry.value.FileName ?? entry.key);
-          if (processed.add(name)) {
-            orderedFiles.add((name: name, file: entry.value));
-          }
-        }
-      }
+      final canonical = _canonicalPublication(
+        book,
+        filesByName,
+        titlesByFile,
+        archiveFiles,
+      );
       Timeline.startSync(
         'Epub.contentCanonicalization',
-        arguments: {'spineItems': orderedFiles.length},
+        arguments: {'spineItems': canonical.readingOrder.length},
       );
+      late final CanonicalProjection projection;
       try {
-        for (final source in orderedFiles) {
-          final fileName = _normalizePath(source.file.FileName ?? source.name);
-          final parsed = _parseHtml(
-            source.file.Content ?? '',
-            fileName,
-            archiveFiles,
-          );
-          if (parsed.blocks.isNotEmpty) {
-            assets.addAll(parsed.assets);
-            sections.add(
-              SourceSection(
-                index: sections.length,
-                heading: parsed.heading ?? titlesByFile[source.name],
-                paragraphs: parsed.blocks
-                    .where((block) => block.kind != 'heading')
-                    .map(
-                      (block) => block.kind == 'list'
-                          ? block.text?.replaceFirst(RegExp(r'^\s*•\s*'), '')
-                          : block.text,
-                    )
-                    .whereType<String>()
-                    .toList(),
-                blocks: parsed.blocks,
-              ),
-            );
-          }
-        }
+        projection = const CanonicalBiteProjection().project(
+          canonical,
+          archiveFiles,
+        );
       } finally {
         Timeline.finishSync();
       }
-      if (sections.isEmpty) throw const BookParseException('Book is empty.');
+      if (projection.sections.isEmpty) {
+        throw const BookParseException('Book is empty.');
+      }
       final publication = ParsedPublication(
         title: _fallback(book.Title, 'Untitled book'),
         author: _fallback(book.Author, 'Unknown author'),
-        sections: sections,
-        assets: assets,
+        sections: projection.sections,
+        canonical: canonical,
+        assets: projection.assets,
         cover: book.CoverImage == null
             ? null
             : Uint8List.fromList(image.encodePng(book.CoverImage!)),
       );
       parseTask.finish(
-        arguments: {'sections': sections.length, 'assets': assets.length},
+        arguments: {
+          'sections': projection.sections.length,
+          'assets': projection.assets.length,
+        },
       );
       return publication;
     } on UnsupportedDrmException {
@@ -167,243 +127,179 @@ class EpubParser {
     }
   }
 
-  static _ParsedHtml _parseHtml(
-    String source,
-    String fileName,
+  static CanonicalPublication _canonicalPublication(
+    EpubBook book,
+    Map<String, EpubTextContentFile> filesByName,
+    Map<String, String> titlesByFile,
     Map<String, Uint8List> archiveFiles,
   ) {
-    final document = html_parser.parse(source);
-    document
-        .querySelectorAll('script, style, nav, noscript, iframe')
-        .forEach((node) => node.remove());
-    final heading = _clean(
-      document.querySelector('h1, h2, h3, h4, h5, h6')?.text,
-    );
-    final blocks = <SourceBlock>[];
-    final assets = <String, ParsedAsset>{};
-    var inlineSvg = 0;
-    for (final element
-        in document.body?.querySelectorAll(
-              'h1, h2, h3, h4, h5, h6, p, li, blockquote, aside, figure, img, svg',
-            ) ??
-            const <Element>[]) {
-      if (_hasAncestor(element, 'figure') && element.localName != 'figure') {
-        continue;
-      }
-      if (_isTextBlock(element)) {
-        if (element.querySelector('p, li, blockquote, aside') != null) continue;
-        final block = _richBlock(element, fileName);
-        if (block != null) blocks.add(block);
-        continue;
-      }
-      final imageElement = element.localName == 'figure'
-          ? element.querySelector('img, svg')
-          : element;
-      if (imageElement == null) continue;
-      final alt = _clean(
-        imageElement.attributes['alt'] ?? imageElement.attributes['aria-label'],
+    final package = book.Schema?.Package;
+    final metadata = package?.Metadata;
+    final manifestItems =
+        package?.Manifest?.Items ?? const <EpubManifestItem>[];
+    final resources = <String, CanonicalResource>{};
+    final resourcesById = <String, CanonicalResource>{};
+    for (final item in manifestItems) {
+      final href = _normalizePath(item.Href);
+      if (href.isEmpty) continue;
+      final resource = CanonicalResource(
+        id: item.Id ?? href,
+        href: href,
+        mediaType: item.MediaType ?? 'application/octet-stream',
+        content: filesByName[href]?.Content,
+        properties: _tokens(item.Properties),
       );
-      final caption = _clean(element.querySelector('figcaption')?.text);
-      String? assetKey;
-      Uint8List? assetBytes;
-      String? extension;
-      if (imageElement.localName == 'svg') {
-        assetKey = '$fileName.inline-${inlineSvg++}.svg';
-        assetBytes = Uint8List.fromList(utf8.encode(imageElement.outerHtml));
-        extension = '.svg';
-      } else {
-        assetKey = _resolveAssetPath(fileName, imageElement.attributes['src']);
-        assetBytes = assetKey == null ? null : archiveFiles[assetKey];
-        if (assetKey != null && assetBytes == null) {
-          final matches = archiveFiles.keys
-              .where((name) => name.endsWith('/$assetKey'))
-              .toList();
-          if (matches.length == 1) {
-            assetKey = matches.single;
-            assetBytes = archiveFiles[assetKey];
-          }
-        }
-        extension = assetKey == null ? null : path.posix.extension(assetKey);
-      }
-      if (assetKey != null && assetBytes != null) {
-        assets[assetKey] = ParsedAsset(
-          bytes: assetBytes,
-          extension: extension?.isEmpty ?? true ? '.bin' : extension!,
-        );
-        blocks.add(
-          SourceBlock.figure(
-            assetKey: assetKey,
-            altText: alt,
-            caption: caption,
-          ),
-        );
-      } else {
-        final fallback = [alt, caption].whereType<String>().join(' ');
-        if (fallback.isNotEmpty) blocks.add(SourceBlock.text(fallback));
-      }
+      resources[href] = resource;
+      if (item.Id != null) resourcesById[item.Id!] = resource;
     }
-    if (blocks.isEmpty) {
-      final text = _clean(document.body?.text);
-      if (text != null && text != heading) blocks.add(SourceBlock.text(text));
-    }
-    return _ParsedHtml(heading, blocks, assets);
-  }
 
-  static bool _isTextBlock(Element element) =>
-      element.localName == 'p' ||
-      element.localName == 'li' ||
-      element.localName == 'blockquote' ||
-      element.localName == 'aside' ||
-      RegExp(r'^h[1-6]$').hasMatch(element.localName ?? '');
-
-  static SourceBlock? _richBlock(Element element, String fileName) {
-    var text = _clean(_textWithoutNestedLists(element));
-    if (text == null) return null;
-    var prefix = '';
-    final listItem = element.localName == 'li'
-        ? element
-        : _ancestor(element, 'li');
-    if (listItem != null) {
-      var depth = 0;
-      for (
-        var parent = listItem.parent;
-        parent != null;
-        parent = parent.parent
-      ) {
-        if (parent.localName == 'ul' || parent.localName == 'ol') depth++;
-      }
-      final indentation = List.filled((depth - 1).clamp(0, 8), '  ').join();
-      final parent = listItem.parent;
-      if (parent?.localName == 'ol') {
-        final number =
-            parent!.children
-                .where((child) => child.localName == 'li')
-                .toList()
-                .indexOf(listItem) +
-            1;
-        prefix = '$indentation$number. ';
-      } else {
-        prefix = '$indentation• ';
-      }
-      text = '$prefix$text';
-    }
-    final marks = <SourceMark>[];
-    final nextMatch = <String, int>{};
-    for (final child in element.querySelectorAll('strong, b, em, i, a')) {
-      final fragment = _clean(child.text);
-      if (fragment == null) continue;
-      var start = text.indexOf(fragment, nextMatch[fragment] ?? prefix.length);
-      if (start < 0) start = text.indexOf(fragment, prefix.length);
-      if (start < 0) continue;
-      nextMatch[fragment] = start + fragment.length;
-      final name = child.localName;
-      marks.add(
-        SourceMark(
-          start: start,
-          end: start + fragment.length,
-          kind: name == 'strong' || name == 'b'
-              ? 'bold'
-              : name == 'em' || name == 'i'
-              ? 'italic'
-              : 'link',
-          href: name == 'a'
-              ? _resolveHref(fileName, child.attributes['href'])
-              : null,
+    final layout = metadata?.MetaItems
+        ?.where((item) => item.Property == 'rendition:layout')
+        .map((item) => item.Content?.trim())
+        .whereType<String>()
+        .where((value) => value.isNotEmpty)
+        .firstOrNull;
+    final rawItemRefs = _rawSpineItemRefs(archiveFiles);
+    final nodeCache = <String, _CanonicalDocument>{};
+    _CanonicalDocument documentFor(CanonicalResource resource) => nodeCache
+        .putIfAbsent(resource.href, () => _canonicalDocument(resource.content));
+    final readingOrder = <CanonicalSpineOccurrence>[];
+    final spineItems = package?.Spine?.Items ?? const <EpubSpineItemRef>[];
+    for (var index = 0; index < spineItems.length; index++) {
+      final itemRef = spineItems[index];
+      final resource = resourcesById[itemRef.IdRef];
+      if (resource == null) continue;
+      final raw = index < rawItemRefs.length ? rawItemRefs[index] : const {};
+      final document = documentFor(resource);
+      final properties = _tokens(raw['properties']);
+      final occurrenceLayout =
+          properties.contains('rendition:layout-pre-paginated')
+          ? 'pre-paginated'
+          : properties.contains('rendition:layout-reflowable')
+          ? 'reflowable'
+          : layout;
+      readingOrder.add(
+        CanonicalSpineOccurrence(
+          occurrenceId: raw['id'] ?? 'spine-$index:${itemRef.IdRef}',
+          resourceId: itemRef.IdRef ?? resource.id,
+          position: index,
+          resourceHref: resource.href,
+          mediaType: resource.mediaType,
+          linear: raw['linear']?.toLowerCase() != 'no',
+          nodes: document.nodes,
+          title: titlesByFile[resource.href],
+          language: document.language ?? metadata?.Languages?.firstOrNull,
+          textDirection: document.textDirection,
+          layout: occurrenceLayout,
         ),
       );
     }
-    final id = element.id.isNotEmpty ? element.id : _nearestId(element);
-    final kind = listItem != null
-        ? 'list'
-        : element.localName == 'blockquote'
-        ? 'blockquote'
-        : element.localName == 'aside'
-        ? 'footnote'
-        : RegExp(r'^h[1-6]$').hasMatch(element.localName ?? '')
-        ? 'heading'
-        : 'paragraph';
-    return SourceBlock.text(
-      text,
-      kind: kind,
-      marks: marks,
-      anchor: id == null ? null : '$fileName#$id',
+    if (readingOrder.isEmpty) {
+      for (final resource in resources.values.where(
+        (resource) => resource.content != null,
+      )) {
+        final index = readingOrder.length;
+        final document = documentFor(resource);
+        readingOrder.add(
+          CanonicalSpineOccurrence(
+            occurrenceId: 'fallback-$index:${resource.id}',
+            resourceId: resource.id,
+            position: index,
+            resourceHref: resource.href,
+            mediaType: resource.mediaType,
+            linear: true,
+            nodes: document.nodes,
+            title: titlesByFile[resource.href],
+            language: document.language ?? metadata?.Languages?.firstOrNull,
+            textDirection: document.textDirection,
+            layout: layout,
+          ),
+        );
+      }
+    }
+    return CanonicalPublication(
+      metadata: CanonicalMetadata(
+        identifier: metadata?.Identifiers?.firstOrNull?.Identifier,
+        title: _fallback(book.Title, 'Untitled book'),
+        authors: [
+          if (book.Author?.trim().isNotEmpty ?? false) book.Author!.trim(),
+        ],
+        languages: List.unmodifiable(metadata?.Languages ?? const []),
+      ),
+      rendition: CanonicalRendition(layout: layout ?? 'reflowable'),
+      resources: Map.unmodifiable(resources),
+      readingOrder: List.unmodifiable(readingOrder),
+      pageProgressionDirection: package?.Spine?.ltr == false ? 'rtl' : 'ltr',
     );
   }
 
-  static String _textWithoutNestedLists(Element element) {
-    final parts = <String>[];
-    void collect(Node node) {
+  static _CanonicalDocument _canonicalDocument(String? source) {
+    if (source == null) return const _CanonicalDocument([]);
+    final document = html_parser.parse(source);
+    final root = document.documentElement;
+    var offset = 0;
+    CanonicalNode build(Node node) {
+      final start = offset;
       if (node is Text) {
-        parts.add(node.data);
-        return;
+        offset += node.data.length;
+        return CanonicalNode(
+          kind: '#text',
+          startOffset: start,
+          endOffset: offset,
+          logicalText: node.data,
+        );
       }
-      if (node is! Element) return;
-      if (!identical(node, element) &&
-          (node.localName == 'ol' || node.localName == 'ul')) {
-        return;
-      }
-      for (final child in node.nodes) {
-        collect(child);
-      }
+      final element = node as Element;
+      final children = element.nodes.map(build).toList(growable: false);
+      return CanonicalNode(
+        kind: element.localName ?? 'element',
+        startOffset: start,
+        endOffset: offset,
+        logicalText: children.map((child) => child.logicalText).join(),
+        children: children,
+        elementId: element.id.isEmpty ? null : element.id,
+        language: element.attributes['lang'] ?? element.attributes['xml:lang'],
+        textDirection: element.attributes['dir'],
+        href: element.attributes['href'],
+        epubTypes: _tokens(element.attributes['epub:type']),
+      );
     }
 
-    collect(element);
-    return parts.join();
+    final nodes =
+        (document.body ?? root)?.nodes.map(build).toList() ?? const [];
+    return _CanonicalDocument(
+      nodes,
+      language: root?.attributes['lang'] ?? root?.attributes['xml:lang'],
+      textDirection: root?.attributes['dir'],
+    );
   }
 
-  static Element? _ancestor(Element element, String name) {
-    for (var parent = element.parent; parent != null; parent = parent.parent) {
-      if (parent.localName == name) return parent;
-    }
-    return null;
+  static List<Map<String, String>> _rawSpineItemRefs(
+    Map<String, Uint8List> archiveFiles,
+  ) {
+    final package = archiveFiles.entries
+        .where((entry) => entry.key.toLowerCase().endsWith('.opf'))
+        .firstOrNull;
+    if (package == null) return const [];
+    final document = html_parser.parse(utf8.decode(package.value));
+    return document.querySelectorAll('spine itemref').map((element) {
+      return {
+        for (final entry in element.attributes.entries)
+          entry.key.toString(): entry.value,
+      };
+    }).toList();
   }
 
-  static String? _nearestId(Element element) {
-    for (
-      var current = element.parent;
-      current != null;
-      current = current.parent
-    ) {
-      if (current.id.isNotEmpty) return current.id;
-    }
-    return null;
-  }
-
-  static String? _resolveHref(String fileName, String? href) {
-    final value = href?.trim();
-    if (value == null || value.isEmpty) return null;
-    final uri = Uri.tryParse(value);
-    if (uri == null) return null;
-    if (uri.hasScheme) return value;
-    final target = uri.path.isEmpty
-        ? fileName
-        : path.posix.normalize(
-            path.posix.join(path.posix.dirname(fileName), uri.path),
-          );
-    return uri.fragment.isEmpty ? target : '$target#${uri.fragment}';
-  }
-
-  static bool _hasAncestor(Element element, String name) {
-    for (var parent = element.parent; parent != null; parent = parent.parent) {
-      if (parent.localName == name) return true;
-    }
-    return false;
-  }
+  static List<String> _tokens(String? value) =>
+      value
+          ?.split(RegExp(r'\s+'))
+          .where((token) => token.isNotEmpty)
+          .toList() ??
+      const [];
 
   static String? _clean(String? value) {
     final text = value?.replaceAll(RegExp(r'\s+'), ' ').trim();
     return text == null || text.isEmpty ? null : text;
-  }
-
-  static String? _resolveAssetPath(String htmlFile, String? source) {
-    if (source == null || source.trim().isEmpty) return null;
-    final uri = Uri.tryParse(source.trim());
-    if (uri == null || uri.hasScheme || uri.path.startsWith('/')) return null;
-    final resolved = path.posix.normalize(
-      path.posix.join(path.posix.dirname(htmlFile), uri.path),
-    );
-    if (resolved == '..' || resolved.startsWith('../')) return null;
-    return _normalizePath(resolved);
   }
 
   static String _fallback(String? value, String fallback) =>
@@ -419,11 +315,12 @@ class EpubParser {
   }
 }
 
-class _ParsedHtml {
-  const _ParsedHtml(this.heading, this.blocks, this.assets);
-  final String? heading;
-  final List<SourceBlock> blocks;
-  final Map<String, ParsedAsset> assets;
+class _CanonicalDocument {
+  const _CanonicalDocument(this.nodes, {this.language, this.textDirection});
+
+  final List<CanonicalNode> nodes;
+  final String? language;
+  final String? textDirection;
 }
 
 class BookParseException implements Exception {

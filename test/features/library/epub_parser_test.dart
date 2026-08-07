@@ -1,4 +1,5 @@
 import 'package:bookbites/features/library/data/epub_parser.dart';
+import 'package:bookbites/features/library/domain/canonical_publication.dart';
 import 'package:bookbites/features/reader/domain/bite_generator.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -181,4 +182,68 @@ void main() {
       }
     },
   );
+
+  test(
+    'preserves publication resources and distinct spine occurrences',
+    () async {
+      final publication = await parser.parse(
+        epubFixtureBytes(canonicalSemantics: true),
+      );
+      final canonical = publication.canonical!;
+
+      expect(canonical.metadata.languages, ['ar']);
+      expect(canonical.rendition.layout, 'pre-paginated');
+      expect(canonical.pageProgressionDirection, 'rtl');
+      expect(
+        canonical.resources['one.xhtml']?.mediaType,
+        'application/xhtml+xml',
+      );
+      expect(canonical.readingOrder, hasLength(3));
+      expect(canonical.readingOrder.take(2).map((item) => item.resourceHref), [
+        'one.xhtml',
+        'one.xhtml',
+      ]);
+      expect(
+        canonical.readingOrder.take(2).map((item) => item.occurrenceId).toSet(),
+        hasLength(2),
+      );
+      expect(canonical.readingOrder[1].linear, isFalse);
+    },
+  );
+
+  test(
+    'preserves semantic nodes, IDs, direction, and nested text order',
+    () async {
+      final publication = await parser.parse(
+        epubFixtureBytes(canonicalSemantics: true),
+      );
+      final section = publication.canonical!.readingOrder.first;
+      final paragraph = section.nodes
+          .expand(_canonicalDescendants)
+          .singleWhere((node) => node.elementId == 'semantic-start');
+      final inner = paragraph.children
+          .expand(_canonicalDescendants)
+          .singleWhere((node) => node.elementId == 'inner-mark');
+
+      expect(section.language, 'ar');
+      expect(section.textDirection, 'rtl');
+      expect(paragraph.logicalText, 'Alpha bold inner omega.');
+      expect(inner.logicalText, 'inner');
+      expect(paragraph.startOffset, lessThan(inner.startOffset));
+      expect(inner.endOffset, lessThan(paragraph.endOffset));
+
+      final projected = publication.sections.first.blocks.singleWhere(
+        (block) => block.text == 'Alpha bold inner omega.',
+      );
+      expect(projected.kind, 'paragraph');
+      expect(projected.anchor, 'one.xhtml#semantic-start');
+    },
+  );
+}
+
+Iterable<CanonicalNode> _canonicalDescendants(CanonicalNode node) sync* {
+  yield node;
+  for (final child in node.children) {
+    yield* _canonicalDescendants(child);
+  }
 }
