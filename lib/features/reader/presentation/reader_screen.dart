@@ -16,6 +16,7 @@ import '../../dictionary/domain/dictionary_repository.dart';
 import '../../dictionary/presentation/dictionary_panel.dart';
 import '../domain/highlight_anchor.dart';
 import 'bite_paginator.dart';
+import '../data/canonical_locator_backfill.dart';
 import 'reader_navigation.dart';
 import 'original_epub_view.dart';
 import 'reader_panel.dart';
@@ -90,6 +91,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   var _plainReadingMode = false;
   var _originalView = false;
   var _originalSpineIndex = 0;
+  var _canonicalBackfillStarted = false;
   var _chromeVisible = true;
   var _alignment = TextAlign.start;
   String _recentWord = 'book';
@@ -207,6 +209,12 @@ class _ReaderScreenState extends State<ReaderScreen>
         _sourceOffset,
       ),
     );
+  }
+
+  void _backfillCanonicalLocations() {
+    if (_canonicalBackfillStarted) return;
+    _canonicalBackfillStarted = true;
+    unawaited(CanonicalLocatorBackfill(widget.database).backfill(widget.book));
   }
 
   void _resetFocusTimer({bool show = true}) {
@@ -969,6 +977,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                     initialSpineIndex: _originalSpineIndex,
                     initialOffset: _canonicalSourceOffset,
                     onLocationChanged: _updateOriginalLocation,
+                    onFirstReadable: _backfillCanonicalLocations,
                   )
                 : LayoutBuilder(
                     builder: (context, constraints) {

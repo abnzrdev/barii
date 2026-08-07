@@ -22,12 +22,14 @@ class OriginalEpubView extends StatefulWidget {
     required this.initialSpineIndex,
     required this.initialOffset,
     required this.onLocationChanged,
+    this.onFirstReadable,
   });
 
   final String epubPath;
   final int initialSpineIndex;
   final int initialOffset;
   final ValueChanged<OriginalEpubLocation> onLocationChanged;
+  final VoidCallback? onFirstReadable;
 
   @override
   State<OriginalEpubView> createState() => _OriginalEpubViewState();
@@ -88,6 +90,7 @@ class _OriginalEpubViewState extends State<OriginalEpubView> {
               _reportedReadable = true;
               Timeline.timeSync('OriginalEpub.firstReadable', () {});
               _openTask.finish();
+              widget.onFirstReadable?.call();
             }
           },
         ),

@@ -1014,4 +1014,40 @@ class AppDatabase extends _$AppDatabase {
       (select(
         canonicalPublicationRecords,
       )..where((row) => row.bookId.equals(bookId))).getSingleOrNull();
+
+  Future<int> setProgressCanonicalLocator(String bookId, String locator) =>
+      (update(readingProgress)..where(
+            (row) => row.bookId.equals(bookId) & row.canonicalLocator.isNull(),
+          ))
+          .write(ReadingProgressCompanion(canonicalLocator: Value(locator)));
+
+  Future<int> setBookmarkCanonicalLocator(
+    String bookId,
+    String biteId,
+    int sourceOffset,
+    String locator,
+  ) =>
+      (update(bookmarks)..where(
+            (row) =>
+                row.bookId.equals(bookId) &
+                row.biteId.equals(biteId) &
+                row.sourceOffset.equals(sourceOffset) &
+                row.canonicalLocator.isNull(),
+          ))
+          .write(BookmarksCompanion(canonicalLocator: Value(locator)));
+
+  Future<int> setReaderNoteCanonicalLocator(String id, String locator) =>
+      (update(readerNotes)
+            ..where((row) => row.id.equals(id) & row.canonicalLocator.isNull()))
+          .write(ReaderNotesCompanion(canonicalLocator: Value(locator)));
+
+  Future<int> setHighlightCanonicalLocator(String id, String locator) =>
+      (update(highlights)
+            ..where((row) => row.id.equals(id) & row.canonicalLocator.isNull()))
+          .write(HighlightsCompanion(canonicalLocator: Value(locator)));
+
+  Future<int> setHighlightNoteCanonicalLocator(String id, String locator) =>
+      (update(highlightNotes)
+            ..where((row) => row.id.equals(id) & row.canonicalLocator.isNull()))
+          .write(HighlightNotesCompanion(canonicalLocator: Value(locator)));
 }
