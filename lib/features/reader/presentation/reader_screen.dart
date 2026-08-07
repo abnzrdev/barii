@@ -873,9 +873,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                   children: [
                     if (_showProgress && _chromeVisible)
                       LinearProgressIndicator(
-                        value: _pages.length < 2
-                            ? 0
-                            : _index / (_pages.length - 1),
+                        value: _bookProgress,
                         minHeight: 2,
                         backgroundColor: Colors.transparent,
                       ),
@@ -1146,6 +1144,15 @@ class _ReaderScreenState extends State<ReaderScreen>
   DisplayPage? get _currentPage =>
       _pages.isEmpty ? null : _pages[_index.clamp(0, _pages.length - 1)];
 
+  double get _bookProgress {
+    if (_bites.isEmpty) return 0;
+    final biteIndex = _bites.indexWhere((bite) => bite.id == _anchorBiteId);
+    if (biteIndex < 0) return 0;
+    final length = _bites[biteIndex].content.length;
+    final fraction = length == 0 ? 0.0 : (_sourceOffset / length).clamp(0, 1);
+    return ((biteIndex + fraction) / _bites.length).clamp(0, 1);
+  }
+
   void _paginate(BoxConstraints viewport, TextStyle style) {
     final width =
         (_paginationReadingWidth.clamp(0, viewport.maxWidth) -
@@ -1167,7 +1174,6 @@ class _ReaderScreenState extends State<ReaderScreen>
     _paginationSignature = signature;
     final generation = ++_paginationGeneration;
     final biteId = _anchorBiteId;
-    final offset = _sourceOffset;
     final paginationTask = TimelineTask()..start('Reader.pagination');
     unawaited(
       _repaginate(
@@ -1175,7 +1181,6 @@ class _ReaderScreenState extends State<ReaderScreen>
         generation: generation,
         signature: signature,
         biteId: biteId,
-        offset: offset,
         width: width,
         height: viewport.maxHeight,
         style: style,
@@ -1190,20 +1195,41 @@ class _ReaderScreenState extends State<ReaderScreen>
     required int generation,
     required int signature,
     required String? biteId,
-    required int offset,
     required double width,
     required double height,
     required TextStyle style,
     required TextDirection direction,
     required TextScaler textScaler,
   }) async {
-    final pages = <DisplayPage>[];
+    final pagesByBite = <int, List<DisplayPage>>{};
+    if (_bites.isEmpty) {
+      timelineTask.finish(
+        arguments: {'status': 'completed', 'bites': 0, 'pages': 0},
+      );
+      return;
+    }
+    final anchorIndex = _bites.indexWhere((bite) => bite.id == biteId);
+    final targetIndex = anchorIndex < 0 ? 0 : anchorIndex;
+    final order = <int>[targetIndex];
+    order.addAll(
+      List.generate(
+        _bites.length - targetIndex - 1,
+        (i) => targetIndex + i + 1,
+      ),
+    );
+    order.addAll(List.generate(targetIndex, (i) => targetIndex - i - 1));
+    final foregroundTask = TimelineTask()..start('Reader.foregroundPagination');
+    var foregroundFinished = false;
     await WidgetsBinding.instance.endOfFrame;
-    for (final bite in _bites) {
+    for (final biteIndex in order) {
       if (!mounted || generation != _paginationGeneration) {
+        if (!foregroundFinished) {
+          foregroundTask.finish(arguments: {'status': 'cancelled'});
+        }
         timelineTask.finish(arguments: {'status': 'cancelled'});
         return;
       }
+      final bite = _bites[biteIndex];
       final bitePages = Timeline.timeSync(
         'Reader.paginateBite',
         () => _paginationCache.pagesFor(
@@ -1217,20 +1243,54 @@ class _ReaderScreenState extends State<ReaderScreen>
         ),
         arguments: {'biteId': bite.id, 'characters': bite.content.length},
       );
-      pages.addAll(
-        _plainReadingMode && bite.kind != 'figure'
-            ? bitePages.where((page) {
-                final headings = _RichMetadata.parse(
-                  bite.markup,
-                ).marks.where((mark) => mark.kind == 'heading');
-                return !headings.any(
-                  (heading) =>
-                      heading.start <= page.startOffset &&
-                      heading.end >= page.endOffset,
-                );
-              })
-            : bitePages,
-      );
+      pagesByBite[biteIndex] = _plainReadingMode && bite.kind != 'figure'
+          ? bitePages.where((page) {
+              final headings = _RichMetadata.parse(
+                bite.markup,
+              ).marks.where((mark) => mark.kind == 'heading');
+              return !headings.any(
+                (heading) =>
+                    heading.start <= page.startOffset &&
+                    heading.end >= page.endOffset,
+              );
+            }).toList()
+          : bitePages;
+      final forwardDistance = biteIndex - targetIndex;
+      final publishForward =
+          forwardDistance == 0 ||
+          forwardDistance == 1 ||
+          (forwardDistance > 1 &&
+              (forwardDistance % 8 == 0 || biteIndex == _bites.length - 1));
+      if (publishForward || pagesByBite.length == _bites.length) {
+        final pages = pagesByBite.entries.toList()
+          ..sort((left, right) => left.key.compareTo(right.key));
+        final publishedPages = pages.expand((entry) => entry.value).toList();
+        await _publishPagination(
+          pages: publishedPages,
+          generation: generation,
+          signature: signature,
+        );
+        if (!_firstReadableReported &&
+            generation == _paginationGeneration &&
+            publishedPages.isNotEmpty) {
+          _firstReadableReported = true;
+          Timeline.timeSync(
+            'Reader.firstReadablePage',
+            () {},
+            arguments: {
+              'biteId': publishedPages[_index].bite.id,
+              'page': _index,
+            },
+          );
+          _openTask.finish();
+        }
+      }
+      if (biteIndex == targetIndex) {
+        foregroundTask.finish(
+          arguments: {'biteId': bite.id, 'pages': bitePages.length},
+        );
+        foregroundFinished = true;
+      }
       await WidgetsBinding.instance.endOfFrame;
     }
     if (!mounted ||
@@ -1239,6 +1299,27 @@ class _ReaderScreenState extends State<ReaderScreen>
       timelineTask.finish(arguments: {'status': 'cancelled'});
       return;
     }
+    timelineTask.finish(
+      arguments: {
+        'status': 'completed',
+        'bites': _bites.length,
+        'pages': _pages.length,
+      },
+    );
+  }
+
+  Future<void> _publishPagination({
+    required List<DisplayPage> pages,
+    required int generation,
+    required int signature,
+  }) async {
+    if (!mounted ||
+        generation != _paginationGeneration ||
+        signature != _paginationSignature) {
+      return;
+    }
+    final biteId = _anchorBiteId;
+    final offset = _sourceOffset;
     final restored = pages.indexWhere(
       (page) =>
           page.bite.id == biteId &&
@@ -1263,27 +1344,17 @@ class _ReaderScreenState extends State<ReaderScreen>
           : following;
       _restoringViewport = true;
     });
-    timelineTask.finish(
-      arguments: {
-        'status': 'completed',
-        'bites': _bites.length,
-        'pages': pages.length,
-      },
-    );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !(_pageController?.hasClients ?? false)) return;
-      _pageController!.jumpToPage(_index);
-      _restoringViewport = false;
-      setState(() {});
-      if (!_firstReadableReported && _pages.isNotEmpty) {
-        _firstReadableReported = true;
-        Timeline.instantSync(
-          'Reader.firstReadablePage',
-          arguments: {'biteId': _pages[_index].bite.id, 'page': _index},
-        );
-        _openTask.finish();
-      }
-    });
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted ||
+        generation != _paginationGeneration ||
+        !(_pageController?.hasClients ?? false)) {
+      return;
+    }
+    _pageController!.jumpToPage(_index);
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted || generation != _paginationGeneration) return;
+    _restoringViewport = false;
+    setState(() {});
   }
 }
 

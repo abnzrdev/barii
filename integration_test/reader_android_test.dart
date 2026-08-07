@@ -21,9 +21,15 @@ void main() {
   const benchmarkEpubPath = String.fromEnvironment(
     'BOOKBITES_BENCHMARK_EPUB_PATH',
   );
+  const benchmarkSetupDelay = int.fromEnvironment(
+    'BOOKBITES_BENCHMARK_SETUP_DELAY_SECONDS',
+  );
 
   if (baselineProfileOnly) {
     testWidgets('profiles import and six reader opens', (tester) async {
+      if (benchmarkSetupDelay > 0) {
+        await Future<void>.delayed(Duration(seconds: benchmarkSetupDelay));
+      }
       final fixture = File(benchmarkEpubPath);
       expect(await fixture.exists(), isTrue, reason: benchmarkEpubPath);
       final directory = await Directory.systemTemp.createTemp(

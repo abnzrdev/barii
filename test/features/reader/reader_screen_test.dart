@@ -880,4 +880,67 @@ void main() {
     );
     expect(find.text('Lazy bite 199.'), findsNothing);
   });
+
+  testWidgets('saved bite is readable before background pagination settles', (
+    tester,
+  ) async {
+    await database.replaceContent(
+      'book',
+      sections: const [StoredSection(id: 'section', position: 0)],
+      bites: List.generate(
+        200,
+        (index) => StoredBite(
+          id: 'bite-$index',
+          sectionId: 'section',
+          position: index,
+          text: 'Incremental bite $index has enough text to render.',
+          sourceStart: index * 50,
+          sourceEnd: index * 50 + 48,
+        ),
+      ),
+    );
+    await database.saveProgress('book', 'bite-150', 150, 12);
+    await database.savePreferences(
+      fontSize: 20,
+      lineHeight: 1.6,
+      alignment: 'start',
+      readingWidth: 680,
+      pageMargin: 24,
+      autoHideControls: true,
+      hapticsEnabled: true,
+      showProgress: true,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReaderScreen(database: database, book: book),
+      ),
+    );
+    for (var frame = 0; frame < 50; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+
+    expect(find.byKey(const ValueKey('bite-150:0')), findsOneWidget);
+    expect((await database.progressFor('book'))?.biteId, 'bite-150');
+    expect((await database.progressFor('book'))?.sourceOffset, 12);
+    expect(
+      tester
+          .widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator))
+          .value,
+      closeTo((150 + 12 / 47) / 200, 0.00001),
+    );
+
+    for (var frame = 0; frame < 250; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(find.byKey(const ValueKey('bite-150:0')), findsOneWidget);
+    final pageView = tester.widget<PageView>(find.byType(PageView));
+    expect(
+      (pageView.childrenDelegate as SliverChildBuilderDelegate).childCount,
+      200,
+    );
+    expect((await database.progressFor('book'))?.biteId, 'bite-150');
+    expect((await database.progressFor('book'))?.sourceOffset, 12);
+    expect(tester.takeException(), isNull);
+  });
 }
