@@ -6548,6 +6548,215 @@ class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
   }
 }
 
+class $ReaderViewModesTable extends ReaderViewModes
+    with TableInfo<$ReaderViewModesTable, ReaderViewMode> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ReaderViewModesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _bookIdMeta = const VerificationMeta('bookId');
+  @override
+  late final GeneratedColumn<String> bookId = GeneratedColumn<String>(
+    'book_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES books (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _modeMeta = const VerificationMeta('mode');
+  @override
+  late final GeneratedColumn<String> mode = GeneratedColumn<String>(
+    'mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('bookbites'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [bookId, mode];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'reader_view_modes';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ReaderViewMode> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('book_id')) {
+      context.handle(
+        _bookIdMeta,
+        bookId.isAcceptableOrUnknown(data['book_id']!, _bookIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bookIdMeta);
+    }
+    if (data.containsKey('mode')) {
+      context.handle(
+        _modeMeta,
+        mode.isAcceptableOrUnknown(data['mode']!, _modeMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {bookId};
+  @override
+  ReaderViewMode map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ReaderViewMode(
+      bookId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}book_id'],
+      )!,
+      mode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mode'],
+      )!,
+    );
+  }
+
+  @override
+  $ReaderViewModesTable createAlias(String alias) {
+    return $ReaderViewModesTable(attachedDatabase, alias);
+  }
+}
+
+class ReaderViewMode extends DataClass implements Insertable<ReaderViewMode> {
+  final String bookId;
+  final String mode;
+  const ReaderViewMode({required this.bookId, required this.mode});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['book_id'] = Variable<String>(bookId);
+    map['mode'] = Variable<String>(mode);
+    return map;
+  }
+
+  ReaderViewModesCompanion toCompanion(bool nullToAbsent) {
+    return ReaderViewModesCompanion(bookId: Value(bookId), mode: Value(mode));
+  }
+
+  factory ReaderViewMode.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ReaderViewMode(
+      bookId: serializer.fromJson<String>(json['bookId']),
+      mode: serializer.fromJson<String>(json['mode']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'bookId': serializer.toJson<String>(bookId),
+      'mode': serializer.toJson<String>(mode),
+    };
+  }
+
+  ReaderViewMode copyWith({String? bookId, String? mode}) =>
+      ReaderViewMode(bookId: bookId ?? this.bookId, mode: mode ?? this.mode);
+  ReaderViewMode copyWithCompanion(ReaderViewModesCompanion data) {
+    return ReaderViewMode(
+      bookId: data.bookId.present ? data.bookId.value : this.bookId,
+      mode: data.mode.present ? data.mode.value : this.mode,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReaderViewMode(')
+          ..write('bookId: $bookId, ')
+          ..write('mode: $mode')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(bookId, mode);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ReaderViewMode &&
+          other.bookId == this.bookId &&
+          other.mode == this.mode);
+}
+
+class ReaderViewModesCompanion extends UpdateCompanion<ReaderViewMode> {
+  final Value<String> bookId;
+  final Value<String> mode;
+  final Value<int> rowid;
+  const ReaderViewModesCompanion({
+    this.bookId = const Value.absent(),
+    this.mode = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ReaderViewModesCompanion.insert({
+    required String bookId,
+    this.mode = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : bookId = Value(bookId);
+  static Insertable<ReaderViewMode> custom({
+    Expression<String>? bookId,
+    Expression<String>? mode,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (bookId != null) 'book_id': bookId,
+      if (mode != null) 'mode': mode,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ReaderViewModesCompanion copyWith({
+    Value<String>? bookId,
+    Value<String>? mode,
+    Value<int>? rowid,
+  }) {
+    return ReaderViewModesCompanion(
+      bookId: bookId ?? this.bookId,
+      mode: mode ?? this.mode,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (bookId.present) {
+      map['book_id'] = Variable<String>(bookId.value);
+    }
+    if (mode.present) {
+      map['mode'] = Variable<String>(mode.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReaderViewModesCompanion(')
+          ..write('bookId: $bookId, ')
+          ..write('mode: $mode, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -6569,6 +6778,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $HighlightsTable highlights = $HighlightsTable(this);
   late final $ReaderPreferencesTable readerPreferences =
       $ReaderPreferencesTable(this);
+  late final $ReaderViewModesTable readerViewModes = $ReaderViewModesTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -6586,6 +6798,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     highlightNotes,
     highlights,
     readerPreferences,
+    readerViewModes,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -6716,6 +6929,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('highlights', kind: UpdateKind.update)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'books',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('reader_view_modes', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -6895,6 +7115,26 @@ final class $$BooksTableReferences
     ).filter((f) => f.bookId.id.sqlEquals($_itemColumn<String>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_highlightsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$ReaderViewModesTable, List<ReaderViewMode>>
+  _readerViewModesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.readerViewModes,
+    aliasName: 'books__id__reader_view_modes__book_id',
+  );
+
+  $$ReaderViewModesTableProcessedTableManager get readerViewModesRefs {
+    final manager = $$ReaderViewModesTableTableManager(
+      $_db,
+      $_db.readerViewModes,
+    ).filter((f) => f.bookId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _readerViewModesRefsTable($_db),
+    );
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -7140,6 +7380,31 @@ class $$BooksTableFilterComposer extends Composer<_$AppDatabase, $BooksTable> {
           }) => $$HighlightsTableFilterComposer(
             $db: $db,
             $table: $db.highlights,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> readerViewModesRefs(
+    Expression<bool> Function($$ReaderViewModesTableFilterComposer f) f,
+  ) {
+    final $$ReaderViewModesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.readerViewModes,
+      getReferencedColumn: (t) => t.bookId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ReaderViewModesTableFilterComposer(
+            $db: $db,
+            $table: $db.readerViewModes,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -7435,6 +7700,31 @@ class $$BooksTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> readerViewModesRefs<T extends Object>(
+    Expression<T> Function($$ReaderViewModesTableAnnotationComposer a) f,
+  ) {
+    final $$ReaderViewModesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.readerViewModes,
+      getReferencedColumn: (t) => t.bookId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ReaderViewModesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.readerViewModes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$BooksTableTableManager
@@ -7459,6 +7749,7 @@ class $$BooksTableTableManager
             bool vocabularyEntriesRefs,
             bool highlightNotesRefs,
             bool highlightsRefs,
+            bool readerViewModesRefs,
           })
         > {
   $$BooksTableTableManager(_$AppDatabase db, $BooksTable table)
@@ -7532,6 +7823,7 @@ class $$BooksTableTableManager
                 vocabularyEntriesRefs = false,
                 highlightNotesRefs = false,
                 highlightsRefs = false,
+                readerViewModesRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -7544,6 +7836,7 @@ class $$BooksTableTableManager
                     if (vocabularyEntriesRefs) db.vocabularyEntries,
                     if (highlightNotesRefs) db.highlightNotes,
                     if (highlightsRefs) db.highlights,
+                    if (readerViewModesRefs) db.readerViewModes,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -7696,6 +7989,27 @@ class $$BooksTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (readerViewModesRefs)
+                        await $_getPrefetchedData<
+                          Book,
+                          $BooksTable,
+                          ReaderViewMode
+                        >(
+                          currentTable: table,
+                          referencedTable: $$BooksTableReferences
+                              ._readerViewModesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$BooksTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).readerViewModesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.bookId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -7725,6 +8039,7 @@ typedef $$BooksTableProcessedTableManager =
         bool vocabularyEntriesRefs,
         bool highlightNotesRefs,
         bool highlightsRefs,
+        bool readerViewModesRefs,
       })
     >;
 typedef $$SectionsTableCreateCompanionBuilder =
@@ -13618,6 +13933,275 @@ typedef $$ReaderPreferencesTableProcessedTableManager =
       ReaderPreference,
       PrefetchHooks Function()
     >;
+typedef $$ReaderViewModesTableCreateCompanionBuilder =
+    ReaderViewModesCompanion Function({
+      required String bookId,
+      Value<String> mode,
+      Value<int> rowid,
+    });
+typedef $$ReaderViewModesTableUpdateCompanionBuilder =
+    ReaderViewModesCompanion Function({
+      Value<String> bookId,
+      Value<String> mode,
+      Value<int> rowid,
+    });
+
+final class $$ReaderViewModesTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $ReaderViewModesTable, ReaderViewMode> {
+  $$ReaderViewModesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $BooksTable _bookIdTable(_$AppDatabase db) =>
+      db.books.createAlias('reader_view_modes__book_id__books__id');
+
+  $$BooksTableProcessedTableManager get bookId {
+    final $_column = $_itemColumn<String>('book_id')!;
+
+    final manager = $$BooksTableTableManager(
+      $_db,
+      $_db.books,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_bookIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$ReaderViewModesTableFilterComposer
+    extends Composer<_$AppDatabase, $ReaderViewModesTable> {
+  $$ReaderViewModesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get mode => $composableBuilder(
+    column: $table.mode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$BooksTableFilterComposer get bookId {
+    final $$BooksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableFilterComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ReaderViewModesTableOrderingComposer
+    extends Composer<_$AppDatabase, $ReaderViewModesTable> {
+  $$ReaderViewModesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get mode => $composableBuilder(
+    column: $table.mode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$BooksTableOrderingComposer get bookId {
+    final $$BooksTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableOrderingComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ReaderViewModesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ReaderViewModesTable> {
+  $$ReaderViewModesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get mode =>
+      $composableBuilder(column: $table.mode, builder: (column) => column);
+
+  $$BooksTableAnnotationComposer get bookId {
+    final $$BooksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ReaderViewModesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ReaderViewModesTable,
+          ReaderViewMode,
+          $$ReaderViewModesTableFilterComposer,
+          $$ReaderViewModesTableOrderingComposer,
+          $$ReaderViewModesTableAnnotationComposer,
+          $$ReaderViewModesTableCreateCompanionBuilder,
+          $$ReaderViewModesTableUpdateCompanionBuilder,
+          (ReaderViewMode, $$ReaderViewModesTableReferences),
+          ReaderViewMode,
+          PrefetchHooks Function({bool bookId})
+        > {
+  $$ReaderViewModesTableTableManager(
+    _$AppDatabase db,
+    $ReaderViewModesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ReaderViewModesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ReaderViewModesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ReaderViewModesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> bookId = const Value.absent(),
+                Value<String> mode = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ReaderViewModesCompanion(
+                bookId: bookId,
+                mode: mode,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String bookId,
+                Value<String> mode = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ReaderViewModesCompanion.insert(
+                bookId: bookId,
+                mode: mode,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$ReaderViewModesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({bookId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (bookId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.bookId,
+                                referencedTable:
+                                    $$ReaderViewModesTableReferences
+                                        ._bookIdTable(db),
+                                referencedColumn:
+                                    $$ReaderViewModesTableReferences
+                                        ._bookIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$ReaderViewModesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ReaderViewModesTable,
+      ReaderViewMode,
+      $$ReaderViewModesTableFilterComposer,
+      $$ReaderViewModesTableOrderingComposer,
+      $$ReaderViewModesTableAnnotationComposer,
+      $$ReaderViewModesTableCreateCompanionBuilder,
+      $$ReaderViewModesTableUpdateCompanionBuilder,
+      (ReaderViewMode, $$ReaderViewModesTableReferences),
+      ReaderViewMode,
+      PrefetchHooks Function({bool bookId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -13649,4 +14233,6 @@ class $AppDatabaseManager {
       $$HighlightsTableTableManager(_db, _db.highlights);
   $$ReaderPreferencesTableTableManager get readerPreferences =>
       $$ReaderPreferencesTableTableManager(_db, _db.readerPreferences);
+  $$ReaderViewModesTableTableManager get readerViewModes =>
+      $$ReaderViewModesTableTableManager(_db, _db.readerViewModes);
 }

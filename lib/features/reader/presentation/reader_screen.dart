@@ -17,6 +17,7 @@ import '../../dictionary/presentation/dictionary_panel.dart';
 import '../domain/highlight_anchor.dart';
 import 'bite_paginator.dart';
 import 'reader_navigation.dart';
+import 'original_epub_view.dart';
 import 'reader_panel.dart';
 
 enum _OpenPanel { reader, dictionary }
@@ -87,6 +88,8 @@ class _ReaderScreenState extends State<ReaderScreen>
   var _hapticsEnabled = true;
   var _showProgress = false;
   var _plainReadingMode = false;
+  var _originalView = false;
+  var _originalSpineIndex = 0;
   var _chromeVisible = true;
   var _alignment = TextAlign.start;
   String _recentWord = 'book';
@@ -121,6 +124,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     final bites = await widget.database.bitesForBook(widget.book.id);
     final progress = await widget.database.progressFor(widget.book.id);
     final preferences = await widget.database.preferences();
+    final viewMode = await widget.database.readerViewMode(widget.book.id);
     loadTask.finish(arguments: {'bites': bites.length});
     final restored = progress == null
         ? 0
@@ -128,6 +132,10 @@ class _ReaderScreenState extends State<ReaderScreen>
     if (mounted) {
       final index = (restored < 0 ? progress?.bitePosition ?? 0 : restored)
           .clamp(0, bites.isEmpty ? 0 : bites.length - 1);
+      final spineIndex = bites.isEmpty
+          ? 0
+          : await widget.database.sectionPositionForBite(bites[index].id) ?? 0;
+      if (!mounted) return;
       setState(() {
         _bites = bites;
         _index = 0;
@@ -146,6 +154,9 @@ class _ReaderScreenState extends State<ReaderScreen>
         _hapticsEnabled = preferences.hapticsEnabled;
         _showProgress = preferences.showProgress;
         _plainReadingMode = preferences.plainReadingMode;
+        _originalView =
+            viewMode == 'original' && widget.book.fileType == 'epub';
+        _originalSpineIndex = spineIndex;
         _alignment = switch (preferences.alignment) {
           'center' => TextAlign.center,
           'justify' => TextAlign.justify,
@@ -157,6 +168,45 @@ class _ReaderScreenState extends State<ReaderScreen>
       _resetFocusTimer();
       _refreshBookmark();
     }
+  }
+
+  Future<void> _toggleReaderView() async {
+    if (widget.book.fileType != 'epub') return;
+    final original = !_originalView;
+    if (!original) {
+      _paginationSignature = null;
+    } else if (_anchorBiteId != null) {
+      _originalSpineIndex =
+          await widget.database.sectionPositionForBite(_anchorBiteId!) ?? 0;
+    }
+    if (!mounted) return;
+    setState(() => _originalView = original);
+    await widget.database.saveReaderViewMode(
+      widget.book.id,
+      original ? 'original' : 'bookbites',
+    );
+  }
+
+  Future<void> _updateOriginalLocation(OriginalEpubLocation location) async {
+    final bite = await widget.database.biteAtSectionOffset(
+      widget.book.id,
+      location.spineIndex,
+      location.offset,
+    );
+    if (bite == null || !mounted || !_originalView) return;
+    _anchorBiteId = bite.id;
+    _sourceOffset = (location.offset - bite.sourceStart).clamp(
+      0,
+      bite.content.length,
+    );
+    await _serializeWrite(
+      () => widget.database.saveProgress(
+        widget.book.id,
+        bite.id,
+        bite.position,
+        _sourceOffset,
+      ),
+    );
   }
 
   void _resetFocusTimer({bool show = true}) {
@@ -866,6 +916,18 @@ class _ReaderScreenState extends State<ReaderScreen>
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        if (widget.book.fileType == 'epub')
+                          IconButton(
+                            tooltip: _originalView
+                                ? 'Switch to BookBites'
+                                : 'Switch to Original EPUB',
+                            onPressed: _toggleReaderView,
+                            icon: Icon(
+                              _originalView
+                                  ? Icons.view_agenda_outlined
+                                  : Icons.chrome_reader_mode_outlined,
+                            ),
+                          ),
                         IconButton(
                           tooltip: 'Contents',
                           onPressed: () =>
@@ -900,273 +962,314 @@ class _ReaderScreenState extends State<ReaderScreen>
                 ),
               ],
             ),
-            body: LayoutBuilder(
-              builder: (context, constraints) {
-                final wide = constraints.maxWidth >= 900;
-                final reader = Column(
-                  children: [
-                    if (_showProgress && _chromeVisible)
-                      LinearProgressIndicator(
-                        value: _bookProgress,
-                        minHeight: 2,
-                        backgroundColor: Colors.transparent,
-                      ),
-                    Expanded(
-                      child: LayoutBuilder(
-                        builder: (context, viewport) {
-                          _paginate(viewport, paginationStyle);
-                          return Listener(
-                            behavior: HitTestBehavior.opaque,
-                            onPointerDown: (event) {
-                              final insets = MediaQuery.systemGestureInsetsOf(
-                                context,
-                              );
-                              final width = MediaQuery.sizeOf(context).width;
-                              final leftEdge = insets.left.clamp(
-                                24,
-                                double.infinity,
-                              );
-                              final rightEdge = insets.right.clamp(
-                                24,
-                                double.infinity,
-                              );
-                              _ignoreHorizontalDrag =
-                                  _selectionActive ||
-                                  event.position.dx <= leftEdge ||
-                                  event.position.dx >= width - rightEdge;
-                              _drag = Offset.zero;
-                              _horizontalOffset = 0;
-                            },
-                            onPointerMove: (event) {
-                              if (_ignoreHorizontalDrag || _selectionActive) {
-                                return;
-                              }
-                              _drag += event.delta;
-                              if (_drag.dx.abs() <= _drag.dy.abs()) return;
-                              setState(() {
-                                _horizontalOffset += event.delta.dx;
-                                _dragPreview = _horizontalOffset < 0
-                                    ? _OpenPanel.reader
-                                    : _OpenPanel.dictionary;
-                              });
-                              _resetFocusTimer();
-                            },
-                            onPointerUp: (event) {
-                              if (_ignoreHorizontalDrag || _selectionActive) {
-                                return;
-                              }
-                              if (_drag.distance < 8) {
-                                _toggleChrome();
-                                return;
-                              }
-                              var action = readerActionForDrag(_drag);
-                              setState(() {
-                                _horizontalOffset = 0;
-                                _dragPreview = null;
-                              });
-                              _perform(action);
-                            },
-                            onPointerCancel: (_) {
-                              setState(() {
-                                _drag = Offset.zero;
-                                _horizontalOffset = 0;
-                                _dragPreview = null;
-                              });
-                            },
-                            child: _pageController == null
-                                ? const Center(
-                                    child: CircularProgressIndicator(),
-                                  )
-                                : NotificationListener<ScrollNotification>(
-                                    onNotification: (notification) {
-                                      if (notification
-                                          is ScrollStartNotification) {
-                                        _resetFocusTimer();
-                                      } else if (notification
-                                          is ScrollEndNotification) {
-                                        _completePageChange();
-                                      }
-                                      return false;
-                                    },
-                                    child: PageView.builder(
-                                      key: ValueKey(_pageController),
-                                      controller: _pageController,
-                                      scrollDirection: Axis.vertical,
-                                      pageSnapping: true,
-                                      itemCount: _pages.length,
-                                      itemBuilder: (context, pageIndex) {
-                                        final page = _pages[pageIndex];
-                                        final pageBite = page.bite;
-                                        return KeyedSubtree(
-                                          key: ValueKey(
-                                            '${pageBite.id}:${page.startOffset}',
-                                          ),
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 0,
-                                            ),
-                                            child: Center(
-                                              child: ConstrainedBox(
-                                                constraints: BoxConstraints(
-                                                  maxWidth: _readingWidth,
+            body: _originalView
+                ? OriginalEpubView(
+                    key: ValueKey('original-${widget.book.id}'),
+                    epubPath: widget.book.filePath,
+                    initialSpineIndex: _originalSpineIndex,
+                    initialOffset: _canonicalSourceOffset,
+                    onLocationChanged: _updateOriginalLocation,
+                  )
+                : LayoutBuilder(
+                    builder: (context, constraints) {
+                      final wide = constraints.maxWidth >= 900;
+                      final reader = Column(
+                        children: [
+                          if (_showProgress && _chromeVisible)
+                            LinearProgressIndicator(
+                              value: _bookProgress,
+                              minHeight: 2,
+                              backgroundColor: Colors.transparent,
+                            ),
+                          Expanded(
+                            child: LayoutBuilder(
+                              builder: (context, viewport) {
+                                _paginate(viewport, paginationStyle);
+                                return Listener(
+                                  behavior: HitTestBehavior.opaque,
+                                  onPointerDown: (event) {
+                                    final insets =
+                                        MediaQuery.systemGestureInsetsOf(
+                                          context,
+                                        );
+                                    final width = MediaQuery.sizeOf(
+                                      context,
+                                    ).width;
+                                    final leftEdge = insets.left.clamp(
+                                      24,
+                                      double.infinity,
+                                    );
+                                    final rightEdge = insets.right.clamp(
+                                      24,
+                                      double.infinity,
+                                    );
+                                    _ignoreHorizontalDrag =
+                                        _selectionActive ||
+                                        event.position.dx <= leftEdge ||
+                                        event.position.dx >= width - rightEdge;
+                                    _drag = Offset.zero;
+                                    _horizontalOffset = 0;
+                                  },
+                                  onPointerMove: (event) {
+                                    if (_ignoreHorizontalDrag ||
+                                        _selectionActive) {
+                                      return;
+                                    }
+                                    _drag += event.delta;
+                                    if (_drag.dx.abs() <= _drag.dy.abs()) {
+                                      return;
+                                    }
+                                    setState(() {
+                                      _horizontalOffset += event.delta.dx;
+                                      _dragPreview = _horizontalOffset < 0
+                                          ? _OpenPanel.reader
+                                          : _OpenPanel.dictionary;
+                                    });
+                                    _resetFocusTimer();
+                                  },
+                                  onPointerUp: (event) {
+                                    if (_ignoreHorizontalDrag ||
+                                        _selectionActive) {
+                                      return;
+                                    }
+                                    if (_drag.distance < 8) {
+                                      _toggleChrome();
+                                      return;
+                                    }
+                                    var action = readerActionForDrag(_drag);
+                                    setState(() {
+                                      _horizontalOffset = 0;
+                                      _dragPreview = null;
+                                    });
+                                    _perform(action);
+                                  },
+                                  onPointerCancel: (_) {
+                                    setState(() {
+                                      _drag = Offset.zero;
+                                      _horizontalOffset = 0;
+                                      _dragPreview = null;
+                                    });
+                                  },
+                                  child: _pageController == null
+                                      ? const Center(
+                                          child: CircularProgressIndicator(),
+                                        )
+                                      : NotificationListener<
+                                          ScrollNotification
+                                        >(
+                                          onNotification: (notification) {
+                                            if (notification
+                                                is ScrollStartNotification) {
+                                              _resetFocusTimer();
+                                            } else if (notification
+                                                is ScrollEndNotification) {
+                                              _completePageChange();
+                                            }
+                                            return false;
+                                          },
+                                          child: PageView.builder(
+                                            key: ValueKey(_pageController),
+                                            controller: _pageController,
+                                            scrollDirection: Axis.vertical,
+                                            pageSnapping: true,
+                                            itemCount: _pages.length,
+                                            itemBuilder: (context, pageIndex) {
+                                              final page = _pages[pageIndex];
+                                              final pageBite = page.bite;
+                                              return KeyedSubtree(
+                                                key: ValueKey(
+                                                  '${pageBite.id}:${page.startOffset}',
                                                 ),
                                                 child: Padding(
-                                                  padding: EdgeInsets.symmetric(
-                                                    horizontal: _pageMargin,
-                                                  ),
-                                                  child: Semantics(
-                                                    label: 'Reading bite',
-                                                    child:
-                                                        pageBite.kind ==
-                                                            'figure'
-                                                        ? _FigurePage(
-                                                            bite: pageBite,
-                                                            style: textStyle,
-                                                          )
-                                                        : _BiteText(
-                                                            database:
-                                                                widget.database,
-                                                            book: widget.book,
-                                                            bite: pageBite,
-                                                            startOffset: page
-                                                                .startOffset,
-                                                            endOffset:
-                                                                page.endOffset,
-                                                            style: textStyle,
-                                                            alignment:
-                                                                _alignment,
-                                                            onWord: (word) {
-                                                              _recentWord =
-                                                                  word;
-                                                              _openPanel(
-                                                                _OpenPanel
-                                                                    .dictionary,
-                                                              );
-                                                            },
-                                                            onSelectionChanged:
-                                                                (active) {
-                                                                  _selectionActive =
-                                                                      active;
-                                                                },
-                                                            onLink: _followLink,
-                                                            plainReadingMode:
-                                                                _plainReadingMode,
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 0,
+                                                      ),
+                                                  child: Center(
+                                                    child: ConstrainedBox(
+                                                      constraints:
+                                                          BoxConstraints(
+                                                            maxWidth:
+                                                                _readingWidth,
                                                           ),
+                                                      child: Padding(
+                                                        padding:
+                                                            EdgeInsets.symmetric(
+                                                              horizontal:
+                                                                  _pageMargin,
+                                                            ),
+                                                        child: Semantics(
+                                                          label: 'Reading bite',
+                                                          child:
+                                                              pageBite.kind ==
+                                                                  'figure'
+                                                              ? _FigurePage(
+                                                                  bite:
+                                                                      pageBite,
+                                                                  style:
+                                                                      textStyle,
+                                                                )
+                                                              : _BiteText(
+                                                                  database: widget
+                                                                      .database,
+                                                                  book: widget
+                                                                      .book,
+                                                                  bite:
+                                                                      pageBite,
+                                                                  startOffset: page
+                                                                      .startOffset,
+                                                                  endOffset: page
+                                                                      .endOffset,
+                                                                  style:
+                                                                      textStyle,
+                                                                  alignment:
+                                                                      _alignment,
+                                                                  onWord: (word) {
+                                                                    _recentWord =
+                                                                        word;
+                                                                    _openPanel(
+                                                                      _OpenPanel
+                                                                          .dictionary,
+                                                                    );
+                                                                  },
+                                                                  onSelectionChanged:
+                                                                      (active) {
+                                                                        _selectionActive =
+                                                                            active;
+                                                                      },
+                                                                  onLink:
+                                                                      _followLink,
+                                                                  plainReadingMode:
+                                                                      _plainReadingMode,
+                                                                ),
+                                                        ),
+                                                      ),
+                                                    ),
                                                   ),
                                                 ),
-                                              ),
-                                            ),
+                                              );
+                                            },
                                           ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                          );
-                        },
-                      ),
-                    ),
-                    AnimatedOpacity(
-                      key: const ValueKey('reader-controls'),
-                      opacity: _chromeVisible ? 1 : 0,
-                      alwaysIncludeSemantics: true,
-                      duration: MediaQuery.disableAnimationsOf(context)
-                          ? Duration.zero
-                          : const Duration(milliseconds: 180),
-                      child: IgnorePointer(
-                        ignoring: !_chromeVisible,
-                        child: SafeArea(
-                          top: false,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              IconButton(
-                                tooltip: 'Previous bite',
-                                onPressed: _index == 0
-                                    ? null
-                                    : () => _perform(ReaderAction.previous),
-                                icon: const Icon(Icons.keyboard_arrow_up),
-                              ),
-                              IconButton(
-                                tooltip: 'Notes',
-                                onPressed: bite == null
-                                    ? null
-                                    : () => _perform(ReaderAction.notes),
-                                icon: const Icon(Icons.note_alt_outlined),
-                              ),
-                              IconButton(
-                                tooltip: 'Dictionary',
-                                onPressed: bite == null
-                                    ? null
-                                    : () => _perform(ReaderAction.dictionary),
-                                icon: const Icon(Icons.menu_book_outlined),
-                              ),
-                              IconButton(
-                                tooltip: 'Next bite',
-                                onPressed: _index >= _pages.length - 1
-                                    ? null
-                                    : () => _perform(ReaderAction.next),
-                                icon: const Icon(Icons.keyboard_arrow_down),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-                final base = wide
-                    ? Row(
-                        children: [
-                          Expanded(child: reader),
-                          if (panel != null) SizedBox(width: 380, child: panel),
-                        ],
-                      )
-                    : Stack(
-                        children: [
-                          reader,
-                          if (panel != null)
-                            Positioned.fill(
-                              top: constraints.maxHeight * 0.25,
-                              child: panel,
+                                        ),
+                                );
+                              },
                             ),
+                          ),
+                          AnimatedOpacity(
+                            key: const ValueKey('reader-controls'),
+                            opacity: _chromeVisible ? 1 : 0,
+                            alwaysIncludeSemantics: true,
+                            duration: MediaQuery.disableAnimationsOf(context)
+                                ? Duration.zero
+                                : const Duration(milliseconds: 180),
+                            child: IgnorePointer(
+                              ignoring: !_chromeVisible,
+                              child: SafeArea(
+                                top: false,
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceEvenly,
+                                  children: [
+                                    IconButton(
+                                      tooltip: 'Previous bite',
+                                      onPressed: _index == 0
+                                          ? null
+                                          : () =>
+                                                _perform(ReaderAction.previous),
+                                      icon: const Icon(Icons.keyboard_arrow_up),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'Notes',
+                                      onPressed: bite == null
+                                          ? null
+                                          : () => _perform(ReaderAction.notes),
+                                      icon: const Icon(Icons.note_alt_outlined),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'Dictionary',
+                                      onPressed: bite == null
+                                          ? null
+                                          : () => _perform(
+                                              ReaderAction.dictionary,
+                                            ),
+                                      icon: const Icon(
+                                        Icons.menu_book_outlined,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'Next bite',
+                                      onPressed: _index >= _pages.length - 1
+                                          ? null
+                                          : () => _perform(ReaderAction.next),
+                                      icon: const Icon(
+                                        Icons.keyboard_arrow_down,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
                         ],
                       );
-                final previewSelection = _dragPreview;
-                if (previewSelection == null || bite == null) return base;
-                final preview = panelFor(previewSelection)!;
-                final panelWidth = wide ? 380.0 : constraints.maxWidth;
-                final revealed = (_horizontalOffset.abs() / panelWidth).clamp(
-                  0,
-                  1,
-                );
-                final translation = previewSelection == _OpenPanel.reader
-                    ? panelWidth * (1 - revealed)
-                    : -panelWidth * (1 - revealed);
-                return Stack(
-                  clipBehavior: Clip.hardEdge,
-                  children: [
-                    base,
-                    Positioned(
-                      top: wide ? 0 : constraints.maxHeight * 0.25,
-                      bottom: 0,
-                      width: panelWidth,
-                      right: previewSelection == _OpenPanel.reader ? 0 : null,
-                      left: previewSelection == _OpenPanel.dictionary
-                          ? 0
-                          : null,
-                      child: AnimatedContainer(
-                        duration: MediaQuery.disableAnimationsOf(context)
-                            ? Duration.zero
-                            : const Duration(milliseconds: 180),
-                        curve: Curves.easeOutCubic,
-                        transform: Matrix4.translationValues(translation, 0, 0),
-                        child: IgnorePointer(child: preview),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
+                      final base = wide
+                          ? Row(
+                              children: [
+                                Expanded(child: reader),
+                                if (panel != null)
+                                  SizedBox(width: 380, child: panel),
+                              ],
+                            )
+                          : Stack(
+                              children: [
+                                reader,
+                                if (panel != null)
+                                  Positioned.fill(
+                                    top: constraints.maxHeight * 0.25,
+                                    child: panel,
+                                  ),
+                              ],
+                            );
+                      final previewSelection = _dragPreview;
+                      if (previewSelection == null || bite == null) return base;
+                      final preview = panelFor(previewSelection)!;
+                      final panelWidth = wide ? 380.0 : constraints.maxWidth;
+                      final revealed = (_horizontalOffset.abs() / panelWidth)
+                          .clamp(0, 1);
+                      final translation = previewSelection == _OpenPanel.reader
+                          ? panelWidth * (1 - revealed)
+                          : -panelWidth * (1 - revealed);
+                      return Stack(
+                        clipBehavior: Clip.hardEdge,
+                        children: [
+                          base,
+                          Positioned(
+                            top: wide ? 0 : constraints.maxHeight * 0.25,
+                            bottom: 0,
+                            width: panelWidth,
+                            right: previewSelection == _OpenPanel.reader
+                                ? 0
+                                : null,
+                            left: previewSelection == _OpenPanel.dictionary
+                                ? 0
+                                : null,
+                            child: AnimatedContainer(
+                              duration: MediaQuery.disableAnimationsOf(context)
+                                  ? Duration.zero
+                                  : const Duration(milliseconds: 180),
+                              curve: Curves.easeOutCubic,
+                              transform: Matrix4.translationValues(
+                                translation,
+                                0,
+                                0,
+                              ),
+                              child: IgnorePointer(child: preview),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
           ),
         ),
       ),
@@ -1178,6 +1281,12 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   DisplayPage? get _currentPage =>
       _pages.isEmpty ? null : _pages[_index.clamp(0, _pages.length - 1)];
+
+  int get _canonicalSourceOffset {
+    final index = _bites.indexWhere((bite) => bite.id == _anchorBiteId);
+    if (index < 0) return _sourceOffset;
+    return _bites[index].sourceStart + _sourceOffset;
+  }
 
   double get _bookProgress {
     if (_bites.isEmpty) return 0;

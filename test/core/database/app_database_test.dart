@@ -3,6 +3,23 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('persists reader view mode per book', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    await database.addBook(
+      id: 'book',
+      fingerprint: 'hash',
+      title: 'Book',
+      author: 'Author',
+      filePath: '/managed.epub',
+      fileType: 'epub',
+    );
+
+    expect(await database.readerViewMode('book'), 'bookbites');
+    await database.saveReaderViewMode('book', 'original');
+    expect(await database.readerViewMode('book'), 'original');
+  });
+
   late AppDatabase database;
 
   setUp(() => database = AppDatabase.forTesting(NativeDatabase.memory()));

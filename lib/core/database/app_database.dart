@@ -220,6 +220,15 @@ class ReaderPreferences extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+class ReaderViewModes extends Table {
+  TextColumn get bookId =>
+      text().references(Books, #id, onDelete: KeyAction.cascade)();
+  TextColumn get mode => text().withDefault(const Constant('bookbites'))();
+
+  @override
+  Set<Column> get primaryKey => {bookId};
+}
+
 class StoredSection {
   const StoredSection({required this.id, required this.position, this.heading});
 
@@ -270,6 +279,7 @@ class StoredBite {
     HighlightNotes,
     Highlights,
     ReaderPreferences,
+    ReaderViewModes,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -277,7 +287,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -391,6 +401,9 @@ class AppDatabase extends _$AppDatabase {
           readerPreferences.plainReadingMode,
         );
       }
+      if (from < 10) {
+        await migrator.createTable(readerViewModes);
+      }
     },
     beforeOpen: (_) => customStatement('PRAGMA foreign_keys = ON'),
   );
@@ -489,6 +502,37 @@ class AppDatabase extends _$AppDatabase {
       innerJoin(sections, sections.id.equalsExp(bites.sectionId)),
     ])..where(bites.id.equals(biteId));
     return (await query.getSingleOrNull())?.readTable(sections).heading;
+  }
+
+  Future<int?> sectionPositionForBite(String biteId) async {
+    final query = select(bites).join([
+      innerJoin(sections, sections.id.equalsExp(bites.sectionId)),
+    ])..where(bites.id.equals(biteId));
+    return (await query.getSingleOrNull())?.readTable(sections).position;
+  }
+
+  Future<Bite?> biteAtSectionOffset(
+    String bookId,
+    int sectionPosition,
+    int sourceOffset,
+  ) async {
+    final query =
+        select(
+            bites,
+          ).join([innerJoin(sections, sections.id.equalsExp(bites.sectionId))])
+          ..where(
+            bites.bookId.equals(bookId) &
+                sections.position.equals(sectionPosition),
+          )
+          ..orderBy([OrderingTerm.asc(bites.sourceStart)]);
+    final rows = await query.get();
+    if (rows.isEmpty) return null;
+    return rows
+        .map((row) => row.readTable(bites))
+        .lastWhere(
+          (bite) => bite.sourceStart <= sourceOffset,
+          orElse: () => rows.first.readTable(bites),
+        );
   }
 
   Future<void> saveProgress(
@@ -863,4 +907,15 @@ class AppDatabase extends _$AppDatabase {
   Future<void> saveTheme(String theme) => update(
     readerPreferences,
   ).write(ReaderPreferencesCompanion(theme: Value(theme)));
+
+  Future<String> readerViewMode(String bookId) async =>
+      (await (select(
+        readerViewModes,
+      )..where((row) => row.bookId.equals(bookId))).getSingleOrNull())?.mode ??
+      'bookbites';
+
+  Future<void> saveReaderViewMode(String bookId, String mode) =>
+      into(readerViewModes).insertOnConflictUpdate(
+        ReaderViewModesCompanion.insert(bookId: bookId, mode: Value(mode)),
+      );
 }
