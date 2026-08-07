@@ -65,6 +65,7 @@ class ReadingProgress extends Table {
       text().references(Bites, #id, onDelete: KeyAction.cascade)();
   IntColumn get bitePosition => integer()();
   IntColumn get sourceOffset => integer().withDefault(const Constant(0))();
+  TextColumn get canonicalLocator => text().nullable()();
   DateTimeColumn get updatedAt => dateTime()();
 
   @override
@@ -77,6 +78,7 @@ class Bookmarks extends Table {
   TextColumn get biteId =>
       text().references(Bites, #id, onDelete: KeyAction.cascade)();
   IntColumn get sourceOffset => integer()();
+  TextColumn get canonicalLocator => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
 
   @override
@@ -90,6 +92,7 @@ class ReaderNotes extends Table {
   TextColumn get biteId =>
       text().references(Bites, #id, onDelete: KeyAction.cascade)();
   TextColumn get noteText => text()();
+  TextColumn get canonicalLocator => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
 
@@ -161,6 +164,7 @@ class HighlightNotes extends Table {
   TextColumn get biteId =>
       text().references(Bites, #id, onDelete: KeyAction.cascade)();
   TextColumn get noteText => text()();
+  TextColumn get canonicalLocator => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
 
@@ -188,6 +192,7 @@ class Highlights extends Table {
     onDelete: KeyAction.setNull,
   )();
   BoolColumn get resolved => boolean().withDefault(const Constant(true))();
+  TextColumn get canonicalLocator => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
 
@@ -301,7 +306,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -420,6 +425,23 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 11) {
         await migrator.createTable(canonicalPublicationRecords);
+      }
+      if (from < 12) {
+        await migrator.addColumn(
+          readingProgress,
+          readingProgress.canonicalLocator,
+        );
+        await migrator.addColumn(readerNotes, readerNotes.canonicalLocator);
+        if (from >= 6) {
+          await migrator.addColumn(bookmarks, bookmarks.canonicalLocator);
+        }
+        if (from >= 3) {
+          await migrator.addColumn(
+            highlightNotes,
+            highlightNotes.canonicalLocator,
+          );
+          await migrator.addColumn(highlights, highlights.canonicalLocator);
+        }
       }
     },
     beforeOpen: (_) => customStatement('PRAGMA foreign_keys = ON'),
@@ -557,12 +579,31 @@ class AppDatabase extends _$AppDatabase {
     String biteId,
     int position, [
     int sourceOffset = 0,
-  ]) => into(readingProgress).insertOnConflictUpdate(
+  ]) => _saveProgress(bookId, biteId, position, sourceOffset, null);
+
+  Future<void> saveProgressWithLocator({
+    required String bookId,
+    required String biteId,
+    required int position,
+    required int sourceOffset,
+    required String canonicalLocator,
+  }) => _saveProgress(bookId, biteId, position, sourceOffset, canonicalLocator);
+
+  Future<void> _saveProgress(
+    String bookId,
+    String biteId,
+    int position,
+    int sourceOffset,
+    String? canonicalLocator,
+  ) => into(readingProgress).insertOnConflictUpdate(
     ReadingProgressCompanion.insert(
       bookId: bookId,
       biteId: biteId,
       bitePosition: position,
       sourceOffset: Value(sourceOffset),
+      canonicalLocator: canonicalLocator == null
+          ? const Value.absent()
+          : Value(canonicalLocator),
       updatedAt: DateTime.now().toUtc(),
     ),
   );
@@ -576,11 +617,15 @@ class AppDatabase extends _$AppDatabase {
     required String biteId,
     required int sourceOffset,
     required DateTime now,
+    String? canonicalLocator,
   }) => into(bookmarks).insert(
     BookmarksCompanion.insert(
       bookId: bookId,
       biteId: biteId,
       sourceOffset: sourceOffset,
+      canonicalLocator: canonicalLocator == null
+          ? const Value.absent()
+          : Value(canonicalLocator),
       createdAt: now,
     ),
     mode: InsertMode.insertOrIgnore,
@@ -627,6 +672,7 @@ class AppDatabase extends _$AppDatabase {
     required String biteId,
     required String text,
     required DateTime now,
+    String? canonicalLocator,
   }) async {
     final existing = await (select(
       readerNotes,
@@ -637,6 +683,9 @@ class AppDatabase extends _$AppDatabase {
         bookId: bookId,
         biteId: biteId,
         noteText: text,
+        canonicalLocator: canonicalLocator == null
+            ? const Value.absent()
+            : Value(canonicalLocator),
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
       ),
@@ -775,6 +824,7 @@ class AppDatabase extends _$AppDatabase {
     required String biteId,
     required String text,
     required DateTime now,
+    String? canonicalLocator,
   }) async {
     final existing = await highlightNote(id);
     await into(highlightNotes).insertOnConflictUpdate(
@@ -783,6 +833,9 @@ class AppDatabase extends _$AppDatabase {
         bookId: bookId,
         biteId: biteId,
         noteText: text,
+        canonicalLocator: canonicalLocator == null
+            ? const Value.absent()
+            : Value(canonicalLocator),
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
       ),
@@ -811,6 +864,7 @@ class AppDatabase extends _$AppDatabase {
     required String? noteId,
     required bool resolved,
     required DateTime now,
+    String? canonicalLocator,
   }) async {
     final existing = await (select(
       highlights,
@@ -830,6 +884,9 @@ class AppDatabase extends _$AppDatabase {
         color: color,
         noteId: Value(noteId),
         resolved: Value(resolved),
+        canonicalLocator: canonicalLocator == null
+            ? const Value.absent()
+            : Value(canonicalLocator),
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
       ),

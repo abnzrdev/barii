@@ -20,6 +20,62 @@ void main() {
     expect(await database.readerViewMode('book'), 'original');
   });
 
+  test('stores canonical locators beside legacy anchors', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    await database.addBook(
+      id: 'located-book',
+      fingerprint: 'located-hash',
+      title: 'Book',
+      author: 'Author',
+      filePath: '/managed.epub',
+      fileType: 'epub',
+    );
+    await database.replaceContent(
+      'located-book',
+      sections: const [StoredSection(id: 'located-section', position: 0)],
+      bites: const [
+        StoredBite(
+          id: 'located-bite',
+          sectionId: 'located-section',
+          position: 0,
+          text: 'Located text.',
+          sourceStart: 0,
+          sourceEnd: 13,
+        ),
+      ],
+    );
+    const locator = '{"href":"one.xhtml","spineOccurrence":"itemref-1"}';
+    await database.saveProgressWithLocator(
+      bookId: 'located-book',
+      biteId: 'located-bite',
+      position: 0,
+      sourceOffset: 3,
+      canonicalLocator: locator,
+    );
+    await database.addBookmark(
+      bookId: 'located-book',
+      biteId: 'located-bite',
+      sourceOffset: 3,
+      now: DateTime.utc(2026),
+      canonicalLocator: locator,
+    );
+
+    expect(
+      (await database.progressFor('located-book'))!.canonicalLocator,
+      locator,
+    );
+    expect(
+      (await database.bookmarksForBook('located-book')).single.canonicalLocator,
+      locator,
+    );
+    await database.saveProgress('located-book', 'located-bite', 0, 4);
+    expect(
+      (await database.progressFor('located-book'))!.canonicalLocator,
+      locator,
+    );
+  });
+
   late AppDatabase database;
 
   setUp(() => database = AppDatabase.forTesting(NativeDatabase.memory()));

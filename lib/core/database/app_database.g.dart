@@ -1595,6 +1595,17 @@ class $ReadingProgressTable extends ReadingProgress
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _canonicalLocatorMeta = const VerificationMeta(
+    'canonicalLocator',
+  );
+  @override
+  late final GeneratedColumn<String> canonicalLocator = GeneratedColumn<String>(
+    'canonical_locator',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _updatedAtMeta = const VerificationMeta(
     'updatedAt',
   );
@@ -1612,6 +1623,7 @@ class $ReadingProgressTable extends ReadingProgress
     biteId,
     bitePosition,
     sourceOffset,
+    canonicalLocator,
     updatedAt,
   ];
   @override
@@ -1662,6 +1674,15 @@ class $ReadingProgressTable extends ReadingProgress
         ),
       );
     }
+    if (data.containsKey('canonical_locator')) {
+      context.handle(
+        _canonicalLocatorMeta,
+        canonicalLocator.isAcceptableOrUnknown(
+          data['canonical_locator']!,
+          _canonicalLocatorMeta,
+        ),
+      );
+    }
     if (data.containsKey('updated_at')) {
       context.handle(
         _updatedAtMeta,
@@ -1695,6 +1716,10 @@ class $ReadingProgressTable extends ReadingProgress
         DriftSqlType.int,
         data['${effectivePrefix}source_offset'],
       )!,
+      canonicalLocator: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}canonical_locator'],
+      ),
       updatedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
@@ -1714,12 +1739,14 @@ class ReadingProgressData extends DataClass
   final String biteId;
   final int bitePosition;
   final int sourceOffset;
+  final String? canonicalLocator;
   final DateTime updatedAt;
   const ReadingProgressData({
     required this.bookId,
     required this.biteId,
     required this.bitePosition,
     required this.sourceOffset,
+    this.canonicalLocator,
     required this.updatedAt,
   });
   @override
@@ -1729,6 +1756,9 @@ class ReadingProgressData extends DataClass
     map['bite_id'] = Variable<String>(biteId);
     map['bite_position'] = Variable<int>(bitePosition);
     map['source_offset'] = Variable<int>(sourceOffset);
+    if (!nullToAbsent || canonicalLocator != null) {
+      map['canonical_locator'] = Variable<String>(canonicalLocator);
+    }
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
   }
@@ -1739,6 +1769,9 @@ class ReadingProgressData extends DataClass
       biteId: Value(biteId),
       bitePosition: Value(bitePosition),
       sourceOffset: Value(sourceOffset),
+      canonicalLocator: canonicalLocator == null && nullToAbsent
+          ? const Value.absent()
+          : Value(canonicalLocator),
       updatedAt: Value(updatedAt),
     );
   }
@@ -1753,6 +1786,7 @@ class ReadingProgressData extends DataClass
       biteId: serializer.fromJson<String>(json['biteId']),
       bitePosition: serializer.fromJson<int>(json['bitePosition']),
       sourceOffset: serializer.fromJson<int>(json['sourceOffset']),
+      canonicalLocator: serializer.fromJson<String?>(json['canonicalLocator']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
   }
@@ -1764,6 +1798,7 @@ class ReadingProgressData extends DataClass
       'biteId': serializer.toJson<String>(biteId),
       'bitePosition': serializer.toJson<int>(bitePosition),
       'sourceOffset': serializer.toJson<int>(sourceOffset),
+      'canonicalLocator': serializer.toJson<String?>(canonicalLocator),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
   }
@@ -1773,12 +1808,16 @@ class ReadingProgressData extends DataClass
     String? biteId,
     int? bitePosition,
     int? sourceOffset,
+    Value<String?> canonicalLocator = const Value.absent(),
     DateTime? updatedAt,
   }) => ReadingProgressData(
     bookId: bookId ?? this.bookId,
     biteId: biteId ?? this.biteId,
     bitePosition: bitePosition ?? this.bitePosition,
     sourceOffset: sourceOffset ?? this.sourceOffset,
+    canonicalLocator: canonicalLocator.present
+        ? canonicalLocator.value
+        : this.canonicalLocator,
     updatedAt: updatedAt ?? this.updatedAt,
   );
   ReadingProgressData copyWithCompanion(ReadingProgressCompanion data) {
@@ -1791,6 +1830,9 @@ class ReadingProgressData extends DataClass
       sourceOffset: data.sourceOffset.present
           ? data.sourceOffset.value
           : this.sourceOffset,
+      canonicalLocator: data.canonicalLocator.present
+          ? data.canonicalLocator.value
+          : this.canonicalLocator,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
@@ -1802,14 +1844,21 @@ class ReadingProgressData extends DataClass
           ..write('biteId: $biteId, ')
           ..write('bitePosition: $bitePosition, ')
           ..write('sourceOffset: $sourceOffset, ')
+          ..write('canonicalLocator: $canonicalLocator, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(bookId, biteId, bitePosition, sourceOffset, updatedAt);
+  int get hashCode => Object.hash(
+    bookId,
+    biteId,
+    bitePosition,
+    sourceOffset,
+    canonicalLocator,
+    updatedAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1818,6 +1867,7 @@ class ReadingProgressData extends DataClass
           other.biteId == this.biteId &&
           other.bitePosition == this.bitePosition &&
           other.sourceOffset == this.sourceOffset &&
+          other.canonicalLocator == this.canonicalLocator &&
           other.updatedAt == this.updatedAt);
 }
 
@@ -1826,6 +1876,7 @@ class ReadingProgressCompanion extends UpdateCompanion<ReadingProgressData> {
   final Value<String> biteId;
   final Value<int> bitePosition;
   final Value<int> sourceOffset;
+  final Value<String?> canonicalLocator;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
   const ReadingProgressCompanion({
@@ -1833,6 +1884,7 @@ class ReadingProgressCompanion extends UpdateCompanion<ReadingProgressData> {
     this.biteId = const Value.absent(),
     this.bitePosition = const Value.absent(),
     this.sourceOffset = const Value.absent(),
+    this.canonicalLocator = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -1841,6 +1893,7 @@ class ReadingProgressCompanion extends UpdateCompanion<ReadingProgressData> {
     required String biteId,
     required int bitePosition,
     this.sourceOffset = const Value.absent(),
+    this.canonicalLocator = const Value.absent(),
     required DateTime updatedAt,
     this.rowid = const Value.absent(),
   }) : bookId = Value(bookId),
@@ -1852,6 +1905,7 @@ class ReadingProgressCompanion extends UpdateCompanion<ReadingProgressData> {
     Expression<String>? biteId,
     Expression<int>? bitePosition,
     Expression<int>? sourceOffset,
+    Expression<String>? canonicalLocator,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
   }) {
@@ -1860,6 +1914,7 @@ class ReadingProgressCompanion extends UpdateCompanion<ReadingProgressData> {
       if (biteId != null) 'bite_id': biteId,
       if (bitePosition != null) 'bite_position': bitePosition,
       if (sourceOffset != null) 'source_offset': sourceOffset,
+      if (canonicalLocator != null) 'canonical_locator': canonicalLocator,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -1870,6 +1925,7 @@ class ReadingProgressCompanion extends UpdateCompanion<ReadingProgressData> {
     Value<String>? biteId,
     Value<int>? bitePosition,
     Value<int>? sourceOffset,
+    Value<String?>? canonicalLocator,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
   }) {
@@ -1878,6 +1934,7 @@ class ReadingProgressCompanion extends UpdateCompanion<ReadingProgressData> {
       biteId: biteId ?? this.biteId,
       bitePosition: bitePosition ?? this.bitePosition,
       sourceOffset: sourceOffset ?? this.sourceOffset,
+      canonicalLocator: canonicalLocator ?? this.canonicalLocator,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
     );
@@ -1898,6 +1955,9 @@ class ReadingProgressCompanion extends UpdateCompanion<ReadingProgressData> {
     if (sourceOffset.present) {
       map['source_offset'] = Variable<int>(sourceOffset.value);
     }
+    if (canonicalLocator.present) {
+      map['canonical_locator'] = Variable<String>(canonicalLocator.value);
+    }
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
@@ -1914,6 +1974,7 @@ class ReadingProgressCompanion extends UpdateCompanion<ReadingProgressData> {
           ..write('biteId: $biteId, ')
           ..write('bitePosition: $bitePosition, ')
           ..write('sourceOffset: $sourceOffset, ')
+          ..write('canonicalLocator: $canonicalLocator, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -1962,6 +2023,17 @@ class $BookmarksTable extends Bookmarks
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _canonicalLocatorMeta = const VerificationMeta(
+    'canonicalLocator',
+  );
+  @override
+  late final GeneratedColumn<String> canonicalLocator = GeneratedColumn<String>(
+    'canonical_locator',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -1978,6 +2050,7 @@ class $BookmarksTable extends Bookmarks
     bookId,
     biteId,
     sourceOffset,
+    canonicalLocator,
     createdAt,
   ];
   @override
@@ -2019,6 +2092,15 @@ class $BookmarksTable extends Bookmarks
     } else if (isInserting) {
       context.missing(_sourceOffsetMeta);
     }
+    if (data.containsKey('canonical_locator')) {
+      context.handle(
+        _canonicalLocatorMeta,
+        canonicalLocator.isAcceptableOrUnknown(
+          data['canonical_locator']!,
+          _canonicalLocatorMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -2048,6 +2130,10 @@ class $BookmarksTable extends Bookmarks
         DriftSqlType.int,
         data['${effectivePrefix}source_offset'],
       )!,
+      canonicalLocator: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}canonical_locator'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -2065,11 +2151,13 @@ class Bookmark extends DataClass implements Insertable<Bookmark> {
   final String bookId;
   final String biteId;
   final int sourceOffset;
+  final String? canonicalLocator;
   final DateTime createdAt;
   const Bookmark({
     required this.bookId,
     required this.biteId,
     required this.sourceOffset,
+    this.canonicalLocator,
     required this.createdAt,
   });
   @override
@@ -2078,6 +2166,9 @@ class Bookmark extends DataClass implements Insertable<Bookmark> {
     map['book_id'] = Variable<String>(bookId);
     map['bite_id'] = Variable<String>(biteId);
     map['source_offset'] = Variable<int>(sourceOffset);
+    if (!nullToAbsent || canonicalLocator != null) {
+      map['canonical_locator'] = Variable<String>(canonicalLocator);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
   }
@@ -2087,6 +2178,9 @@ class Bookmark extends DataClass implements Insertable<Bookmark> {
       bookId: Value(bookId),
       biteId: Value(biteId),
       sourceOffset: Value(sourceOffset),
+      canonicalLocator: canonicalLocator == null && nullToAbsent
+          ? const Value.absent()
+          : Value(canonicalLocator),
       createdAt: Value(createdAt),
     );
   }
@@ -2100,6 +2194,7 @@ class Bookmark extends DataClass implements Insertable<Bookmark> {
       bookId: serializer.fromJson<String>(json['bookId']),
       biteId: serializer.fromJson<String>(json['biteId']),
       sourceOffset: serializer.fromJson<int>(json['sourceOffset']),
+      canonicalLocator: serializer.fromJson<String?>(json['canonicalLocator']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -2110,6 +2205,7 @@ class Bookmark extends DataClass implements Insertable<Bookmark> {
       'bookId': serializer.toJson<String>(bookId),
       'biteId': serializer.toJson<String>(biteId),
       'sourceOffset': serializer.toJson<int>(sourceOffset),
+      'canonicalLocator': serializer.toJson<String?>(canonicalLocator),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -2118,11 +2214,15 @@ class Bookmark extends DataClass implements Insertable<Bookmark> {
     String? bookId,
     String? biteId,
     int? sourceOffset,
+    Value<String?> canonicalLocator = const Value.absent(),
     DateTime? createdAt,
   }) => Bookmark(
     bookId: bookId ?? this.bookId,
     biteId: biteId ?? this.biteId,
     sourceOffset: sourceOffset ?? this.sourceOffset,
+    canonicalLocator: canonicalLocator.present
+        ? canonicalLocator.value
+        : this.canonicalLocator,
     createdAt: createdAt ?? this.createdAt,
   );
   Bookmark copyWithCompanion(BookmarksCompanion data) {
@@ -2132,6 +2232,9 @@ class Bookmark extends DataClass implements Insertable<Bookmark> {
       sourceOffset: data.sourceOffset.present
           ? data.sourceOffset.value
           : this.sourceOffset,
+      canonicalLocator: data.canonicalLocator.present
+          ? data.canonicalLocator.value
+          : this.canonicalLocator,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -2142,13 +2245,15 @@ class Bookmark extends DataClass implements Insertable<Bookmark> {
           ..write('bookId: $bookId, ')
           ..write('biteId: $biteId, ')
           ..write('sourceOffset: $sourceOffset, ')
+          ..write('canonicalLocator: $canonicalLocator, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(bookId, biteId, sourceOffset, createdAt);
+  int get hashCode =>
+      Object.hash(bookId, biteId, sourceOffset, canonicalLocator, createdAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2156,6 +2261,7 @@ class Bookmark extends DataClass implements Insertable<Bookmark> {
           other.bookId == this.bookId &&
           other.biteId == this.biteId &&
           other.sourceOffset == this.sourceOffset &&
+          other.canonicalLocator == this.canonicalLocator &&
           other.createdAt == this.createdAt);
 }
 
@@ -2163,12 +2269,14 @@ class BookmarksCompanion extends UpdateCompanion<Bookmark> {
   final Value<String> bookId;
   final Value<String> biteId;
   final Value<int> sourceOffset;
+  final Value<String?> canonicalLocator;
   final Value<DateTime> createdAt;
   final Value<int> rowid;
   const BookmarksCompanion({
     this.bookId = const Value.absent(),
     this.biteId = const Value.absent(),
     this.sourceOffset = const Value.absent(),
+    this.canonicalLocator = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -2176,6 +2284,7 @@ class BookmarksCompanion extends UpdateCompanion<Bookmark> {
     required String bookId,
     required String biteId,
     required int sourceOffset,
+    this.canonicalLocator = const Value.absent(),
     required DateTime createdAt,
     this.rowid = const Value.absent(),
   }) : bookId = Value(bookId),
@@ -2186,6 +2295,7 @@ class BookmarksCompanion extends UpdateCompanion<Bookmark> {
     Expression<String>? bookId,
     Expression<String>? biteId,
     Expression<int>? sourceOffset,
+    Expression<String>? canonicalLocator,
     Expression<DateTime>? createdAt,
     Expression<int>? rowid,
   }) {
@@ -2193,6 +2303,7 @@ class BookmarksCompanion extends UpdateCompanion<Bookmark> {
       if (bookId != null) 'book_id': bookId,
       if (biteId != null) 'bite_id': biteId,
       if (sourceOffset != null) 'source_offset': sourceOffset,
+      if (canonicalLocator != null) 'canonical_locator': canonicalLocator,
       if (createdAt != null) 'created_at': createdAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -2202,6 +2313,7 @@ class BookmarksCompanion extends UpdateCompanion<Bookmark> {
     Value<String>? bookId,
     Value<String>? biteId,
     Value<int>? sourceOffset,
+    Value<String?>? canonicalLocator,
     Value<DateTime>? createdAt,
     Value<int>? rowid,
   }) {
@@ -2209,6 +2321,7 @@ class BookmarksCompanion extends UpdateCompanion<Bookmark> {
       bookId: bookId ?? this.bookId,
       biteId: biteId ?? this.biteId,
       sourceOffset: sourceOffset ?? this.sourceOffset,
+      canonicalLocator: canonicalLocator ?? this.canonicalLocator,
       createdAt: createdAt ?? this.createdAt,
       rowid: rowid ?? this.rowid,
     );
@@ -2226,6 +2339,9 @@ class BookmarksCompanion extends UpdateCompanion<Bookmark> {
     if (sourceOffset.present) {
       map['source_offset'] = Variable<int>(sourceOffset.value);
     }
+    if (canonicalLocator.present) {
+      map['canonical_locator'] = Variable<String>(canonicalLocator.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -2241,6 +2357,7 @@ class BookmarksCompanion extends UpdateCompanion<Bookmark> {
           ..write('bookId: $bookId, ')
           ..write('biteId: $biteId, ')
           ..write('sourceOffset: $sourceOffset, ')
+          ..write('canonicalLocator: $canonicalLocator, ')
           ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -2298,6 +2415,17 @@ class $ReaderNotesTable extends ReaderNotes
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _canonicalLocatorMeta = const VerificationMeta(
+    'canonicalLocator',
+  );
+  @override
+  late final GeneratedColumn<String> canonicalLocator = GeneratedColumn<String>(
+    'canonical_locator',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -2326,6 +2454,7 @@ class $ReaderNotesTable extends ReaderNotes
     bookId,
     biteId,
     noteText,
+    canonicalLocator,
     createdAt,
     updatedAt,
   ];
@@ -2370,6 +2499,15 @@ class $ReaderNotesTable extends ReaderNotes
     } else if (isInserting) {
       context.missing(_noteTextMeta);
     }
+    if (data.containsKey('canonical_locator')) {
+      context.handle(
+        _canonicalLocatorMeta,
+        canonicalLocator.isAcceptableOrUnknown(
+          data['canonical_locator']!,
+          _canonicalLocatorMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -2411,6 +2549,10 @@ class $ReaderNotesTable extends ReaderNotes
         DriftSqlType.string,
         data['${effectivePrefix}note_text'],
       )!,
+      canonicalLocator: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}canonical_locator'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -2433,6 +2575,7 @@ class ReaderNote extends DataClass implements Insertable<ReaderNote> {
   final String bookId;
   final String biteId;
   final String noteText;
+  final String? canonicalLocator;
   final DateTime createdAt;
   final DateTime updatedAt;
   const ReaderNote({
@@ -2440,6 +2583,7 @@ class ReaderNote extends DataClass implements Insertable<ReaderNote> {
     required this.bookId,
     required this.biteId,
     required this.noteText,
+    this.canonicalLocator,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -2450,6 +2594,9 @@ class ReaderNote extends DataClass implements Insertable<ReaderNote> {
     map['book_id'] = Variable<String>(bookId);
     map['bite_id'] = Variable<String>(biteId);
     map['note_text'] = Variable<String>(noteText);
+    if (!nullToAbsent || canonicalLocator != null) {
+      map['canonical_locator'] = Variable<String>(canonicalLocator);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -2461,6 +2608,9 @@ class ReaderNote extends DataClass implements Insertable<ReaderNote> {
       bookId: Value(bookId),
       biteId: Value(biteId),
       noteText: Value(noteText),
+      canonicalLocator: canonicalLocator == null && nullToAbsent
+          ? const Value.absent()
+          : Value(canonicalLocator),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -2476,6 +2626,7 @@ class ReaderNote extends DataClass implements Insertable<ReaderNote> {
       bookId: serializer.fromJson<String>(json['bookId']),
       biteId: serializer.fromJson<String>(json['biteId']),
       noteText: serializer.fromJson<String>(json['noteText']),
+      canonicalLocator: serializer.fromJson<String?>(json['canonicalLocator']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -2488,6 +2639,7 @@ class ReaderNote extends DataClass implements Insertable<ReaderNote> {
       'bookId': serializer.toJson<String>(bookId),
       'biteId': serializer.toJson<String>(biteId),
       'noteText': serializer.toJson<String>(noteText),
+      'canonicalLocator': serializer.toJson<String?>(canonicalLocator),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -2498,6 +2650,7 @@ class ReaderNote extends DataClass implements Insertable<ReaderNote> {
     String? bookId,
     String? biteId,
     String? noteText,
+    Value<String?> canonicalLocator = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => ReaderNote(
@@ -2505,6 +2658,9 @@ class ReaderNote extends DataClass implements Insertable<ReaderNote> {
     bookId: bookId ?? this.bookId,
     biteId: biteId ?? this.biteId,
     noteText: noteText ?? this.noteText,
+    canonicalLocator: canonicalLocator.present
+        ? canonicalLocator.value
+        : this.canonicalLocator,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -2514,6 +2670,9 @@ class ReaderNote extends DataClass implements Insertable<ReaderNote> {
       bookId: data.bookId.present ? data.bookId.value : this.bookId,
       biteId: data.biteId.present ? data.biteId.value : this.biteId,
       noteText: data.noteText.present ? data.noteText.value : this.noteText,
+      canonicalLocator: data.canonicalLocator.present
+          ? data.canonicalLocator.value
+          : this.canonicalLocator,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -2526,6 +2685,7 @@ class ReaderNote extends DataClass implements Insertable<ReaderNote> {
           ..write('bookId: $bookId, ')
           ..write('biteId: $biteId, ')
           ..write('noteText: $noteText, ')
+          ..write('canonicalLocator: $canonicalLocator, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -2533,8 +2693,15 @@ class ReaderNote extends DataClass implements Insertable<ReaderNote> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, bookId, biteId, noteText, createdAt, updatedAt);
+  int get hashCode => Object.hash(
+    id,
+    bookId,
+    biteId,
+    noteText,
+    canonicalLocator,
+    createdAt,
+    updatedAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2543,6 +2710,7 @@ class ReaderNote extends DataClass implements Insertable<ReaderNote> {
           other.bookId == this.bookId &&
           other.biteId == this.biteId &&
           other.noteText == this.noteText &&
+          other.canonicalLocator == this.canonicalLocator &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -2552,6 +2720,7 @@ class ReaderNotesCompanion extends UpdateCompanion<ReaderNote> {
   final Value<String> bookId;
   final Value<String> biteId;
   final Value<String> noteText;
+  final Value<String?> canonicalLocator;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -2560,6 +2729,7 @@ class ReaderNotesCompanion extends UpdateCompanion<ReaderNote> {
     this.bookId = const Value.absent(),
     this.biteId = const Value.absent(),
     this.noteText = const Value.absent(),
+    this.canonicalLocator = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -2569,6 +2739,7 @@ class ReaderNotesCompanion extends UpdateCompanion<ReaderNote> {
     required String bookId,
     required String biteId,
     required String noteText,
+    this.canonicalLocator = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
     this.rowid = const Value.absent(),
@@ -2583,6 +2754,7 @@ class ReaderNotesCompanion extends UpdateCompanion<ReaderNote> {
     Expression<String>? bookId,
     Expression<String>? biteId,
     Expression<String>? noteText,
+    Expression<String>? canonicalLocator,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -2592,6 +2764,7 @@ class ReaderNotesCompanion extends UpdateCompanion<ReaderNote> {
       if (bookId != null) 'book_id': bookId,
       if (biteId != null) 'bite_id': biteId,
       if (noteText != null) 'note_text': noteText,
+      if (canonicalLocator != null) 'canonical_locator': canonicalLocator,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -2603,6 +2776,7 @@ class ReaderNotesCompanion extends UpdateCompanion<ReaderNote> {
     Value<String>? bookId,
     Value<String>? biteId,
     Value<String>? noteText,
+    Value<String?>? canonicalLocator,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
@@ -2612,6 +2786,7 @@ class ReaderNotesCompanion extends UpdateCompanion<ReaderNote> {
       bookId: bookId ?? this.bookId,
       biteId: biteId ?? this.biteId,
       noteText: noteText ?? this.noteText,
+      canonicalLocator: canonicalLocator ?? this.canonicalLocator,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -2633,6 +2808,9 @@ class ReaderNotesCompanion extends UpdateCompanion<ReaderNote> {
     if (noteText.present) {
       map['note_text'] = Variable<String>(noteText.value);
     }
+    if (canonicalLocator.present) {
+      map['canonical_locator'] = Variable<String>(canonicalLocator.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -2652,6 +2830,7 @@ class ReaderNotesCompanion extends UpdateCompanion<ReaderNote> {
           ..write('bookId: $bookId, ')
           ..write('biteId: $biteId, ')
           ..write('noteText: $noteText, ')
+          ..write('canonicalLocator: $canonicalLocator, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -4644,6 +4823,17 @@ class $HighlightNotesTable extends HighlightNotes
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _canonicalLocatorMeta = const VerificationMeta(
+    'canonicalLocator',
+  );
+  @override
+  late final GeneratedColumn<String> canonicalLocator = GeneratedColumn<String>(
+    'canonical_locator',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -4672,6 +4862,7 @@ class $HighlightNotesTable extends HighlightNotes
     bookId,
     biteId,
     noteText,
+    canonicalLocator,
     createdAt,
     updatedAt,
   ];
@@ -4716,6 +4907,15 @@ class $HighlightNotesTable extends HighlightNotes
     } else if (isInserting) {
       context.missing(_noteTextMeta);
     }
+    if (data.containsKey('canonical_locator')) {
+      context.handle(
+        _canonicalLocatorMeta,
+        canonicalLocator.isAcceptableOrUnknown(
+          data['canonical_locator']!,
+          _canonicalLocatorMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -4757,6 +4957,10 @@ class $HighlightNotesTable extends HighlightNotes
         DriftSqlType.string,
         data['${effectivePrefix}note_text'],
       )!,
+      canonicalLocator: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}canonical_locator'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -4779,6 +4983,7 @@ class HighlightNote extends DataClass implements Insertable<HighlightNote> {
   final String bookId;
   final String biteId;
   final String noteText;
+  final String? canonicalLocator;
   final DateTime createdAt;
   final DateTime updatedAt;
   const HighlightNote({
@@ -4786,6 +4991,7 @@ class HighlightNote extends DataClass implements Insertable<HighlightNote> {
     required this.bookId,
     required this.biteId,
     required this.noteText,
+    this.canonicalLocator,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -4796,6 +5002,9 @@ class HighlightNote extends DataClass implements Insertable<HighlightNote> {
     map['book_id'] = Variable<String>(bookId);
     map['bite_id'] = Variable<String>(biteId);
     map['note_text'] = Variable<String>(noteText);
+    if (!nullToAbsent || canonicalLocator != null) {
+      map['canonical_locator'] = Variable<String>(canonicalLocator);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -4807,6 +5016,9 @@ class HighlightNote extends DataClass implements Insertable<HighlightNote> {
       bookId: Value(bookId),
       biteId: Value(biteId),
       noteText: Value(noteText),
+      canonicalLocator: canonicalLocator == null && nullToAbsent
+          ? const Value.absent()
+          : Value(canonicalLocator),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -4822,6 +5034,7 @@ class HighlightNote extends DataClass implements Insertable<HighlightNote> {
       bookId: serializer.fromJson<String>(json['bookId']),
       biteId: serializer.fromJson<String>(json['biteId']),
       noteText: serializer.fromJson<String>(json['noteText']),
+      canonicalLocator: serializer.fromJson<String?>(json['canonicalLocator']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -4834,6 +5047,7 @@ class HighlightNote extends DataClass implements Insertable<HighlightNote> {
       'bookId': serializer.toJson<String>(bookId),
       'biteId': serializer.toJson<String>(biteId),
       'noteText': serializer.toJson<String>(noteText),
+      'canonicalLocator': serializer.toJson<String?>(canonicalLocator),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -4844,6 +5058,7 @@ class HighlightNote extends DataClass implements Insertable<HighlightNote> {
     String? bookId,
     String? biteId,
     String? noteText,
+    Value<String?> canonicalLocator = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => HighlightNote(
@@ -4851,6 +5066,9 @@ class HighlightNote extends DataClass implements Insertable<HighlightNote> {
     bookId: bookId ?? this.bookId,
     biteId: biteId ?? this.biteId,
     noteText: noteText ?? this.noteText,
+    canonicalLocator: canonicalLocator.present
+        ? canonicalLocator.value
+        : this.canonicalLocator,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -4860,6 +5078,9 @@ class HighlightNote extends DataClass implements Insertable<HighlightNote> {
       bookId: data.bookId.present ? data.bookId.value : this.bookId,
       biteId: data.biteId.present ? data.biteId.value : this.biteId,
       noteText: data.noteText.present ? data.noteText.value : this.noteText,
+      canonicalLocator: data.canonicalLocator.present
+          ? data.canonicalLocator.value
+          : this.canonicalLocator,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -4872,6 +5093,7 @@ class HighlightNote extends DataClass implements Insertable<HighlightNote> {
           ..write('bookId: $bookId, ')
           ..write('biteId: $biteId, ')
           ..write('noteText: $noteText, ')
+          ..write('canonicalLocator: $canonicalLocator, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -4879,8 +5101,15 @@ class HighlightNote extends DataClass implements Insertable<HighlightNote> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, bookId, biteId, noteText, createdAt, updatedAt);
+  int get hashCode => Object.hash(
+    id,
+    bookId,
+    biteId,
+    noteText,
+    canonicalLocator,
+    createdAt,
+    updatedAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -4889,6 +5118,7 @@ class HighlightNote extends DataClass implements Insertable<HighlightNote> {
           other.bookId == this.bookId &&
           other.biteId == this.biteId &&
           other.noteText == this.noteText &&
+          other.canonicalLocator == this.canonicalLocator &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -4898,6 +5128,7 @@ class HighlightNotesCompanion extends UpdateCompanion<HighlightNote> {
   final Value<String> bookId;
   final Value<String> biteId;
   final Value<String> noteText;
+  final Value<String?> canonicalLocator;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -4906,6 +5137,7 @@ class HighlightNotesCompanion extends UpdateCompanion<HighlightNote> {
     this.bookId = const Value.absent(),
     this.biteId = const Value.absent(),
     this.noteText = const Value.absent(),
+    this.canonicalLocator = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -4915,6 +5147,7 @@ class HighlightNotesCompanion extends UpdateCompanion<HighlightNote> {
     required String bookId,
     required String biteId,
     required String noteText,
+    this.canonicalLocator = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
     this.rowid = const Value.absent(),
@@ -4929,6 +5162,7 @@ class HighlightNotesCompanion extends UpdateCompanion<HighlightNote> {
     Expression<String>? bookId,
     Expression<String>? biteId,
     Expression<String>? noteText,
+    Expression<String>? canonicalLocator,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -4938,6 +5172,7 @@ class HighlightNotesCompanion extends UpdateCompanion<HighlightNote> {
       if (bookId != null) 'book_id': bookId,
       if (biteId != null) 'bite_id': biteId,
       if (noteText != null) 'note_text': noteText,
+      if (canonicalLocator != null) 'canonical_locator': canonicalLocator,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -4949,6 +5184,7 @@ class HighlightNotesCompanion extends UpdateCompanion<HighlightNote> {
     Value<String>? bookId,
     Value<String>? biteId,
     Value<String>? noteText,
+    Value<String?>? canonicalLocator,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
@@ -4958,6 +5194,7 @@ class HighlightNotesCompanion extends UpdateCompanion<HighlightNote> {
       bookId: bookId ?? this.bookId,
       biteId: biteId ?? this.biteId,
       noteText: noteText ?? this.noteText,
+      canonicalLocator: canonicalLocator ?? this.canonicalLocator,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -4979,6 +5216,9 @@ class HighlightNotesCompanion extends UpdateCompanion<HighlightNote> {
     if (noteText.present) {
       map['note_text'] = Variable<String>(noteText.value);
     }
+    if (canonicalLocator.present) {
+      map['canonical_locator'] = Variable<String>(canonicalLocator.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -4998,6 +5238,7 @@ class HighlightNotesCompanion extends UpdateCompanion<HighlightNote> {
           ..write('bookId: $bookId, ')
           ..write('biteId: $biteId, ')
           ..write('noteText: $noteText, ')
+          ..write('canonicalLocator: $canonicalLocator, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -5156,6 +5397,17 @@ class $HighlightsTable extends Highlights
     ),
     defaultValue: const Constant(true),
   );
+  static const VerificationMeta _canonicalLocatorMeta = const VerificationMeta(
+    'canonicalLocator',
+  );
+  @override
+  late final GeneratedColumn<String> canonicalLocator = GeneratedColumn<String>(
+    'canonical_locator',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -5193,6 +5445,7 @@ class $HighlightsTable extends Highlights
     color,
     noteId,
     resolved,
+    canonicalLocator,
     createdAt,
     updatedAt,
   ];
@@ -5320,6 +5573,15 @@ class $HighlightsTable extends Highlights
         resolved.isAcceptableOrUnknown(data['resolved']!, _resolvedMeta),
       );
     }
+    if (data.containsKey('canonical_locator')) {
+      context.handle(
+        _canonicalLocatorMeta,
+        canonicalLocator.isAcceptableOrUnknown(
+          data['canonical_locator']!,
+          _canonicalLocatorMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -5401,6 +5663,10 @@ class $HighlightsTable extends Highlights
         DriftSqlType.bool,
         data['${effectivePrefix}resolved'],
       )!,
+      canonicalLocator: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}canonical_locator'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -5432,6 +5698,7 @@ class Highlight extends DataClass implements Insertable<Highlight> {
   final String color;
   final String? noteId;
   final bool resolved;
+  final String? canonicalLocator;
   final DateTime createdAt;
   final DateTime updatedAt;
   const Highlight({
@@ -5448,6 +5715,7 @@ class Highlight extends DataClass implements Insertable<Highlight> {
     required this.color,
     this.noteId,
     required this.resolved,
+    this.canonicalLocator,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -5469,6 +5737,9 @@ class Highlight extends DataClass implements Insertable<Highlight> {
       map['note_id'] = Variable<String>(noteId);
     }
     map['resolved'] = Variable<bool>(resolved);
+    if (!nullToAbsent || canonicalLocator != null) {
+      map['canonical_locator'] = Variable<String>(canonicalLocator);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -5491,6 +5762,9 @@ class Highlight extends DataClass implements Insertable<Highlight> {
           ? const Value.absent()
           : Value(noteId),
       resolved: Value(resolved),
+      canonicalLocator: canonicalLocator == null && nullToAbsent
+          ? const Value.absent()
+          : Value(canonicalLocator),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -5515,6 +5789,7 @@ class Highlight extends DataClass implements Insertable<Highlight> {
       color: serializer.fromJson<String>(json['color']),
       noteId: serializer.fromJson<String?>(json['noteId']),
       resolved: serializer.fromJson<bool>(json['resolved']),
+      canonicalLocator: serializer.fromJson<String?>(json['canonicalLocator']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -5536,6 +5811,7 @@ class Highlight extends DataClass implements Insertable<Highlight> {
       'color': serializer.toJson<String>(color),
       'noteId': serializer.toJson<String?>(noteId),
       'resolved': serializer.toJson<bool>(resolved),
+      'canonicalLocator': serializer.toJson<String?>(canonicalLocator),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -5555,6 +5831,7 @@ class Highlight extends DataClass implements Insertable<Highlight> {
     String? color,
     Value<String?> noteId = const Value.absent(),
     bool? resolved,
+    Value<String?> canonicalLocator = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => Highlight(
@@ -5571,6 +5848,9 @@ class Highlight extends DataClass implements Insertable<Highlight> {
     color: color ?? this.color,
     noteId: noteId.present ? noteId.value : this.noteId,
     resolved: resolved ?? this.resolved,
+    canonicalLocator: canonicalLocator.present
+        ? canonicalLocator.value
+        : this.canonicalLocator,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -5599,6 +5879,9 @@ class Highlight extends DataClass implements Insertable<Highlight> {
       color: data.color.present ? data.color.value : this.color,
       noteId: data.noteId.present ? data.noteId.value : this.noteId,
       resolved: data.resolved.present ? data.resolved.value : this.resolved,
+      canonicalLocator: data.canonicalLocator.present
+          ? data.canonicalLocator.value
+          : this.canonicalLocator,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -5620,6 +5903,7 @@ class Highlight extends DataClass implements Insertable<Highlight> {
           ..write('color: $color, ')
           ..write('noteId: $noteId, ')
           ..write('resolved: $resolved, ')
+          ..write('canonicalLocator: $canonicalLocator, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -5641,6 +5925,7 @@ class Highlight extends DataClass implements Insertable<Highlight> {
     color,
     noteId,
     resolved,
+    canonicalLocator,
     createdAt,
     updatedAt,
   );
@@ -5661,6 +5946,7 @@ class Highlight extends DataClass implements Insertable<Highlight> {
           other.color == this.color &&
           other.noteId == this.noteId &&
           other.resolved == this.resolved &&
+          other.canonicalLocator == this.canonicalLocator &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -5679,6 +5965,7 @@ class HighlightsCompanion extends UpdateCompanion<Highlight> {
   final Value<String> color;
   final Value<String?> noteId;
   final Value<bool> resolved;
+  final Value<String?> canonicalLocator;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -5696,6 +5983,7 @@ class HighlightsCompanion extends UpdateCompanion<Highlight> {
     this.color = const Value.absent(),
     this.noteId = const Value.absent(),
     this.resolved = const Value.absent(),
+    this.canonicalLocator = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -5714,6 +6002,7 @@ class HighlightsCompanion extends UpdateCompanion<Highlight> {
     required String color,
     this.noteId = const Value.absent(),
     this.resolved = const Value.absent(),
+    this.canonicalLocator = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
     this.rowid = const Value.absent(),
@@ -5744,6 +6033,7 @@ class HighlightsCompanion extends UpdateCompanion<Highlight> {
     Expression<String>? color,
     Expression<String>? noteId,
     Expression<bool>? resolved,
+    Expression<String>? canonicalLocator,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -5762,6 +6052,7 @@ class HighlightsCompanion extends UpdateCompanion<Highlight> {
       if (color != null) 'color': color,
       if (noteId != null) 'note_id': noteId,
       if (resolved != null) 'resolved': resolved,
+      if (canonicalLocator != null) 'canonical_locator': canonicalLocator,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -5782,6 +6073,7 @@ class HighlightsCompanion extends UpdateCompanion<Highlight> {
     Value<String>? color,
     Value<String?>? noteId,
     Value<bool>? resolved,
+    Value<String?>? canonicalLocator,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
@@ -5800,6 +6092,7 @@ class HighlightsCompanion extends UpdateCompanion<Highlight> {
       color: color ?? this.color,
       noteId: noteId ?? this.noteId,
       resolved: resolved ?? this.resolved,
+      canonicalLocator: canonicalLocator ?? this.canonicalLocator,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -5848,6 +6141,9 @@ class HighlightsCompanion extends UpdateCompanion<Highlight> {
     if (resolved.present) {
       map['resolved'] = Variable<bool>(resolved.value);
     }
+    if (canonicalLocator.present) {
+      map['canonical_locator'] = Variable<String>(canonicalLocator.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -5876,6 +6172,7 @@ class HighlightsCompanion extends UpdateCompanion<Highlight> {
           ..write('color: $color, ')
           ..write('noteId: $noteId, ')
           ..write('resolved: $resolved, ')
+          ..write('canonicalLocator: $canonicalLocator, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -10104,6 +10401,7 @@ typedef $$ReadingProgressTableCreateCompanionBuilder =
       required String biteId,
       required int bitePosition,
       Value<int> sourceOffset,
+      Value<String?> canonicalLocator,
       required DateTime updatedAt,
       Value<int> rowid,
     });
@@ -10113,6 +10411,7 @@ typedef $$ReadingProgressTableUpdateCompanionBuilder =
       Value<String> biteId,
       Value<int> bitePosition,
       Value<int> sourceOffset,
+      Value<String?> canonicalLocator,
       Value<DateTime> updatedAt,
       Value<int> rowid,
     });
@@ -10181,6 +10480,11 @@ class $$ReadingProgressTableFilterComposer
 
   ColumnFilters<int> get sourceOffset => $composableBuilder(
     column: $table.sourceOffset,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get canonicalLocator => $composableBuilder(
+    column: $table.canonicalLocator,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10255,6 +10559,11 @@ class $$ReadingProgressTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get canonicalLocator => $composableBuilder(
+    column: $table.canonicalLocator,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
@@ -10323,6 +10632,11 @@ class $$ReadingProgressTableAnnotationComposer
 
   GeneratedColumn<int> get sourceOffset => $composableBuilder(
     column: $table.sourceOffset,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get canonicalLocator => $composableBuilder(
+    column: $table.canonicalLocator,
     builder: (column) => column,
   );
 
@@ -10410,6 +10724,7 @@ class $$ReadingProgressTableTableManager
                 Value<String> biteId = const Value.absent(),
                 Value<int> bitePosition = const Value.absent(),
                 Value<int> sourceOffset = const Value.absent(),
+                Value<String?> canonicalLocator = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ReadingProgressCompanion(
@@ -10417,6 +10732,7 @@ class $$ReadingProgressTableTableManager
                 biteId: biteId,
                 bitePosition: bitePosition,
                 sourceOffset: sourceOffset,
+                canonicalLocator: canonicalLocator,
                 updatedAt: updatedAt,
                 rowid: rowid,
               ),
@@ -10426,6 +10742,7 @@ class $$ReadingProgressTableTableManager
                 required String biteId,
                 required int bitePosition,
                 Value<int> sourceOffset = const Value.absent(),
+                Value<String?> canonicalLocator = const Value.absent(),
                 required DateTime updatedAt,
                 Value<int> rowid = const Value.absent(),
               }) => ReadingProgressCompanion.insert(
@@ -10433,6 +10750,7 @@ class $$ReadingProgressTableTableManager
                 biteId: biteId,
                 bitePosition: bitePosition,
                 sourceOffset: sourceOffset,
+                canonicalLocator: canonicalLocator,
                 updatedAt: updatedAt,
                 rowid: rowid,
               ),
@@ -10525,6 +10843,7 @@ typedef $$BookmarksTableCreateCompanionBuilder =
       required String bookId,
       required String biteId,
       required int sourceOffset,
+      Value<String?> canonicalLocator,
       required DateTime createdAt,
       Value<int> rowid,
     });
@@ -10533,6 +10852,7 @@ typedef $$BookmarksTableUpdateCompanionBuilder =
       Value<String> bookId,
       Value<String> biteId,
       Value<int> sourceOffset,
+      Value<String?> canonicalLocator,
       Value<DateTime> createdAt,
       Value<int> rowid,
     });
@@ -10587,6 +10907,11 @@ class $$BookmarksTableFilterComposer
   });
   ColumnFilters<int> get sourceOffset => $composableBuilder(
     column: $table.sourceOffset,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get canonicalLocator => $composableBuilder(
+    column: $table.canonicalLocator,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10656,6 +10981,11 @@ class $$BookmarksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get canonicalLocator => $composableBuilder(
+    column: $table.canonicalLocator,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -10719,6 +11049,11 @@ class $$BookmarksTableAnnotationComposer
   });
   GeneratedColumn<int> get sourceOffset => $composableBuilder(
     column: $table.sourceOffset,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get canonicalLocator => $composableBuilder(
+    column: $table.canonicalLocator,
     builder: (column) => column,
   );
 
@@ -10803,12 +11138,14 @@ class $$BookmarksTableTableManager
                 Value<String> bookId = const Value.absent(),
                 Value<String> biteId = const Value.absent(),
                 Value<int> sourceOffset = const Value.absent(),
+                Value<String?> canonicalLocator = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => BookmarksCompanion(
                 bookId: bookId,
                 biteId: biteId,
                 sourceOffset: sourceOffset,
+                canonicalLocator: canonicalLocator,
                 createdAt: createdAt,
                 rowid: rowid,
               ),
@@ -10817,12 +11154,14 @@ class $$BookmarksTableTableManager
                 required String bookId,
                 required String biteId,
                 required int sourceOffset,
+                Value<String?> canonicalLocator = const Value.absent(),
                 required DateTime createdAt,
                 Value<int> rowid = const Value.absent(),
               }) => BookmarksCompanion.insert(
                 bookId: bookId,
                 biteId: biteId,
                 sourceOffset: sourceOffset,
+                canonicalLocator: canonicalLocator,
                 createdAt: createdAt,
                 rowid: rowid,
               ),
@@ -10912,6 +11251,7 @@ typedef $$ReaderNotesTableCreateCompanionBuilder =
       required String bookId,
       required String biteId,
       required String noteText,
+      Value<String?> canonicalLocator,
       required DateTime createdAt,
       required DateTime updatedAt,
       Value<int> rowid,
@@ -10922,6 +11262,7 @@ typedef $$ReaderNotesTableUpdateCompanionBuilder =
       Value<String> bookId,
       Value<String> biteId,
       Value<String> noteText,
+      Value<String?> canonicalLocator,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -10982,6 +11323,11 @@ class $$ReaderNotesTableFilterComposer
 
   ColumnFilters<String> get noteText => $composableBuilder(
     column: $table.noteText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get canonicalLocator => $composableBuilder(
+    column: $table.canonicalLocator,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -11061,6 +11407,11 @@ class $$ReaderNotesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get canonicalLocator => $composableBuilder(
+    column: $table.canonicalLocator,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -11132,6 +11483,11 @@ class $$ReaderNotesTableAnnotationComposer
 
   GeneratedColumn<String> get noteText =>
       $composableBuilder(column: $table.noteText, builder: (column) => column);
+
+  GeneratedColumn<String> get canonicalLocator => $composableBuilder(
+    column: $table.canonicalLocator,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -11218,6 +11574,7 @@ class $$ReaderNotesTableTableManager
                 Value<String> bookId = const Value.absent(),
                 Value<String> biteId = const Value.absent(),
                 Value<String> noteText = const Value.absent(),
+                Value<String?> canonicalLocator = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -11226,6 +11583,7 @@ class $$ReaderNotesTableTableManager
                 bookId: bookId,
                 biteId: biteId,
                 noteText: noteText,
+                canonicalLocator: canonicalLocator,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -11236,6 +11594,7 @@ class $$ReaderNotesTableTableManager
                 required String bookId,
                 required String biteId,
                 required String noteText,
+                Value<String?> canonicalLocator = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime updatedAt,
                 Value<int> rowid = const Value.absent(),
@@ -11244,6 +11603,7 @@ class $$ReaderNotesTableTableManager
                 bookId: bookId,
                 biteId: biteId,
                 noteText: noteText,
+                canonicalLocator: canonicalLocator,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -12958,6 +13318,7 @@ typedef $$HighlightNotesTableCreateCompanionBuilder =
       required String bookId,
       required String biteId,
       required String noteText,
+      Value<String?> canonicalLocator,
       required DateTime createdAt,
       required DateTime updatedAt,
       Value<int> rowid,
@@ -12968,6 +13329,7 @@ typedef $$HighlightNotesTableUpdateCompanionBuilder =
       Value<String> bookId,
       Value<String> biteId,
       Value<String> noteText,
+      Value<String?> canonicalLocator,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -13050,6 +13412,11 @@ class $$HighlightNotesTableFilterComposer
 
   ColumnFilters<String> get noteText => $composableBuilder(
     column: $table.noteText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get canonicalLocator => $composableBuilder(
+    column: $table.canonicalLocator,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -13154,6 +13521,11 @@ class $$HighlightNotesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get canonicalLocator => $composableBuilder(
+    column: $table.canonicalLocator,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -13225,6 +13597,11 @@ class $$HighlightNotesTableAnnotationComposer
 
   GeneratedColumn<String> get noteText =>
       $composableBuilder(column: $table.noteText, builder: (column) => column);
+
+  GeneratedColumn<String> get canonicalLocator => $composableBuilder(
+    column: $table.canonicalLocator,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -13342,6 +13719,7 @@ class $$HighlightNotesTableTableManager
                 Value<String> bookId = const Value.absent(),
                 Value<String> biteId = const Value.absent(),
                 Value<String> noteText = const Value.absent(),
+                Value<String?> canonicalLocator = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -13350,6 +13728,7 @@ class $$HighlightNotesTableTableManager
                 bookId: bookId,
                 biteId: biteId,
                 noteText: noteText,
+                canonicalLocator: canonicalLocator,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -13360,6 +13739,7 @@ class $$HighlightNotesTableTableManager
                 required String bookId,
                 required String biteId,
                 required String noteText,
+                Value<String?> canonicalLocator = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime updatedAt,
                 Value<int> rowid = const Value.absent(),
@@ -13368,6 +13748,7 @@ class $$HighlightNotesTableTableManager
                 bookId: bookId,
                 biteId: biteId,
                 noteText: noteText,
+                canonicalLocator: canonicalLocator,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -13494,6 +13875,7 @@ typedef $$HighlightsTableCreateCompanionBuilder =
       required String color,
       Value<String?> noteId,
       Value<bool> resolved,
+      Value<String?> canonicalLocator,
       required DateTime createdAt,
       required DateTime updatedAt,
       Value<int> rowid,
@@ -13513,6 +13895,7 @@ typedef $$HighlightsTableUpdateCompanionBuilder =
       Value<String> color,
       Value<String?> noteId,
       Value<bool> resolved,
+      Value<String?> canonicalLocator,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -13630,6 +14013,11 @@ class $$HighlightsTableFilterComposer
 
   ColumnFilters<bool> get resolved => $composableBuilder(
     column: $table.resolved,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get canonicalLocator => $composableBuilder(
+    column: $table.canonicalLocator,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -13772,6 +14160,11 @@ class $$HighlightsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get canonicalLocator => $composableBuilder(
+    column: $table.canonicalLocator,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -13901,6 +14294,11 @@ class $$HighlightsTableAnnotationComposer
   GeneratedColumn<bool> get resolved =>
       $composableBuilder(column: $table.resolved, builder: (column) => column);
 
+  GeneratedColumn<String> get canonicalLocator => $composableBuilder(
+    column: $table.canonicalLocator,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
@@ -14018,6 +14416,7 @@ class $$HighlightsTableTableManager
                 Value<String> color = const Value.absent(),
                 Value<String?> noteId = const Value.absent(),
                 Value<bool> resolved = const Value.absent(),
+                Value<String?> canonicalLocator = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -14035,6 +14434,7 @@ class $$HighlightsTableTableManager
                 color: color,
                 noteId: noteId,
                 resolved: resolved,
+                canonicalLocator: canonicalLocator,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -14054,6 +14454,7 @@ class $$HighlightsTableTableManager
                 required String color,
                 Value<String?> noteId = const Value.absent(),
                 Value<bool> resolved = const Value.absent(),
+                Value<String?> canonicalLocator = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime updatedAt,
                 Value<int> rowid = const Value.absent(),
@@ -14071,6 +14472,7 @@ class $$HighlightsTableTableManager
                 color: color,
                 noteId: noteId,
                 resolved: resolved,
+                canonicalLocator: canonicalLocator,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,

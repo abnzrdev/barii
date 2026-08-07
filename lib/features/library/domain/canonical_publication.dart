@@ -249,6 +249,7 @@ class CanonicalLocator {
   const CanonicalLocator({
     required this.href,
     required this.mediaType,
+    this.spineOccurrence,
     this.fragment,
     this.startOffset,
     this.endOffset,
@@ -259,12 +260,38 @@ class CanonicalLocator {
 
   final String href;
   final String mediaType;
+  final String? spineOccurrence;
   final String? fragment;
   final int? startOffset;
   final int? endOffset;
   final String? before;
   final String? highlight;
   final String? after;
+
+  Map<String, Object?> toJson() => {
+    'href': href,
+    'mediaType': mediaType,
+    'spineOccurrence': spineOccurrence,
+    'fragment': fragment,
+    'startOffset': startOffset,
+    'endOffset': endOffset,
+    'before': before,
+    'highlight': highlight,
+    'after': after,
+  };
+
+  factory CanonicalLocator.fromJson(Map<String, Object?> json) =>
+      CanonicalLocator(
+        href: json['href'] as String? ?? '',
+        mediaType: json['mediaType'] as String? ?? 'application/xhtml+xml',
+        spineOccurrence: json['spineOccurrence'] as String?,
+        fragment: json['fragment'] as String?,
+        startOffset: json['startOffset'] as int?,
+        endOffset: json['endOffset'] as int?,
+        before: json['before'] as String?,
+        highlight: json['highlight'] as String?,
+        after: json['after'] as String?,
+      );
 }
 
 Map<String, Object?> _map(Object? value) => value is Map
