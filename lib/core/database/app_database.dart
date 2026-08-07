@@ -229,6 +229,19 @@ class ReaderViewModes extends Table {
   Set<Column> get primaryKey => {bookId};
 }
 
+class CanonicalPublicationRecords extends Table {
+  TextColumn get bookId =>
+      text().references(Books, #id, onDelete: KeyAction.cascade)();
+  IntColumn get modelVersion => integer()();
+  IntColumn get parserVersion => integer()();
+  IntColumn get projectionVersion => integer()();
+  TextColumn get publicationJson => text()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {bookId};
+}
+
 class StoredSection {
   const StoredSection({required this.id, required this.position, this.heading});
 
@@ -280,6 +293,7 @@ class StoredBite {
     Highlights,
     ReaderPreferences,
     ReaderViewModes,
+    CanonicalPublicationRecords,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -287,7 +301,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -403,6 +417,9 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 10) {
         await migrator.createTable(readerViewModes);
+      }
+      if (from < 11) {
+        await migrator.createTable(canonicalPublicationRecords);
       }
     },
     beforeOpen: (_) => customStatement('PRAGMA foreign_keys = ON'),
@@ -918,4 +935,26 @@ class AppDatabase extends _$AppDatabase {
       into(readerViewModes).insertOnConflictUpdate(
         ReaderViewModesCompanion.insert(bookId: bookId, mode: Value(mode)),
       );
+
+  Future<void> saveCanonicalPublication({
+    required String bookId,
+    required int modelVersion,
+    required int parserVersion,
+    required int projectionVersion,
+    required String publicationJson,
+  }) => into(canonicalPublicationRecords).insertOnConflictUpdate(
+    CanonicalPublicationRecordsCompanion.insert(
+      bookId: bookId,
+      modelVersion: modelVersion,
+      parserVersion: parserVersion,
+      projectionVersion: projectionVersion,
+      publicationJson: publicationJson,
+      createdAt: DateTime.now().toUtc(),
+    ),
+  );
+
+  Future<CanonicalPublicationRecord?> canonicalPublicationFor(String bookId) =>
+      (select(
+        canonicalPublicationRecords,
+      )..where((row) => row.bookId.equals(bookId))).getSingleOrNull();
 }

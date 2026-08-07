@@ -158,6 +158,12 @@ void main() {
 
     expect(rich, hasLength(1));
     expect(rich.single.markup, contains('one.xhtml#footnote'));
+    final canonical = await database.canonicalPublicationFor(book.id);
+    expect(canonical, isNotNull);
+    expect(canonical!.modelVersion, 1);
+    expect(canonical.parserVersion, 1);
+    expect(canonical.projectionVersion, 1);
+    expect(canonical.publicationJson, contains('one.xhtml'));
   });
 
   test('rejects unsupported extensions and missing files', () async {

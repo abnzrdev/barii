@@ -1,11 +1,13 @@
 import 'dart:io';
 import 'dart:developer';
+import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as path;
 
 import '../../../core/database/app_database.dart';
 import '../../reader/domain/bite_generator.dart';
+import '../domain/canonical_publication.dart';
 import 'epub_parser.dart';
 
 class BookImportService {
@@ -141,6 +143,16 @@ class BookImportService {
               )
               .toList(),
         );
+        final canonical = publication.canonical;
+        if (canonical != null) {
+          await database.saveCanonicalPublication(
+            bookId: fingerprint,
+            modelVersion: CanonicalPublication.modelVersion,
+            parserVersion: CanonicalPublication.parserVersion,
+            projectionVersion: CanonicalPublication.projectionVersion,
+            publicationJson: jsonEncode(canonical.toJson()),
+          );
+        }
       });
       databaseTask.finish(arguments: {'bites': generated.length});
     } catch (_) {

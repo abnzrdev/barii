@@ -6757,6 +6757,459 @@ class ReaderViewModesCompanion extends UpdateCompanion<ReaderViewMode> {
   }
 }
 
+class $CanonicalPublicationRecordsTable extends CanonicalPublicationRecords
+    with
+        TableInfo<
+          $CanonicalPublicationRecordsTable,
+          CanonicalPublicationRecord
+        > {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CanonicalPublicationRecordsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _bookIdMeta = const VerificationMeta('bookId');
+  @override
+  late final GeneratedColumn<String> bookId = GeneratedColumn<String>(
+    'book_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES books (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _modelVersionMeta = const VerificationMeta(
+    'modelVersion',
+  );
+  @override
+  late final GeneratedColumn<int> modelVersion = GeneratedColumn<int>(
+    'model_version',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _parserVersionMeta = const VerificationMeta(
+    'parserVersion',
+  );
+  @override
+  late final GeneratedColumn<int> parserVersion = GeneratedColumn<int>(
+    'parser_version',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _projectionVersionMeta = const VerificationMeta(
+    'projectionVersion',
+  );
+  @override
+  late final GeneratedColumn<int> projectionVersion = GeneratedColumn<int>(
+    'projection_version',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _publicationJsonMeta = const VerificationMeta(
+    'publicationJson',
+  );
+  @override
+  late final GeneratedColumn<String> publicationJson = GeneratedColumn<String>(
+    'publication_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    bookId,
+    modelVersion,
+    parserVersion,
+    projectionVersion,
+    publicationJson,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'canonical_publication_records';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CanonicalPublicationRecord> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('book_id')) {
+      context.handle(
+        _bookIdMeta,
+        bookId.isAcceptableOrUnknown(data['book_id']!, _bookIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bookIdMeta);
+    }
+    if (data.containsKey('model_version')) {
+      context.handle(
+        _modelVersionMeta,
+        modelVersion.isAcceptableOrUnknown(
+          data['model_version']!,
+          _modelVersionMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_modelVersionMeta);
+    }
+    if (data.containsKey('parser_version')) {
+      context.handle(
+        _parserVersionMeta,
+        parserVersion.isAcceptableOrUnknown(
+          data['parser_version']!,
+          _parserVersionMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_parserVersionMeta);
+    }
+    if (data.containsKey('projection_version')) {
+      context.handle(
+        _projectionVersionMeta,
+        projectionVersion.isAcceptableOrUnknown(
+          data['projection_version']!,
+          _projectionVersionMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_projectionVersionMeta);
+    }
+    if (data.containsKey('publication_json')) {
+      context.handle(
+        _publicationJsonMeta,
+        publicationJson.isAcceptableOrUnknown(
+          data['publication_json']!,
+          _publicationJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_publicationJsonMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {bookId};
+  @override
+  CanonicalPublicationRecord map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CanonicalPublicationRecord(
+      bookId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}book_id'],
+      )!,
+      modelVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}model_version'],
+      )!,
+      parserVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}parser_version'],
+      )!,
+      projectionVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}projection_version'],
+      )!,
+      publicationJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}publication_json'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $CanonicalPublicationRecordsTable createAlias(String alias) {
+    return $CanonicalPublicationRecordsTable(attachedDatabase, alias);
+  }
+}
+
+class CanonicalPublicationRecord extends DataClass
+    implements Insertable<CanonicalPublicationRecord> {
+  final String bookId;
+  final int modelVersion;
+  final int parserVersion;
+  final int projectionVersion;
+  final String publicationJson;
+  final DateTime createdAt;
+  const CanonicalPublicationRecord({
+    required this.bookId,
+    required this.modelVersion,
+    required this.parserVersion,
+    required this.projectionVersion,
+    required this.publicationJson,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['book_id'] = Variable<String>(bookId);
+    map['model_version'] = Variable<int>(modelVersion);
+    map['parser_version'] = Variable<int>(parserVersion);
+    map['projection_version'] = Variable<int>(projectionVersion);
+    map['publication_json'] = Variable<String>(publicationJson);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  CanonicalPublicationRecordsCompanion toCompanion(bool nullToAbsent) {
+    return CanonicalPublicationRecordsCompanion(
+      bookId: Value(bookId),
+      modelVersion: Value(modelVersion),
+      parserVersion: Value(parserVersion),
+      projectionVersion: Value(projectionVersion),
+      publicationJson: Value(publicationJson),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory CanonicalPublicationRecord.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CanonicalPublicationRecord(
+      bookId: serializer.fromJson<String>(json['bookId']),
+      modelVersion: serializer.fromJson<int>(json['modelVersion']),
+      parserVersion: serializer.fromJson<int>(json['parserVersion']),
+      projectionVersion: serializer.fromJson<int>(json['projectionVersion']),
+      publicationJson: serializer.fromJson<String>(json['publicationJson']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'bookId': serializer.toJson<String>(bookId),
+      'modelVersion': serializer.toJson<int>(modelVersion),
+      'parserVersion': serializer.toJson<int>(parserVersion),
+      'projectionVersion': serializer.toJson<int>(projectionVersion),
+      'publicationJson': serializer.toJson<String>(publicationJson),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  CanonicalPublicationRecord copyWith({
+    String? bookId,
+    int? modelVersion,
+    int? parserVersion,
+    int? projectionVersion,
+    String? publicationJson,
+    DateTime? createdAt,
+  }) => CanonicalPublicationRecord(
+    bookId: bookId ?? this.bookId,
+    modelVersion: modelVersion ?? this.modelVersion,
+    parserVersion: parserVersion ?? this.parserVersion,
+    projectionVersion: projectionVersion ?? this.projectionVersion,
+    publicationJson: publicationJson ?? this.publicationJson,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  CanonicalPublicationRecord copyWithCompanion(
+    CanonicalPublicationRecordsCompanion data,
+  ) {
+    return CanonicalPublicationRecord(
+      bookId: data.bookId.present ? data.bookId.value : this.bookId,
+      modelVersion: data.modelVersion.present
+          ? data.modelVersion.value
+          : this.modelVersion,
+      parserVersion: data.parserVersion.present
+          ? data.parserVersion.value
+          : this.parserVersion,
+      projectionVersion: data.projectionVersion.present
+          ? data.projectionVersion.value
+          : this.projectionVersion,
+      publicationJson: data.publicationJson.present
+          ? data.publicationJson.value
+          : this.publicationJson,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CanonicalPublicationRecord(')
+          ..write('bookId: $bookId, ')
+          ..write('modelVersion: $modelVersion, ')
+          ..write('parserVersion: $parserVersion, ')
+          ..write('projectionVersion: $projectionVersion, ')
+          ..write('publicationJson: $publicationJson, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    bookId,
+    modelVersion,
+    parserVersion,
+    projectionVersion,
+    publicationJson,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CanonicalPublicationRecord &&
+          other.bookId == this.bookId &&
+          other.modelVersion == this.modelVersion &&
+          other.parserVersion == this.parserVersion &&
+          other.projectionVersion == this.projectionVersion &&
+          other.publicationJson == this.publicationJson &&
+          other.createdAt == this.createdAt);
+}
+
+class CanonicalPublicationRecordsCompanion
+    extends UpdateCompanion<CanonicalPublicationRecord> {
+  final Value<String> bookId;
+  final Value<int> modelVersion;
+  final Value<int> parserVersion;
+  final Value<int> projectionVersion;
+  final Value<String> publicationJson;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const CanonicalPublicationRecordsCompanion({
+    this.bookId = const Value.absent(),
+    this.modelVersion = const Value.absent(),
+    this.parserVersion = const Value.absent(),
+    this.projectionVersion = const Value.absent(),
+    this.publicationJson = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CanonicalPublicationRecordsCompanion.insert({
+    required String bookId,
+    required int modelVersion,
+    required int parserVersion,
+    required int projectionVersion,
+    required String publicationJson,
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : bookId = Value(bookId),
+       modelVersion = Value(modelVersion),
+       parserVersion = Value(parserVersion),
+       projectionVersion = Value(projectionVersion),
+       publicationJson = Value(publicationJson),
+       createdAt = Value(createdAt);
+  static Insertable<CanonicalPublicationRecord> custom({
+    Expression<String>? bookId,
+    Expression<int>? modelVersion,
+    Expression<int>? parserVersion,
+    Expression<int>? projectionVersion,
+    Expression<String>? publicationJson,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (bookId != null) 'book_id': bookId,
+      if (modelVersion != null) 'model_version': modelVersion,
+      if (parserVersion != null) 'parser_version': parserVersion,
+      if (projectionVersion != null) 'projection_version': projectionVersion,
+      if (publicationJson != null) 'publication_json': publicationJson,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CanonicalPublicationRecordsCompanion copyWith({
+    Value<String>? bookId,
+    Value<int>? modelVersion,
+    Value<int>? parserVersion,
+    Value<int>? projectionVersion,
+    Value<String>? publicationJson,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return CanonicalPublicationRecordsCompanion(
+      bookId: bookId ?? this.bookId,
+      modelVersion: modelVersion ?? this.modelVersion,
+      parserVersion: parserVersion ?? this.parserVersion,
+      projectionVersion: projectionVersion ?? this.projectionVersion,
+      publicationJson: publicationJson ?? this.publicationJson,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (bookId.present) {
+      map['book_id'] = Variable<String>(bookId.value);
+    }
+    if (modelVersion.present) {
+      map['model_version'] = Variable<int>(modelVersion.value);
+    }
+    if (parserVersion.present) {
+      map['parser_version'] = Variable<int>(parserVersion.value);
+    }
+    if (projectionVersion.present) {
+      map['projection_version'] = Variable<int>(projectionVersion.value);
+    }
+    if (publicationJson.present) {
+      map['publication_json'] = Variable<String>(publicationJson.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CanonicalPublicationRecordsCompanion(')
+          ..write('bookId: $bookId, ')
+          ..write('modelVersion: $modelVersion, ')
+          ..write('parserVersion: $parserVersion, ')
+          ..write('projectionVersion: $projectionVersion, ')
+          ..write('publicationJson: $publicationJson, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -6781,6 +7234,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ReaderViewModesTable readerViewModes = $ReaderViewModesTable(
     this,
   );
+  late final $CanonicalPublicationRecordsTable canonicalPublicationRecords =
+      $CanonicalPublicationRecordsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -6799,6 +7254,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     highlights,
     readerPreferences,
     readerViewModes,
+    canonicalPublicationRecords,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -6936,6 +7392,15 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('reader_view_modes', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'books',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [
+        TableUpdate('canonical_publication_records', kind: UpdateKind.delete),
+      ],
     ),
   ]);
 }
@@ -7134,6 +7599,31 @@ final class $$BooksTableReferences
 
     final cache = $_typedResult.readTableOrNull(
       _readerViewModesRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $CanonicalPublicationRecordsTable,
+    List<CanonicalPublicationRecord>
+  >
+  _canonicalPublicationRecordsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.canonicalPublicationRecords,
+        aliasName: 'books__id__canonical_publication_records__book_id',
+      );
+
+  $$CanonicalPublicationRecordsTableProcessedTableManager
+  get canonicalPublicationRecordsRefs {
+    final manager = $$CanonicalPublicationRecordsTableTableManager(
+      $_db,
+      $_db.canonicalPublicationRecords,
+    ).filter((f) => f.bookId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _canonicalPublicationRecordsRefsTable($_db),
     );
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
@@ -7411,6 +7901,35 @@ class $$BooksTableFilterComposer extends Composer<_$AppDatabase, $BooksTable> {
                 $removeJoinBuilderFromRootComposer,
           ),
     );
+    return f(composer);
+  }
+
+  Expression<bool> canonicalPublicationRecordsRefs(
+    Expression<bool> Function(
+      $$CanonicalPublicationRecordsTableFilterComposer f,
+    )
+    f,
+  ) {
+    final $$CanonicalPublicationRecordsTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.canonicalPublicationRecords,
+          getReferencedColumn: (t) => t.bookId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$CanonicalPublicationRecordsTableFilterComposer(
+                $db: $db,
+                $table: $db.canonicalPublicationRecords,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
     return f(composer);
   }
 }
@@ -7725,6 +8244,35 @@ class $$BooksTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> canonicalPublicationRecordsRefs<T extends Object>(
+    Expression<T> Function(
+      $$CanonicalPublicationRecordsTableAnnotationComposer a,
+    )
+    f,
+  ) {
+    final $$CanonicalPublicationRecordsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.canonicalPublicationRecords,
+          getReferencedColumn: (t) => t.bookId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$CanonicalPublicationRecordsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.canonicalPublicationRecords,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$BooksTableTableManager
@@ -7750,6 +8298,7 @@ class $$BooksTableTableManager
             bool highlightNotesRefs,
             bool highlightsRefs,
             bool readerViewModesRefs,
+            bool canonicalPublicationRecordsRefs,
           })
         > {
   $$BooksTableTableManager(_$AppDatabase db, $BooksTable table)
@@ -7824,6 +8373,7 @@ class $$BooksTableTableManager
                 highlightNotesRefs = false,
                 highlightsRefs = false,
                 readerViewModesRefs = false,
+                canonicalPublicationRecordsRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -7837,6 +8387,8 @@ class $$BooksTableTableManager
                     if (highlightNotesRefs) db.highlightNotes,
                     if (highlightsRefs) db.highlights,
                     if (readerViewModesRefs) db.readerViewModes,
+                    if (canonicalPublicationRecordsRefs)
+                      db.canonicalPublicationRecords,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -8010,6 +8562,27 @@ class $$BooksTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (canonicalPublicationRecordsRefs)
+                        await $_getPrefetchedData<
+                          Book,
+                          $BooksTable,
+                          CanonicalPublicationRecord
+                        >(
+                          currentTable: table,
+                          referencedTable: $$BooksTableReferences
+                              ._canonicalPublicationRecordsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$BooksTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).canonicalPublicationRecordsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.bookId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -8040,6 +8613,7 @@ typedef $$BooksTableProcessedTableManager =
         bool highlightNotesRefs,
         bool highlightsRefs,
         bool readerViewModesRefs,
+        bool canonicalPublicationRecordsRefs,
       })
     >;
 typedef $$SectionsTableCreateCompanionBuilder =
@@ -14202,6 +14776,378 @@ typedef $$ReaderViewModesTableProcessedTableManager =
       ReaderViewMode,
       PrefetchHooks Function({bool bookId})
     >;
+typedef $$CanonicalPublicationRecordsTableCreateCompanionBuilder =
+    CanonicalPublicationRecordsCompanion Function({
+      required String bookId,
+      required int modelVersion,
+      required int parserVersion,
+      required int projectionVersion,
+      required String publicationJson,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$CanonicalPublicationRecordsTableUpdateCompanionBuilder =
+    CanonicalPublicationRecordsCompanion Function({
+      Value<String> bookId,
+      Value<int> modelVersion,
+      Value<int> parserVersion,
+      Value<int> projectionVersion,
+      Value<String> publicationJson,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+final class $$CanonicalPublicationRecordsTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $CanonicalPublicationRecordsTable,
+          CanonicalPublicationRecord
+        > {
+  $$CanonicalPublicationRecordsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $BooksTable _bookIdTable(_$AppDatabase db) =>
+      db.books.createAlias('canonical_publication_records__book_id__books__id');
+
+  $$BooksTableProcessedTableManager get bookId {
+    final $_column = $_itemColumn<String>('book_id')!;
+
+    final manager = $$BooksTableTableManager(
+      $_db,
+      $_db.books,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_bookIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$CanonicalPublicationRecordsTableFilterComposer
+    extends Composer<_$AppDatabase, $CanonicalPublicationRecordsTable> {
+  $$CanonicalPublicationRecordsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get modelVersion => $composableBuilder(
+    column: $table.modelVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get parserVersion => $composableBuilder(
+    column: $table.parserVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get projectionVersion => $composableBuilder(
+    column: $table.projectionVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get publicationJson => $composableBuilder(
+    column: $table.publicationJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$BooksTableFilterComposer get bookId {
+    final $$BooksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableFilterComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$CanonicalPublicationRecordsTableOrderingComposer
+    extends Composer<_$AppDatabase, $CanonicalPublicationRecordsTable> {
+  $$CanonicalPublicationRecordsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get modelVersion => $composableBuilder(
+    column: $table.modelVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get parserVersion => $composableBuilder(
+    column: $table.parserVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get projectionVersion => $composableBuilder(
+    column: $table.projectionVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get publicationJson => $composableBuilder(
+    column: $table.publicationJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$BooksTableOrderingComposer get bookId {
+    final $$BooksTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableOrderingComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$CanonicalPublicationRecordsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CanonicalPublicationRecordsTable> {
+  $$CanonicalPublicationRecordsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get modelVersion => $composableBuilder(
+    column: $table.modelVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get parserVersion => $composableBuilder(
+    column: $table.parserVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get projectionVersion => $composableBuilder(
+    column: $table.projectionVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get publicationJson => $composableBuilder(
+    column: $table.publicationJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$BooksTableAnnotationComposer get bookId {
+    final $$BooksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$CanonicalPublicationRecordsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CanonicalPublicationRecordsTable,
+          CanonicalPublicationRecord,
+          $$CanonicalPublicationRecordsTableFilterComposer,
+          $$CanonicalPublicationRecordsTableOrderingComposer,
+          $$CanonicalPublicationRecordsTableAnnotationComposer,
+          $$CanonicalPublicationRecordsTableCreateCompanionBuilder,
+          $$CanonicalPublicationRecordsTableUpdateCompanionBuilder,
+          (
+            CanonicalPublicationRecord,
+            $$CanonicalPublicationRecordsTableReferences,
+          ),
+          CanonicalPublicationRecord,
+          PrefetchHooks Function({bool bookId})
+        > {
+  $$CanonicalPublicationRecordsTableTableManager(
+    _$AppDatabase db,
+    $CanonicalPublicationRecordsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CanonicalPublicationRecordsTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$CanonicalPublicationRecordsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$CanonicalPublicationRecordsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> bookId = const Value.absent(),
+                Value<int> modelVersion = const Value.absent(),
+                Value<int> parserVersion = const Value.absent(),
+                Value<int> projectionVersion = const Value.absent(),
+                Value<String> publicationJson = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CanonicalPublicationRecordsCompanion(
+                bookId: bookId,
+                modelVersion: modelVersion,
+                parserVersion: parserVersion,
+                projectionVersion: projectionVersion,
+                publicationJson: publicationJson,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String bookId,
+                required int modelVersion,
+                required int parserVersion,
+                required int projectionVersion,
+                required String publicationJson,
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => CanonicalPublicationRecordsCompanion.insert(
+                bookId: bookId,
+                modelVersion: modelVersion,
+                parserVersion: parserVersion,
+                projectionVersion: projectionVersion,
+                publicationJson: publicationJson,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$CanonicalPublicationRecordsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({bookId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (bookId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.bookId,
+                                referencedTable:
+                                    $$CanonicalPublicationRecordsTableReferences
+                                        ._bookIdTable(db),
+                                referencedColumn:
+                                    $$CanonicalPublicationRecordsTableReferences
+                                        ._bookIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$CanonicalPublicationRecordsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CanonicalPublicationRecordsTable,
+      CanonicalPublicationRecord,
+      $$CanonicalPublicationRecordsTableFilterComposer,
+      $$CanonicalPublicationRecordsTableOrderingComposer,
+      $$CanonicalPublicationRecordsTableAnnotationComposer,
+      $$CanonicalPublicationRecordsTableCreateCompanionBuilder,
+      $$CanonicalPublicationRecordsTableUpdateCompanionBuilder,
+      (
+        CanonicalPublicationRecord,
+        $$CanonicalPublicationRecordsTableReferences,
+      ),
+      CanonicalPublicationRecord,
+      PrefetchHooks Function({bool bookId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -14235,4 +15181,10 @@ class $AppDatabaseManager {
       $$ReaderPreferencesTableTableManager(_db, _db.readerPreferences);
   $$ReaderViewModesTableTableManager get readerViewModes =>
       $$ReaderViewModesTableTableManager(_db, _db.readerViewModes);
+  $$CanonicalPublicationRecordsTableTableManager
+  get canonicalPublicationRecords =>
+      $$CanonicalPublicationRecordsTableTableManager(
+        _db,
+        _db.canonicalPublicationRecords,
+      );
 }
