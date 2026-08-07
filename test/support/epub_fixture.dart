@@ -9,6 +9,7 @@ List<int> epubFixtureBytes({
   bool figures = false,
   bool richText = false,
   bool canonicalSemantics = false,
+  bool semanticContent = false,
 }) {
   final archive = Archive()
     ..addFile(ArchiveFile.string('mimetype', 'application/epub+zip'))
@@ -32,8 +33,9 @@ ${canonicalSemantics ? '<meta property="rendition:layout">pre-paginated</meta>' 
 properties="nav"/><item id="one" href="one.xhtml"
 media-type="application/xhtml+xml"/><item id="two" href="two.xhtml"
 media-type="application/xhtml+xml"/>
+${semanticContent ? '<item id="drawing" href="drawing.svg" media-type="image/svg+xml"/>' : ''}
 ${figures ? '<item id="png" href="images/dot.png" media-type="image/png"/><item id="jpg" href="images/photo.jpg" media-type="image/jpeg"/><item id="svg" href="images/shape.svg" media-type="image/svg+xml"/>' : ''}</manifest>
-<spine page-progression-direction="${canonicalSemantics ? 'rtl' : 'ltr'}"><itemref idref="one"/>${canonicalSemantics ? '<itemref idref="one" linear="no"/>' : ''}<itemref idref="two"/></spine></package>''',
+<spine page-progression-direction="${canonicalSemantics ? 'rtl' : 'ltr'}"><itemref idref="one"/>${canonicalSemantics ? '<itemref idref="one" linear="no"/>' : ''}<itemref idref="two"/>${semanticContent ? '<itemref id="drawing-page" idref="drawing" properties="rendition:layout-pre-paginated"/>' : ''}</spine></package>''',
       ),
     )
     ..addFile(
@@ -63,6 +65,8 @@ ${figures ? '<figure><img src="images/dot.png" alt="Green dot"/><figcaption>PNG 
 ${nestedList ? '<ul><li><p>If you are a coach, build a reliable system.</p></li></ul>' : ''}
 ${anchoredNavigation ? '<h2 id="start">Start</h2><p>Intentional refrain.</p><h2 id="part-one">Part One</h2><ul><li><p>Previously duplicated sentence.</p></li></ul><h2 id="part-two">Part Two</h2><p>Intentional refrain.</p><p>Unicode punctuation: “calm”—always.</p>' : ''}
 ${richText ? '<h2 id="details">Details</h2><p><strong>Bold words</strong> and <em>italic words</em> with <a href="#footnote">a footnote</a> and <a href="https://example.com">an external source</a>.</p><p><strong>Echo</strong> then <strong>Echo</strong>.</p><blockquote>Quoted wisdom.</blockquote><ol><li><p>Outer item</p><ul><li><p>Nested item</p></li></ul></li></ol><aside id="footnote" epub:type="footnote">Footnote text.</aside>' : ''}
+${semanticContent ? '''<main id="main-content" role="main"><article id="article" epub:type="chapter"><section id="semantic-section" lang="en" dir="ltr"><div id="readable-container"><p>Container <span id="french" lang="fr">texte</span>.</p><pre id="sample-code">line one
+  line two <code id="code-token">let x = 1;</code></pre><table id="data-table"><caption>Table caption</caption><thead><tr><th id="year-header">Year</th><th>Value</th></tr></thead><tbody><tr><td>2025</td><td>42</td></tr></tbody></table><p id="inline-semantics">Ruby <ruby id="ruby-word">漢<rp>(</rp><rt>kan</rt><rp>)</rp></ruby>, power x<sup id="power">2</sup>, water H<sub id="water-index">2</sub>O.<br id="line-break"/>Next line.</p><hr id="divider"/><p id="footnote-body" role="doc-footnote" epub:type="footnote"><a id="backlink" href="#inline-semantics">Return target</a>.</p><img id="semantic-image" src="images/dot.png" alt="Semantic green dot" aria-label="Green semantic figure"/></div></section></article></main><script id="excluded-script">never readable</script>''' : ''}
 </body></html>''',
       ),
     )
@@ -95,6 +99,24 @@ ${richText ? '<h2 id="details">Details</h2><p><strong>Bold words</strong> and <e
         ArchiveFile.string(
           'OEBPS/images/shape.svg',
           '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10"/></svg>',
+        ),
+      );
+  }
+  if (semanticContent) {
+    archive
+      ..addFile(
+        ArchiveFile.string(
+          'OEBPS/drawing.svg',
+          '<svg xmlns="http://www.w3.org/2000/svg" id="drawing-root" lang="en"><title id="drawing-title">Readable diagram</title><text id="drawing-label">SVG label</text><script>excluded svg script</script></svg>',
+        ),
+      )
+      ..addFile(
+        ArchiveFile(
+          'OEBPS/images/dot.png',
+          68,
+          base64Decode(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+          ),
         ),
       );
   }

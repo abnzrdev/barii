@@ -146,7 +146,9 @@ class EpubParser {
         id: item.Id ?? href,
         href: href,
         mediaType: item.MediaType ?? 'application/octet-stream',
-        content: filesByName[href]?.Content,
+        content:
+            filesByName[href]?.Content ??
+            _textResource(href, item.MediaType, archiveFiles),
         properties: _tokens(item.Properties),
       );
       resources[href] = resource;
@@ -191,6 +193,7 @@ class EpubParser {
           language: document.language ?? metadata?.Languages?.firstOrNull,
           textDirection: document.textDirection,
           layout: occurrenceLayout,
+          properties: properties,
         ),
       );
     }
@@ -238,7 +241,7 @@ class EpubParser {
     final document = html_parser.parse(source);
     final root = document.documentElement;
     var offset = 0;
-    CanonicalNode build(Node node) {
+    CanonicalNode? build(Node node, String? language, String? direction) {
       final start = offset;
       if (node is Text) {
         offset += node.data.length;
@@ -250,7 +253,18 @@ class EpubParser {
         );
       }
       final element = node as Element;
-      final children = element.nodes.map(build).toList(growable: false);
+      if (element.localName == 'script' || element.localName == 'style') {
+        return null;
+      }
+      final effectiveLanguage =
+          element.attributes['lang'] ??
+          element.attributes['xml:lang'] ??
+          language;
+      final effectiveDirection = element.attributes['dir'] ?? direction;
+      final children = element.nodes
+          .map((node) => build(node, effectiveLanguage, effectiveDirection))
+          .whereType<CanonicalNode>()
+          .toList(growable: false);
       return CanonicalNode(
         kind: element.localName ?? 'element',
         startOffset: start,
@@ -258,20 +272,54 @@ class EpubParser {
         logicalText: children.map((child) => child.logicalText).join(),
         children: children,
         elementId: element.id.isEmpty ? null : element.id,
-        language: element.attributes['lang'] ?? element.attributes['xml:lang'],
-        textDirection: element.attributes['dir'],
+        language: effectiveLanguage,
+        textDirection: effectiveDirection,
         href: element.attributes['href'],
         epubTypes: _tokens(element.attributes['epub:type']),
+        role: element.attributes['role'],
+        attributes: Map.unmodifiable(_semanticAttributes(element)),
+        sourceMarkup: element.localName == 'svg' ? element.outerHtml : null,
       );
     }
 
+    final rootLanguage =
+        root?.attributes['lang'] ?? root?.attributes['xml:lang'];
+    final rootDirection = root?.attributes['dir'];
     final nodes =
-        (document.body ?? root)?.nodes.map(build).toList() ?? const [];
+        (document.body ?? root)?.nodes
+            .map((node) => build(node, rootLanguage, rootDirection))
+            .whereType<CanonicalNode>()
+            .toList() ??
+        const [];
     return _CanonicalDocument(
       nodes,
       language: root?.attributes['lang'] ?? root?.attributes['xml:lang'],
       textDirection: root?.attributes['dir'],
     );
+  }
+
+  static Map<String, String> _semanticAttributes(Element element) => {
+    for (final entry in element.attributes.entries)
+      if (entry.key.toString() != 'style' &&
+          !entry.key.toString().toLowerCase().startsWith('on'))
+        entry.key.toString(): entry.value,
+  };
+
+  static String? _textResource(
+    String href,
+    String? mediaType,
+    Map<String, Uint8List> archiveFiles,
+  ) {
+    if (mediaType != 'application/xhtml+xml' && mediaType != 'image/svg+xml') {
+      return null;
+    }
+    final bytes =
+        archiveFiles[href] ??
+        archiveFiles.entries
+            .where((entry) => entry.key.endsWith('/$href'))
+            .map((entry) => entry.value)
+            .firstOrNull;
+    return bytes == null ? null : utf8.decode(bytes, allowMalformed: true);
   }
 
   static List<Map<String, String>> _rawSpineItemRefs(

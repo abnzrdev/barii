@@ -63,6 +63,7 @@ class CanonicalSpineOccurrence {
     this.language,
     this.textDirection,
     this.layout,
+    this.properties = const [],
   });
 
   final String occurrenceId;
@@ -76,6 +77,7 @@ class CanonicalSpineOccurrence {
   final String? language;
   final String? textDirection;
   final String? layout;
+  final List<String> properties;
 }
 
 class CanonicalNode {
@@ -90,6 +92,9 @@ class CanonicalNode {
     this.textDirection,
     this.href,
     this.epubTypes = const [],
+    this.role,
+    this.attributes = const {},
+    this.sourceMarkup,
   });
 
   final String kind;
@@ -102,6 +107,9 @@ class CanonicalNode {
   final String? textDirection;
   final String? href;
   final List<String> epubTypes;
+  final String? role;
+  final Map<String, String> attributes;
+  final String? sourceMarkup;
 }
 
 class CanonicalLocator {

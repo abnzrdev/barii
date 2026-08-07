@@ -239,6 +239,64 @@ void main() {
       expect(projected.anchor, 'one.xhtml#semantic-start');
     },
   );
+
+  test('canonical tree preserves readable EPUB semantics', () async {
+    final publication = await parser.parse(
+      epubFixtureBytes(canonicalSemantics: true, semanticContent: true),
+    );
+    final canonical = publication.canonical!;
+    final first = canonical.readingOrder.first;
+    final nodes = first.nodes.expand(_canonicalDescendants).toList();
+    CanonicalNode byId(String id) =>
+        nodes.singleWhere((node) => node.elementId == id);
+
+    expect(byId('main-content').kind, 'main');
+    expect(byId('article').epubTypes, ['chapter']);
+    expect(byId('main-content').role, 'main');
+    expect(byId('semantic-section').language, 'en');
+    expect(byId('semantic-section').textDirection, 'ltr');
+    expect(byId('readable-container').language, 'en');
+    expect(byId('french').language, 'fr');
+    expect(byId('sample-code').logicalText, 'line one\n  line two let x = 1;');
+    expect(byId('code-token').kind, 'code');
+    expect(byId('data-table').kind, 'table');
+    expect(byId('year-header').kind, 'th');
+    expect(byId('ruby-word').kind, 'ruby');
+    expect(byId('power').kind, 'sup');
+    expect(byId('water-index').kind, 'sub');
+    expect(byId('line-break').kind, 'br');
+    expect(byId('divider').kind, 'hr');
+    expect(byId('backlink').href, '#inline-semantics');
+    expect(byId('footnote-body').role, 'doc-footnote');
+    expect(
+      byId('semantic-image').attributes,
+      containsPair('alt', 'Semantic green dot'),
+    );
+    expect(
+      nodes.map((node) => node.elementId),
+      isNot(contains('excluded-script')),
+    );
+    expect(
+      nodes.map((node) => node.logicalText).join(),
+      isNot(contains('never readable')),
+    );
+
+    final drawing = canonical.readingOrder.singleWhere(
+      (item) => item.resourceHref == 'drawing.svg',
+    );
+    final svgNodes = drawing.nodes.expand(_canonicalDescendants).toList();
+    expect(drawing.mediaType, 'image/svg+xml');
+    expect(drawing.layout, 'pre-paginated');
+    expect(svgNodes.map((node) => node.elementId), contains('drawing-title'));
+    expect(
+      svgNodes.map((node) => node.logicalText).join(),
+      contains('SVG label'),
+    );
+    expect(
+      svgNodes.map((node) => node.logicalText).join(),
+      isNot(contains('excluded svg script')),
+    );
+  });
 }
 
 Iterable<CanonicalNode> _canonicalDescendants(CanonicalNode node) sync* {
