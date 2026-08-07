@@ -297,6 +297,61 @@ void main() {
       isNot(contains('excluded svg script')),
     );
   });
+
+  test('projects every readable canonical semantic exactly once', () async {
+    final publication = await parser.parse(
+      epubFixtureBytes(canonicalSemantics: true, semanticContent: true),
+    );
+    final blocks = publication.sections.expand((section) => section.blocks);
+    final textBlocks = blocks
+        .where((block) => !block.isFigure)
+        .map((block) => block.text)
+        .whereType<String>()
+        .toList();
+
+    expect(textBlocks, contains('Container texte.'));
+    expect(textBlocks, contains('line one\n  line two let x = 1;'));
+    expect(
+      textBlocks,
+      containsAllInOrder(['Table caption', 'Year | Value', '2025 | 42']),
+    );
+    expect(
+      textBlocks,
+      contains('Ruby 漢(kan), power x2, water H2O.\nNext line.'),
+    );
+    expect(textBlocks, contains('Return target.'));
+
+    final figures = blocks.where((block) => block.isFigure).toList();
+    expect(figures.map((block) => block.altText), [
+      'Semantic green dot',
+      'Readable diagram',
+    ]);
+    expect(figures.last.caption, 'SVG label');
+
+    final bites = const BiteGenerator(targetWords: 8, maxWords: 12).generate(
+      bookFingerprint: 'semantic-projection',
+      sections: publication.sections,
+    );
+    final readable = bites.map((bite) => bite.text).join('\n');
+    for (final expected in [
+      'Container texte.',
+      'line one',
+      'line two let x = 1;',
+      'Table caption',
+      'Year | Value',
+      '2025 | 42',
+      'Ruby 漢(kan), power x2, water H2O.',
+      'Next line.',
+      'Return target.',
+      'Semantic green dot',
+      'Readable diagram',
+      'SVG label',
+    ]) {
+      expect(expected.allMatches(readable), hasLength(1), reason: expected);
+    }
+    expect(readable, isNot(contains('never readable')));
+    expect(readable, isNot(contains('excluded svg script')));
+  });
 }
 
 Iterable<CanonicalNode> _canonicalDescendants(CanonicalNode node) sync* {
