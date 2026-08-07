@@ -45,6 +45,9 @@ class ReaderScreen extends StatefulWidget {
 
 class _ReaderScreenState extends State<ReaderScreen>
     with WidgetsBindingObserver {
+  static const _paginationWindowRadius = 4;
+  static const _paginationPrefetchThreshold = 1;
+
   final _openTask = TimelineTask();
   final _focusNode = FocusNode();
   PageController? _pageController;
@@ -59,6 +62,8 @@ class _ReaderScreenState extends State<ReaderScreen>
   var _restoringViewport = false;
   int? _paginationSignature;
   var _paginationGeneration = 0;
+  var _materializedStart = 0;
+  var _materializedEnd = -1;
   var _firstReadableReported = false;
   String? _anchorBiteId;
   var _drag = Offset.zero;
@@ -68,6 +73,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   _OpenPanel? _dragPreview;
   var _readerTab = ReaderPanelTab.contents;
   var _bookmarked = false;
+  var _refreshBookmarkAfterPagination = false;
   final _linkHistory = <ReaderLocation>[];
   var _fontSize = 20.0;
   var _lineHeight = 1.6;
@@ -241,6 +247,16 @@ class _ReaderScreenState extends State<ReaderScreen>
       _sourceOffset = page.startOffset;
       _panel = null;
       _recentWord = _firstWord(page.text);
+      final biteIndex = _bites.indexWhere((bite) => bite.id == page.bite.id);
+      if (biteIndex >= 0 &&
+          ((_materializedStart > 0 &&
+                  biteIndex <=
+                      _materializedStart + _paginationPrefetchThreshold) ||
+              (_materializedEnd < _bites.length - 1 &&
+                  biteIndex >=
+                      _materializedEnd - _paginationPrefetchThreshold))) {
+        _paginationSignature = null;
+      }
     });
     await widget.database.saveProgress(
       widget.book.id,
@@ -316,7 +332,25 @@ class _ReaderScreenState extends State<ReaderScreen>
           (location.sourceOffset < page.endOffset ||
               page.endOffset == page.bite.content.length),
     );
-    if (page < 0) return;
+    if (page < 0) {
+      final biteIndex = _bites.indexWhere((bite) => bite.id == location.biteId);
+      if (biteIndex < 0) return;
+      _closePanel();
+      setState(() {
+        _anchorBiteId = location.biteId;
+        _sourceOffset = location.sourceOffset;
+        _paginationSignature = null;
+        _refreshBookmarkAfterPagination = true;
+      });
+      final target = _bites[biteIndex];
+      await widget.database.saveProgress(
+        widget.book.id,
+        target.id,
+        target.position,
+        location.sourceOffset,
+      );
+      return;
+    }
     _closePanel();
     if (MediaQuery.disableAnimationsOf(context)) {
       _pageController?.jumpToPage(page);
@@ -955,6 +989,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                                       return false;
                                     },
                                     child: PageView.builder(
+                                      key: ValueKey(_pageController),
                                       controller: _pageController,
                                       scrollDirection: Axis.vertical,
                                       pageSnapping: true,
@@ -1210,14 +1245,21 @@ class _ReaderScreenState extends State<ReaderScreen>
     }
     final anchorIndex = _bites.indexWhere((bite) => bite.id == biteId);
     final targetIndex = anchorIndex < 0 ? 0 : anchorIndex;
+    final windowStart = (targetIndex - _paginationWindowRadius).clamp(
+      0,
+      _bites.length - 1,
+    );
+    final windowEnd = (targetIndex + _paginationWindowRadius).clamp(
+      0,
+      _bites.length - 1,
+    );
     final order = <int>[targetIndex];
     order.addAll(
-      List.generate(
-        _bites.length - targetIndex - 1,
-        (i) => targetIndex + i + 1,
-      ),
+      List.generate(windowEnd - targetIndex, (i) => targetIndex + i + 1),
     );
-    order.addAll(List.generate(targetIndex, (i) => targetIndex - i - 1));
+    order.addAll(
+      List.generate(targetIndex - windowStart, (i) => targetIndex - i - 1),
+    );
     final foregroundTask = TimelineTask()..start('Reader.foregroundPagination');
     var foregroundFinished = false;
     await WidgetsBinding.instance.endOfFrame;
@@ -1255,13 +1297,7 @@ class _ReaderScreenState extends State<ReaderScreen>
               );
             }).toList()
           : bitePages;
-      final forwardDistance = biteIndex - targetIndex;
-      final publishForward =
-          forwardDistance == 0 ||
-          forwardDistance == 1 ||
-          (forwardDistance > 1 &&
-              (forwardDistance % 8 == 0 || biteIndex == _bites.length - 1));
-      if (publishForward || pagesByBite.length == _bites.length) {
+      if (biteIndex == targetIndex || pagesByBite.length == order.length) {
         final pages = pagesByBite.entries.toList()
           ..sort((left, right) => left.key.compareTo(right.key));
         final publishedPages = pages.expand((entry) => entry.value).toList();
@@ -1302,10 +1338,16 @@ class _ReaderScreenState extends State<ReaderScreen>
     timelineTask.finish(
       arguments: {
         'status': 'completed',
-        'bites': _bites.length,
+        'bites': order.length,
         'pages': _pages.length,
+        'windowStart': windowStart,
+        'windowEnd': windowEnd,
+        'cacheEntries': _paginationCache.length,
+        'cacheEvictions': _paginationCache.evictions,
       },
     );
+    _materializedStart = windowStart;
+    _materializedEnd = windowEnd;
   }
 
   Future<void> _publishPagination({
@@ -1337,24 +1379,33 @@ class _ReaderScreenState extends State<ReaderScreen>
             return pageBite > anchorBite ||
                 (pageBite == anchorBite && page.endOffset > offset);
           });
+    final previousController = _pageController;
+    final replacementController = PageController(
+      initialPage: following < 0
+          ? (pages.isEmpty ? 0 : pages.length - 1)
+          : following,
+    );
     setState(() {
       _pages = pages;
       _index = following < 0
           ? (pages.isEmpty ? 0 : pages.length - 1)
           : following;
+      _pageController = replacementController;
       _restoringViewport = true;
     });
     await WidgetsBinding.instance.endOfFrame;
+    previousController?.dispose();
     if (!mounted ||
         generation != _paginationGeneration ||
         !(_pageController?.hasClients ?? false)) {
       return;
     }
-    _pageController!.jumpToPage(_index);
-    await WidgetsBinding.instance.endOfFrame;
-    if (!mounted || generation != _paginationGeneration) return;
     _restoringViewport = false;
     setState(() {});
+    if (_refreshBookmarkAfterPagination) {
+      _refreshBookmarkAfterPagination = false;
+      await _refreshBookmark();
+    }
   }
 }
 

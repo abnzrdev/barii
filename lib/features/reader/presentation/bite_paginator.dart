@@ -17,7 +17,14 @@ class DisplayPage {
 }
 
 class BitePaginationCache {
+  BitePaginationCache({this.maxEntries = 32}) : assert(maxEntries > 0);
+
+  final int maxEntries;
   final _pages = <Object, List<DisplayPage>>{};
+  var _evictions = 0;
+
+  int get length => _pages.length;
+  int get evictions => _evictions;
 
   List<DisplayPage> pagesFor({
     required Bite bite,
@@ -38,18 +45,26 @@ class BitePaginationCache {
       textDirection,
       textScaler,
     );
-    return _pages.putIfAbsent(
-      key,
-      () => paginateBites(
-        bites: [bite],
-        width: width,
-        height: height,
-        style: style,
-        textAlign: textAlign,
-        textDirection: textDirection,
-        textScaler: textScaler,
-      ),
+    final cached = _pages.remove(key);
+    if (cached != null) {
+      _pages[key] = cached;
+      return cached;
+    }
+    final pages = paginateBites(
+      bites: [bite],
+      width: width,
+      height: height,
+      style: style,
+      textAlign: textAlign,
+      textDirection: textDirection,
+      textScaler: textScaler,
     );
+    _pages[key] = pages;
+    if (_pages.length > maxEntries) {
+      _pages.remove(_pages.keys.first);
+      _evictions++;
+    }
+    return pages;
   }
 }
 
@@ -164,8 +179,17 @@ int? _balancedSplit(
 ) {
   int? best;
   var bestDifference = 1 << 30;
-  for (var split = start + 1; split < end; split++) {
-    if (!RegExp(r'\s').hasMatch(text[split - 1])) continue;
+  final whitespace = <int>[
+    for (var split = start + 1; split < end; split++)
+      if (_whitespace.hasMatch(text[split - 1])) split,
+  ];
+  final candidates = whitespace.length <= 24
+      ? whitespace
+      : <int>{
+          for (var index = 0; index < 24; index++)
+            whitespace[(index * (whitespace.length - 1) / 23).round()],
+        };
+  for (final split in candidates) {
     final first = text.substring(start, split);
     final second = text.substring(split, end);
     final firstLines = _lineCount(
@@ -217,3 +241,5 @@ int _lineCount(
 
 bool _isHighSurrogate(int value) => value >= 0xD800 && value <= 0xDBFF;
 bool _isLowSurrogate(int value) => value >= 0xDC00 && value <= 0xDFFF;
+
+final _whitespace = RegExp(r'\s');

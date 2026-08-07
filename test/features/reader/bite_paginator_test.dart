@@ -26,6 +26,30 @@ void main() {
     },
   );
 
+  test('pagination cache evicts the least recently used bite at its limit', () {
+    final cache = BitePaginationCache(maxEntries: 2);
+
+    List<DisplayPage> paginate(String id) => cache.pagesFor(
+      bite: _bite('Content for $id.', id: id),
+      width: 240,
+      height: 160,
+      style: const TextStyle(fontSize: 20, height: 1.5),
+      textAlign: TextAlign.start,
+      textDirection: TextDirection.ltr,
+      textScaler: TextScaler.noScaling,
+    );
+
+    final first = paginate('first');
+    final second = paginate('second');
+    expect(paginate('first'), same(first));
+    paginate('third');
+
+    expect(cache.length, 2);
+    expect(cache.evictions, 1);
+    expect(paginate('first'), same(first));
+    expect(paginate('second'), isNot(same(second)));
+  });
+
   test('measured pages preserve every source character exactly once', () {
     final content = List.generate(
       80,
@@ -99,8 +123,8 @@ List<DisplayPage> _pages(Bite bite, double width) => paginateBites(
   textScaler: TextScaler.noScaling,
 );
 
-Bite _bite(String content) => Bite(
-  id: 'bite',
+Bite _bite(String content, {String id = 'bite'}) => Bite(
+  id: id,
   bookId: 'book',
   sectionId: 'section',
   position: 0,

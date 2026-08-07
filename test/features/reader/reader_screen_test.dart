@@ -881,7 +881,7 @@ void main() {
     expect(find.text('Lazy bite 199.'), findsNothing);
   });
 
-  testWidgets('saved bite is readable before background pagination settles', (
+  testWidgets('saved bite stays readable in a bounded lazy window', (
     tester,
   ) async {
     await database.replaceContent(
@@ -930,17 +930,70 @@ void main() {
       closeTo((150 + 12 / 47) / 200, 0.00001),
     );
 
-    for (var frame = 0; frame < 250; frame++) {
+    for (var frame = 0; frame < 100; frame++) {
       await tester.pump(const Duration(milliseconds: 16));
     }
     expect(find.byKey(const ValueKey('bite-150:0')), findsOneWidget);
     final pageView = tester.widget<PageView>(find.byType(PageView));
     expect(
       (pageView.childrenDelegate as SliverChildBuilderDelegate).childCount,
-      200,
+      lessThanOrEqualTo(9),
     );
     expect((await database.progressFor('book'))?.biteId, 'bite-150');
     expect((await database.progressFor('book'))?.sourceOffset, 12);
+
+    for (var move = 0; move < 8; move++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+      await tester.pumpAndSettle();
+    }
+    expect((await database.progressFor('book'))?.biteId, 'bite-158');
+    expect(find.byKey(const ValueKey('bite-158:0')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('search directly materializes an unloaded bite', (tester) async {
+    await database.replaceContent(
+      'book',
+      sections: const [StoredSection(id: 'section', position: 0)],
+      bites: List.generate(
+        200,
+        (index) => StoredBite(
+          id: 'bite-$index',
+          sectionId: 'section',
+          position: index,
+          text: index == 190 ? 'Unique distant destination.' : 'Bite $index.',
+          sourceStart: index * 40,
+          sourceEnd: index * 40 + 30,
+        ),
+      ),
+    );
+    await database.addBookmark(
+      bookId: 'book',
+      biteId: 'bite-190',
+      sourceOffset: 0,
+      now: DateTime.utc(2026),
+    );
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(disableAnimations: true),
+        child: MaterialApp(
+          home: ReaderScreen(database: database, book: book),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Search book'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(SearchBar), 'unique distant');
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Unique distant destination.').last);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('bite-190:0')), findsOneWidget);
+    expect((await database.progressFor('book'))?.biteId, 'bite-190');
+    expect((await database.progressFor('book'))?.sourceOffset, 0);
+    expect(find.byTooltip('Remove bookmark'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
