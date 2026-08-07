@@ -45,6 +45,7 @@ class ReaderScreen extends StatefulWidget {
 
 class _ReaderScreenState extends State<ReaderScreen>
     with WidgetsBindingObserver {
+  final _openTask = TimelineTask();
   final _focusNode = FocusNode();
   PageController? _pageController;
   Timer? _focusTimer;
@@ -58,6 +59,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   var _restoringViewport = false;
   int? _paginationSignature;
   var _paginationGeneration = 0;
+  var _firstReadableReported = false;
   String? _anchorBiteId;
   var _drag = Offset.zero;
   var _horizontalOffset = 0.0;
@@ -87,6 +89,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   @override
   void initState() {
     super.initState();
+    _openTask.start('Reader.open');
     WidgetsBinding.instance.addObserver(this);
     _load();
   }
@@ -108,9 +111,11 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Future<void> _load() async {
+    final loadTask = TimelineTask()..start('Reader.contentLoad');
     final bites = await widget.database.bitesForBook(widget.book.id);
     final progress = await widget.database.progressFor(widget.book.id);
     final preferences = await widget.database.preferences();
+    loadTask.finish(arguments: {'bites': bites.length});
     final restored = progress == null
         ? 0
         : bites.indexWhere((bite) => bite.id == progress.biteId);
@@ -731,6 +736,9 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   @override
   void dispose() {
+    if (!_firstReadableReported) {
+      _openTask.finish(arguments: {'cancelled': true});
+    }
     WidgetsBinding.instance.removeObserver(this);
     _pageController?.dispose();
     _focusTimer?.cancel();
@@ -1160,8 +1168,10 @@ class _ReaderScreenState extends State<ReaderScreen>
     final generation = ++_paginationGeneration;
     final biteId = _anchorBiteId;
     final offset = _sourceOffset;
+    final paginationTask = TimelineTask()..start('Reader.pagination');
     unawaited(
       _repaginate(
+        timelineTask: paginationTask,
         generation: generation,
         signature: signature,
         biteId: biteId,
@@ -1176,6 +1186,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Future<void> _repaginate({
+    required TimelineTask timelineTask,
     required int generation,
     required int signature,
     required String? biteId,
@@ -1189,7 +1200,10 @@ class _ReaderScreenState extends State<ReaderScreen>
     final pages = <DisplayPage>[];
     await WidgetsBinding.instance.endOfFrame;
     for (final bite in _bites) {
-      if (!mounted || generation != _paginationGeneration) return;
+      if (!mounted || generation != _paginationGeneration) {
+        timelineTask.finish(arguments: {'status': 'cancelled'});
+        return;
+      }
       final bitePages = Timeline.timeSync(
         'Reader.paginateBite',
         () => _paginationCache.pagesFor(
@@ -1222,6 +1236,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     if (!mounted ||
         generation != _paginationGeneration ||
         signature != _paginationSignature) {
+      timelineTask.finish(arguments: {'status': 'cancelled'});
       return;
     }
     final restored = pages.indexWhere(
@@ -1248,11 +1263,26 @@ class _ReaderScreenState extends State<ReaderScreen>
           : following;
       _restoringViewport = true;
     });
+    timelineTask.finish(
+      arguments: {
+        'status': 'completed',
+        'bites': _bites.length,
+        'pages': pages.length,
+      },
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !(_pageController?.hasClients ?? false)) return;
       _pageController!.jumpToPage(_index);
       _restoringViewport = false;
       setState(() {});
+      if (!_firstReadableReported && _pages.isNotEmpty) {
+        _firstReadableReported = true;
+        Timeline.instantSync(
+          'Reader.firstReadablePage',
+          arguments: {'biteId': _pages[_index].bite.id, 'page': _index},
+        );
+        _openTask.finish();
+      }
     });
   }
 }

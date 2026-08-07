@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:bookbites/core/database/app_database.dart';
+import 'package:bookbites/features/library/data/book_import_service.dart';
+import 'package:bookbites/features/library/presentation/library_screen.dart';
 import 'package:bookbites/features/reader/presentation/reader_screen.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/gestures.dart';
@@ -13,8 +15,60 @@ void main() {
   const settingsProfileOnly = bool.fromEnvironment(
     'BOOKBITES_SETTINGS_PROFILE_ONLY',
   );
+  const baselineProfileOnly = bool.fromEnvironment(
+    'BOOKBITES_BASELINE_PROFILE_ONLY',
+  );
+  const benchmarkEpubPath = String.fromEnvironment(
+    'BOOKBITES_BENCHMARK_EPUB_PATH',
+  );
 
-  if (!settingsProfileOnly) {
+  if (baselineProfileOnly) {
+    testWidgets('profiles import and six reader opens', (tester) async {
+      final fixture = File(benchmarkEpubPath);
+      expect(await fixture.exists(), isTrue, reason: benchmarkEpubPath);
+      final directory = await Directory.systemTemp.createTemp(
+        'bookbites-baseline-',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final database = AppDatabase.forTesting(
+        NativeDatabase(File('${directory.path}/bookbites.sqlite')),
+      );
+      addTearDown(database.close);
+      final importer = BookImportService(
+        database: database,
+        storageDirectory: Directory('${directory.path}/books'),
+      );
+      late Book book;
+
+      await binding.traceAction(() async {
+        book = await importer.importFile(fixture.path);
+      }, reportKey: 'baseline_import_timeline');
+
+      for (var run = 0; run < 6; run++) {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: LibraryScreen(
+              database: database,
+              storageDirectory: Directory('${directory.path}/books'),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await binding.watchPerformance(
+          () => binding.traceAction(() async {
+            await tester.tap(find.text(book.title));
+            await tester.pumpAndSettle();
+            expect(find.byType(PageView), findsOneWidget);
+          }, reportKey: 'baseline_open_${run}_timeline'),
+          reportKey: 'baseline_open_${run}_frames',
+        );
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+      }
+    });
+  }
+
+  if (!settingsProfileOnly && !baselineProfileOnly) {
     testWidgets('responsive pages retain their canonical anchor', (
       tester,
     ) async {
@@ -219,6 +273,7 @@ void main() {
   testWidgets('sustained settings changes preserve location and persistence', (
     tester,
   ) async {
+    if (baselineProfileOnly) return;
     addTearDown(tester.view.resetPhysicalSize);
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(database.close);
@@ -315,7 +370,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  if (!settingsProfileOnly) {
+  if (!settingsProfileOnly && !baselineProfileOnly) {
     testWidgets('large text selection notes dictionary and footnotes persist', (
       tester,
     ) async {

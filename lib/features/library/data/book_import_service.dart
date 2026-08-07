@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:developer';
 
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as path;
@@ -21,6 +22,15 @@ class BookImportService {
   final BiteGenerator biteGenerator;
 
   Future<Book> importFile(String sourcePath) async {
+    final importTask = TimelineTask()..start('Import.total');
+    try {
+      return await _importFile(sourcePath);
+    } finally {
+      importTask.finish();
+    }
+  }
+
+  Future<Book> _importFile(String sourcePath) async {
     final source = File(sourcePath);
     if (!await source.exists()) {
       throw const BookImportException('The selected file no longer exists.');
@@ -29,8 +39,14 @@ class BookImportService {
     if (extension != '.txt' && extension != '.epub') {
       throw const UnsupportedBookException();
     }
+    final readTask = TimelineTask()..start('Import.fileRead');
     final bytes = await source.readAsBytes();
-    final fingerprint = sha256.convert(bytes).toString();
+    readTask.finish(arguments: {'bytes': bytes.length});
+    final fingerprint = Timeline.timeSync(
+      'Import.fingerprint',
+      () => sha256.convert(bytes).toString(),
+      arguments: {'bytes': bytes.length},
+    );
     final existing = await database.bookByFingerprint(fingerprint);
     if (existing != null) return existing;
 
@@ -52,11 +68,16 @@ class BookImportService {
       );
     }
 
-    final generated = biteGenerator.generate(
-      bookFingerprint: fingerprint,
-      sections: publication.sections,
+    final generated = Timeline.timeSync(
+      'Import.biteGeneration',
+      () => biteGenerator.generate(
+        bookFingerprint: fingerprint,
+        sections: publication.sections,
+      ),
+      arguments: {'sections': publication.sections.length},
     );
     if (generated.isEmpty) throw const EmptyBookException();
+    final filesTask = TimelineTask()..start('Import.managedFiles');
     await storageDirectory.create(recursive: true);
     final destination = File(
       path.join(storageDirectory.path, '$fingerprint$extension'),
@@ -77,7 +98,9 @@ class BookImportService {
         assetPaths[entry.key] = file.path;
       }
     }
+    filesTask.finish(arguments: {'assets': publication.assets.length});
     try {
+      final databaseTask = TimelineTask()..start('Import.databasePublication');
       await database.transaction(() async {
         await database.addBook(
           id: fingerprint,
@@ -119,6 +142,7 @@ class BookImportService {
               .toList(),
         );
       });
+      databaseTask.finish(arguments: {'bites': generated.length});
     } catch (_) {
       if (await destination.exists()) await destination.delete();
       if (await assetDirectory.exists()) {

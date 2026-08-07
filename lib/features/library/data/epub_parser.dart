@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
@@ -37,8 +38,13 @@ class EpubParser {
   const EpubParser();
 
   Future<ParsedPublication> parse(List<int> bytes) async {
+    final parseTask = TimelineTask()..start('Epub.parse');
     try {
-      final archive = ZipDecoder().decodeBytes(bytes, verify: true);
+      final archive = Timeline.timeSync(
+        'Epub.archiveDecode',
+        () => ZipDecoder().decodeBytes(bytes, verify: true),
+        arguments: {'bytes': bytes.length},
+      );
       if (archive.files.any(
         (file) => file.name.toLowerCase() == 'meta-inf/encryption.xml',
       )) {
@@ -51,7 +57,9 @@ class EpubParser {
               (file.content as List<int>),
             ),
       };
+      final packageTask = TimelineTask()..start('Epub.packageParse');
       final book = await EpubReader.readBook(bytes);
+      packageTask.finish();
       final sections = <SourceSection>[];
       final assets = <String, ParsedAsset>{};
       final titlesByFile = <String, String>{};
@@ -98,35 +106,43 @@ class EpubParser {
           }
         }
       }
-      for (final source in orderedFiles) {
-        final fileName = _normalizePath(source.file.FileName ?? source.name);
-        final parsed = _parseHtml(
-          source.file.Content ?? '',
-          fileName,
-          archiveFiles,
-        );
-        if (parsed.blocks.isNotEmpty) {
-          assets.addAll(parsed.assets);
-          sections.add(
-            SourceSection(
-              index: sections.length,
-              heading: parsed.heading ?? titlesByFile[source.name],
-              paragraphs: parsed.blocks
-                  .where((block) => block.kind != 'heading')
-                  .map(
-                    (block) => block.kind == 'list'
-                        ? block.text?.replaceFirst(RegExp(r'^\s*•\s*'), '')
-                        : block.text,
-                  )
-                  .whereType<String>()
-                  .toList(),
-              blocks: parsed.blocks,
-            ),
+      Timeline.startSync(
+        'Epub.contentCanonicalization',
+        arguments: {'spineItems': orderedFiles.length},
+      );
+      try {
+        for (final source in orderedFiles) {
+          final fileName = _normalizePath(source.file.FileName ?? source.name);
+          final parsed = _parseHtml(
+            source.file.Content ?? '',
+            fileName,
+            archiveFiles,
           );
+          if (parsed.blocks.isNotEmpty) {
+            assets.addAll(parsed.assets);
+            sections.add(
+              SourceSection(
+                index: sections.length,
+                heading: parsed.heading ?? titlesByFile[source.name],
+                paragraphs: parsed.blocks
+                    .where((block) => block.kind != 'heading')
+                    .map(
+                      (block) => block.kind == 'list'
+                          ? block.text?.replaceFirst(RegExp(r'^\s*•\s*'), '')
+                          : block.text,
+                    )
+                    .whereType<String>()
+                    .toList(),
+                blocks: parsed.blocks,
+              ),
+            );
+          }
         }
+      } finally {
+        Timeline.finishSync();
       }
       if (sections.isEmpty) throw const BookParseException('Book is empty.');
-      return ParsedPublication(
+      final publication = ParsedPublication(
         title: _fallback(book.Title, 'Untitled book'),
         author: _fallback(book.Author, 'Unknown author'),
         sections: sections,
@@ -135,11 +151,18 @@ class EpubParser {
             ? null
             : Uint8List.fromList(image.encodePng(book.CoverImage!)),
       );
+      parseTask.finish(
+        arguments: {'sections': sections.length, 'assets': assets.length},
+      );
+      return publication;
     } on UnsupportedDrmException {
+      parseTask.finish(arguments: {'error': 'unsupportedDrm'});
       rethrow;
     } on BookParseException {
+      parseTask.finish(arguments: {'error': 'bookParse'});
       rethrow;
     } catch (_) {
+      parseTask.finish(arguments: {'error': 'unexpected'});
       throw const BookParseException('This EPUB could not be read.');
     }
   }
