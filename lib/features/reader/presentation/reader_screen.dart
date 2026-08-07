@@ -175,14 +175,19 @@ class _ReaderScreenState extends State<ReaderScreen>
   Future<void> _toggleReaderView() async {
     if (widget.book.fileType != 'epub') return;
     final original = !_originalView;
+    _focusTimer?.cancel();
     if (!original) {
       _paginationSignature = null;
+      _resetFocusTimer();
     } else if (_anchorBiteId != null) {
       _originalSpineIndex =
           await widget.database.sectionPositionForBite(_anchorBiteId!) ?? 0;
     }
     if (!mounted) return;
-    setState(() => _originalView = original);
+    setState(() {
+      _originalView = original;
+      if (original) _chromeVisible = true;
+    });
     await widget.database.saveReaderViewMode(
       widget.book.id,
       original ? 'original' : 'bookbites',

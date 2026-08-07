@@ -162,14 +162,22 @@ class _OriginalEpubViewState extends State<OriginalEpubView> {
   Future<void> _installRelocationBridge() async {
     final controller = _controller;
     if (controller == null) return;
-    await controller.runJavaScript('''
+    try {
+      await controller.runJavaScript('''
       (() => {
+        const postLocation = message => {
+          if (window.BookBitesLocation?.postMessage) {
+            window.BookBitesLocation.postMessage(message);
+          } else {
+            window.webkit?.messageHandlers?.BookBitesLocation?.postMessage(message);
+          }
+        };
         const report = () => {
           const element = document.elementFromPoint(16, 16) || document.body;
           const range = document.createRange();
           range.selectNodeContents(document.body);
           range.setEndBefore(element);
-          BookBitesLocation.postMessage(JSON.stringify({
+          postLocation(JSON.stringify({
             offset: range.toString().length
           }));
         };
@@ -181,6 +189,9 @@ class _OriginalEpubViewState extends State<OriginalEpubView> {
         }
       })();
     ''');
+    } on Object {
+      // Rendering remains useful if a platform cannot expose relocation.
+    }
   }
 
   @override
