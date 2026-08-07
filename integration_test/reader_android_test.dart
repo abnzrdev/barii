@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:bookbites/core/database/app_database.dart';
@@ -252,8 +253,15 @@ void main() {
 
       await tester.tap(find.byTooltip('Search book'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(SearchBar), 'searchable');
-      await tester.pumpAndSettle();
+      await _enterText(tester, find.byType(SearchBar), 'searchable');
+      await _pumpUntil(
+        tester,
+        () => find
+            .textContaining('Second searchable location.')
+            .evaluate()
+            .isNotEmpty,
+        'search result',
+      );
       await tester.tap(find.textContaining('Second searchable location.').last);
       await tester.pumpAndSettle();
       expect(find.text('Second searchable location.'), findsOneWidget);
@@ -441,9 +449,13 @@ void main() {
       await tester.tap(find.byTooltip('Notes'));
       await tester.pumpAndSettle();
       expect(find.text('Notes for this bite'), findsOneWidget);
-      await tester.enterText(find.byType(TextField).last, 'Phone note');
+      await _enterText(tester, find.byType(TextField).last, 'Phone note');
       await tester.tap(find.text('Save note'));
-      await tester.pumpAndSettle();
+      await _pumpUntil(
+        tester,
+        () async => (await database.notesForBook(book.id)).length == 1,
+        'saved note',
+      );
       expect(await database.notesForBook(book.id), hasLength(1));
       await tester.tap(find.byTooltip('Close notes'));
       await tester.pumpAndSettle();
@@ -485,6 +497,32 @@ void main() {
       );
       expect(await database.notesForBook(book.id), hasLength(1));
     });
+  }
+}
+
+Future<void> _pumpUntil(
+  WidgetTester tester,
+  FutureOr<bool> Function() condition,
+  String description,
+) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 5));
+  while (!await condition()) {
+    if (DateTime.now().isAfter(deadline)) {
+      fail('Timed out waiting for $description');
+    }
+    await tester.pump(const Duration(milliseconds: 16));
+  }
+  await tester.pump();
+}
+
+Future<void> _enterText(WidgetTester tester, Finder finder, String text) async {
+  final wasRegistered = tester.testTextInput.isRegistered;
+  if (!wasRegistered) tester.testTextInput.register();
+  try {
+    await tester.enterText(finder, text);
+    await tester.pump();
+  } finally {
+    if (!wasRegistered) tester.testTextInput.unregister();
   }
 }
 
