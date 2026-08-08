@@ -12,6 +12,8 @@ List<int> epubFixtureBytes({
   bool semanticContent = false,
   String? firstXhtml,
   String? renditionFlow,
+  String pageProgressionDirection = 'ltr',
+  bool nonLinearMiddle = false,
 }) {
   final archive = Archive()
     ..addFile(ArchiveFile.string('mimetype', 'application/epub+zip'))
@@ -36,9 +38,10 @@ ${renditionFlow == null ? '' : '<meta property="rendition:flow">$renditionFlow</
 properties="nav"/><item id="one" href="one.xhtml"
 media-type="application/xhtml+xml"/><item id="two" href="two.xhtml"
 media-type="application/xhtml+xml"/>
+${nonLinearMiddle ? '<item id="aside" href="aside.xhtml" media-type="application/xhtml+xml"/>' : ''}
 ${semanticContent ? '<item id="drawing" href="drawing.svg" media-type="image/svg+xml"/>' : ''}
 ${figures ? '<item id="png" href="images/dot.png" media-type="image/png"/><item id="jpg" href="images/photo.jpg" media-type="image/jpeg"/><item id="svg" href="images/shape.svg" media-type="image/svg+xml"/>' : ''}</manifest>
-<spine page-progression-direction="${canonicalSemantics ? 'rtl' : 'ltr'}"><itemref idref="one"/>${canonicalSemantics ? '<itemref idref="one" linear="no"/>' : ''}<itemref idref="two"/>${semanticContent ? '<itemref id="drawing-page" idref="drawing" properties="rendition:layout-pre-paginated"/>' : ''}</spine></package>''',
+<spine page-progression-direction="${canonicalSemantics ? 'rtl' : pageProgressionDirection}"><itemref idref="one"/>${canonicalSemantics ? '<itemref idref="one" linear="no"/>' : ''}${nonLinearMiddle ? '<itemref idref="aside" linear="no"/>' : ''}<itemref idref="two"/>${semanticContent ? '<itemref id="drawing-page" idref="drawing" properties="rendition:layout-pre-paginated"/>' : ''}</spine></package>''',
       ),
     )
     ..addFile(
@@ -82,6 +85,14 @@ ${semanticContent ? '''<main id="main-content" role="main"><article id="article"
             : '<html><body><h1>Chapter Two</h1><p>你好，世界。</p></body></html>',
       ),
     );
+  if (nonLinearMiddle) {
+    archive.addFile(
+      ArchiveFile.string(
+        'OEBPS/aside.xhtml',
+        '<html><body><aside>Non-linear aside.</aside></body></html>',
+      ),
+    );
+  }
   if (encrypted) {
     archive.addFile(
       ArchiveFile.string(

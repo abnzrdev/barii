@@ -93,6 +93,29 @@ void main() {
     expect(paginated.renditionFlow, 'paginated');
     expect(scrolled.renditionFlow, 'scrolled-doc');
   });
+
+  test(
+    'reads progression direction and skips non-linear spine items',
+    () async {
+      final publication = OriginalEpubPublication.fromBytes(
+        epubFixtureBytes(
+          pageProgressionDirection: 'rtl',
+          nonLinearMiddle: true,
+        ),
+      );
+      final server = await publication.serve();
+      addTearDown(server.close);
+
+      expect(publication.pageProgressionDirection, 'rtl');
+      expect(publication.spinePaths, [
+        'OEBPS/one.xhtml',
+        'OEBPS/aside.xhtml',
+        'OEBPS/two.xhtml',
+      ]);
+      expect(server.adjacentLinearSpine(0, 1), 2);
+      expect(server.adjacentLinearSpine(2, -1), 0);
+    },
+  );
 }
 
 Future<({int statusCode, HttpHeaders headers, List<int> bytes, String body})>

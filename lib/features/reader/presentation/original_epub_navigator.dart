@@ -57,12 +57,14 @@ class OriginalEpubNavigatorScript {
     required this.presentation,
     required this.initialOffset,
     required this.generation,
+    this.pageProgressionDirection = 'default',
     this.initialFragment,
   });
 
   final OriginalEpubPresentation presentation;
   final int initialOffset;
   final int generation;
+  final String pageProgressionDirection;
   final String? initialFragment;
 
   static const teardown = '''
@@ -71,10 +73,13 @@ class OriginalEpubNavigatorScript {
   if (!reader) return;
   document.removeEventListener('scroll', reader.report, true);
   document.removeEventListener('click', reader.link, true);
+  document.removeEventListener('keydown', reader.keydown, true);
   window.removeEventListener('resize', reader.resize);
   reader.resizeObserver?.disconnect();
   reader.style?.remove();
   if (reader.viewport) reader.viewport.content = reader.viewportContent;
+  document.documentElement.style.direction = reader.rootDirection;
+  document.body.style.direction = reader.bodyDirection;
   delete window.__bookBitesOriginalReader;
 })();
 ''';
@@ -82,6 +87,7 @@ class OriginalEpubNavigatorScript {
   String get source {
     final mode = presentation.name;
     final fragment = jsonEncode(initialFragment);
+    final rtlProgression = pageProgressionDirection == 'rtl';
     final layoutCss = switch (presentation) {
       OriginalEpubPresentation.scroll =>
         '''
@@ -114,28 +120,41 @@ class OriginalEpubNavigatorScript {
     document.documentElement.style.setProperty(
       '--bookbites-columns', innerWidth >= 1100 ? '2' : '1');
   };
+  const rootDirection = document.documentElement.style.direction;
+  const bodyDirection = document.body.style.direction;
+  if (rtlProgression) {
+    const contentDirection = getComputedStyle(document.body).direction;
+    document.documentElement.style.direction = 'rtl';
+    document.body.style.direction = contentDirection;
+  }
   const turn = delta => {
     const root = document.scrollingElement;
-    const direction = delta < 0 ? -1 : 1;
+    const direction = (delta < 0 ? -1 : 1) * (rtlProgression ? -1 : 1);
     const next = root.scrollLeft + direction * innerWidth;
     const max = Math.max(0, root.scrollWidth - innerWidth);
-    if (next < -1 || next > max + 1) {
+    if (Math.abs(next) > max + 1 ||
+        (!rtlProgression && next < -1) ||
+        (rtlProgression && next > 1)) {
       post({type: 'boundary', generation: generation, delta: delta});
       return;
     }
-    root.scrollTo({left: Math.max(0, Math.min(max, next)), behavior: 'auto'});
+    const bounded = Math.max(-max, Math.min(max, next));
+    root.scrollTo({left: bounded, behavior: 'auto'});
     requestAnimationFrame(report);
   };
   layoutPages();
 '''
         : '''
   const layoutPages = () => {};
+  const rootDirection = document.documentElement.style.direction;
+  const bodyDirection = document.body.style.direction;
   const turn = delta => post({type: 'boundary', generation: generation, delta: delta});
 ''';
     return '''
 (() => {
   ${teardown.trim()}
   const generation = $generation;
+  const rtlProgression = $rtlProgression;
   const post = value => {
     const message = JSON.stringify(value);
     if (window.BookBitesLocation?.postMessage) {
@@ -234,6 +253,19 @@ $layoutCss
     event.preventDefault();
     post({type: 'link', generation: generation, href: target.href});
   };
+  const keydown = event => {
+    if (event.defaultPrevented || event.ctrlKey || event.metaKey ||
+        event.target?.matches?.('input, textarea, select, [contenteditable]')) return;
+    let action = null;
+    if (event.altKey && event.key === 'ArrowLeft') action = 'back';
+    else if (event.key === 'PageDown') action = 'next';
+    else if (event.key === 'PageUp') action = 'previous';
+    else if (event.key === 'ArrowRight') action = rtlProgression ? 'previous' : 'next';
+    else if (event.key === 'ArrowLeft') action = rtlProgression ? 'next' : 'previous';
+    if (!action) return;
+    event.preventDefault();
+    post({type: 'key', generation: generation, action: action});
+  };
   const resize = () => {
     const location = current();
     layoutPages();
@@ -244,8 +276,9 @@ $pageSetup
   resizeObserver.observe(document.body);
   document.addEventListener('scroll', report, {passive: true, capture: true});
   document.addEventListener('click', link, true);
+  document.addEventListener('keydown', keydown, true);
   window.addEventListener('resize', resize);
-  window.__bookBitesOriginalReader = {report, link, resize, resizeObserver, style, viewport, viewportContent, turn: turn};
+  window.__bookBitesOriginalReader = {report, link, keydown, resize, resizeObserver, style, viewport, viewportContent, rootDirection, bodyDirection, turn: turn};
   Promise.resolve(document.fonts?.ready).then(() => {
     const target = $fragment == null ? null : document.getElementById($fragment);
     if (target) target.scrollIntoView({block: 'start'});

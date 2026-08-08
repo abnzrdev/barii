@@ -17,9 +17,11 @@ class OriginalEpubPublication {
   OriginalEpubPublication._({
     required this.resources,
     required this.spinePaths,
+    required this.linearSpineIndices,
     required this.isFixedLayout,
     required this.hasScriptedContent,
     required this.renditionFlow,
+    required this.pageProgressionDirection,
   });
 
   factory OriginalEpubPublication.fromBytes(List<int> bytes) {
@@ -54,14 +56,25 @@ class OriginalEpubPublication {
         );
       }
     }
-    final spine = package
+    final spineItems = package
         .findAllElements('itemref')
         .map((item) {
           final idref = item.getAttribute('idref');
-          return idref == null ? null : manifest[idref]?.path;
+          final resource = idref == null ? null : manifest[idref]?.path;
+          return resource == null
+              ? null
+              : (path: resource, linear: item.getAttribute('linear') != 'no');
         })
-        .whereType<String>()
+        .whereType<({bool linear, String path})>()
         .toList();
+    final spine = spineItems.map((item) => item.path).toList();
+    final linearSpineIndices = [
+      for (var index = 0; index < spineItems.length; index++)
+        if (spineItems[index].linear) index,
+    ];
+    final packageSpine = package.findAllElements('spine').firstOrNull;
+    final pageProgressionDirection =
+        packageSpine?.getAttribute('page-progression-direction') ?? 'default';
     final metadataLayout = package
         .findAllElements('meta')
         .where(
@@ -99,17 +112,21 @@ class OriginalEpubPublication {
     return OriginalEpubPublication._(
       resources: Map.unmodifiable(resources),
       spinePaths: List.unmodifiable(spine),
+      linearSpineIndices: List.unmodifiable(linearSpineIndices),
       isFixedLayout: metadataLayout || itemrefLayout,
       hasScriptedContent: manifestScripted || sourceScripted,
       renditionFlow: renditionFlow,
+      pageProgressionDirection: pageProgressionDirection,
     );
   }
 
   final Map<String, Uint8List> resources;
   final List<String> spinePaths;
+  final List<int> linearSpineIndices;
   final bool isFixedLayout;
   final bool hasScriptedContent;
   final String? renditionFlow;
+  final String pageProgressionDirection;
 
   Future<OriginalEpubServer> serve() => OriginalEpubServer._start(this);
 }
@@ -154,8 +171,11 @@ class OriginalEpubServer {
       uri.path.startsWith(origin.path);
 
   int? adjacentLinearSpine(int index, int delta) {
-    final next = index + delta;
-    return next < 0 || next >= _publication.spinePaths.length ? null : next;
+    final linear = _publication.linearSpineIndices;
+    final position = linear.indexOf(index);
+    if (position < 0) return null;
+    final next = position + delta.sign;
+    return next < 0 || next >= linear.length ? null : linear[next];
   }
 
   int? spineIndexFor(Uri uri) {

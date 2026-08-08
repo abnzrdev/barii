@@ -85,4 +85,35 @@ void main() {
     );
     expect(OriginalEpubPresentation.pages.readerViewMode, 'original-pages');
   });
+
+  test('RTL page progression and keyboard navigation are explicit', () {
+    final script = OriginalEpubNavigatorScript(
+      presentation: OriginalEpubPresentation.pages,
+      initialOffset: 0,
+      generation: 1,
+      pageProgressionDirection: 'rtl',
+    ).source;
+
+    expect(script, contains('const rtlProgression = true'));
+    expect(script, contains("document.addEventListener('keydown', keydown"));
+    expect(
+      OriginalEpubNavigatorScript.teardown,
+      contains("document.removeEventListener('keydown', reader.keydown"),
+    );
+  });
+
+  test('navigator setup tears down every singleton listener', () {
+    final script = OriginalEpubNavigatorScript(
+      presentation: OriginalEpubPresentation.scroll,
+      initialOffset: 0,
+      generation: 1,
+    ).source;
+
+    expect(
+      "document.addEventListener('scroll'".allMatches(script),
+      hasLength(1),
+    );
+    expect("window.addEventListener('resize'".allMatches(script), hasLength(1));
+    expect(script, contains(OriginalEpubNavigatorScript.teardown.trim()));
+  });
 }

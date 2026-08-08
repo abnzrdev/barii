@@ -34,7 +34,8 @@ class OriginalEpubView extends StatefulWidget {
   State<OriginalEpubView> createState() => _OriginalEpubViewState();
 }
 
-class _OriginalEpubViewState extends State<OriginalEpubView> {
+class _OriginalEpubViewState extends State<OriginalEpubView>
+    with WidgetsBindingObserver {
   OriginalEpubServer? _server;
   WebViewController? _controller;
   Object? _error;
@@ -42,6 +43,9 @@ class _OriginalEpubViewState extends State<OriginalEpubView> {
   var _generation = 0;
   var _lastOffset = 0;
   String? _pendingFragment;
+  String _pageProgressionDirection = 'default';
+  final _history = <({Uri uri, int offset})>[];
+  var _navigationInFlight = false;
   late OriginalEpubPresentation _presentation;
   final _openTask = TimelineTask()..start('OriginalEpub.open');
   var _reportedReadable = false;
@@ -49,6 +53,7 @@ class _OriginalEpubViewState extends State<OriginalEpubView> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _presentation =
         widget.initialPresentation ?? OriginalEpubPresentation.scroll;
     _open();
@@ -82,6 +87,7 @@ class _OriginalEpubViewState extends State<OriginalEpubView> {
           publication.renditionFlow == 'paginated') {
         _presentation = OriginalEpubPresentation.pages;
       }
+      _pageProgressionDirection = publication.pageProgressionDirection;
       final server = await publication.serve();
       if (!mounted) {
         await server.close();
@@ -95,6 +101,10 @@ class _OriginalEpubViewState extends State<OriginalEpubView> {
         onPermissionRequest: (request) => request.deny(),
       );
       await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
+      if (!mounted) {
+        await server.close();
+        return;
+      }
       await controller.addJavaScriptChannel(
         'BookBitesLocation',
         onMessageReceived: _receiveLocation,
@@ -103,6 +113,7 @@ class _OriginalEpubViewState extends State<OriginalEpubView> {
         NavigationDelegate(
           onNavigationRequest: (request) => _navigate(request.url, server),
           onPageFinished: (url) {
+            _navigationInFlight = false;
             final index = server.spineIndexFor(Uri.parse(url));
             if (index != null) _spineIndex = index;
             _installNavigator();
@@ -113,8 +124,15 @@ class _OriginalEpubViewState extends State<OriginalEpubView> {
               widget.onFirstReadable?.call();
             }
           },
+          onWebResourceError: (error) {
+            if (error.isForMainFrame == true) _navigationInFlight = false;
+          },
         ),
       );
+      if (!mounted) {
+        await server.close();
+        return;
+      }
       setState(() {
         _server = server;
         _controller = controller;
@@ -174,11 +192,22 @@ class _OriginalEpubViewState extends State<OriginalEpubView> {
       return;
     }
     if (value['type'] == 'link' && value['href'] is String) {
-      unawaited(_goTo(Uri.parse(value['href'] as String)));
+      unawaited(_goTo(Uri.parse(value['href'] as String), addHistory: true));
       return;
     }
     if (value['type'] == 'boundary' && value['delta'] is num) {
       unawaited(_moveSpine((value['delta'] as num).sign.toInt()));
+      return;
+    }
+    if (value['type'] == 'key') {
+      switch (value['action']) {
+        case 'previous':
+          unawaited(_turn(-1));
+        case 'next':
+          unawaited(_turn(1));
+        case 'back':
+          unawaited(_goBack());
+      }
       return;
     }
     if (value['type'] != 'relocate') return;
@@ -203,6 +232,7 @@ class _OriginalEpubViewState extends State<OriginalEpubView> {
           initialOffset: _lastOffset == 0 ? widget.initialOffset : _lastOffset,
           initialFragment: _pendingFragment,
           generation: _generation,
+          pageProgressionDirection: _pageProgressionDirection,
         ).source,
       );
     } on Object {
@@ -210,18 +240,40 @@ class _OriginalEpubViewState extends State<OriginalEpubView> {
     }
   }
 
-  Future<void> _goTo(Uri uri) async {
+  Future<void> _goTo(Uri uri, {bool addHistory = false, int offset = 0}) async {
     final server = _server;
     final controller = _controller;
-    if (server == null || controller == null || !server.owns(uri)) return;
+    if (server == null ||
+        controller == null ||
+        !server.owns(uri) ||
+        _navigationInFlight) {
+      return;
+    }
     final index = server.spineIndexFor(uri);
     if (index == null) return;
-    _generation++;
-    _spineIndex = index;
-    _lastOffset = 0;
-    _pendingFragment = uri.fragment.isEmpty ? null : uri.fragment;
-    await controller.runJavaScript(OriginalEpubNavigatorScript.teardown);
-    await controller.loadRequest(uri);
+    _navigationInFlight = true;
+    if (addHistory) {
+      _history.add((uri: server.spineUri(_spineIndex), offset: _lastOffset));
+      if (mounted) setState(() {});
+    }
+    try {
+      _generation++;
+      _spineIndex = index;
+      _lastOffset = offset;
+      _pendingFragment = uri.fragment.isEmpty ? null : uri.fragment;
+      await controller.runJavaScript(OriginalEpubNavigatorScript.teardown);
+      await controller.loadRequest(uri);
+    } catch (_) {
+      _navigationInFlight = false;
+      rethrow;
+    }
+  }
+
+  Future<void> _goBack() async {
+    if (_history.isEmpty || _navigationInFlight) return;
+    final target = _history.removeLast();
+    if (mounted) setState(() {});
+    await _goTo(target.uri, offset: target.offset);
   }
 
   Future<void> _moveSpine(int delta) async {
@@ -252,7 +304,23 @@ class _OriginalEpubViewState extends State<OriginalEpubView> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final controller = _controller;
+    if (controller == null) return;
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      unawaited(
+        controller.runJavaScript('window.__bookBitesOriginalReader?.report();'),
+      );
+    } else if (state == AppLifecycleState.resumed) {
+      _generation++;
+      unawaited(_installNavigator());
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     if (!_reportedReadable) {
       _reportedReadable = true;
       _openTask.finish(arguments: {'cancelled': true});
@@ -306,13 +374,27 @@ class _OriginalEpubViewState extends State<OriginalEpubView> {
             ),
           ),
         ),
+        if (_history.isNotEmpty)
+          Positioned(
+            top: 8,
+            left: 8,
+            child: IconButton.filledTonal(
+              tooltip: 'Previous EPUB location',
+              onPressed: _goBack,
+              icon: const Icon(Icons.history),
+            ),
+          ),
         Positioned(
           left: 8,
           bottom: 8,
           child: IconButton.filledTonal(
             tooltip: 'Previous EPUB section',
             onPressed: () => _turn(-1),
-            icon: const Icon(Icons.chevron_left),
+            icon: Icon(
+              _pageProgressionDirection == 'rtl'
+                  ? Icons.chevron_right
+                  : Icons.chevron_left,
+            ),
           ),
         ),
         Positioned(
@@ -321,7 +403,11 @@ class _OriginalEpubViewState extends State<OriginalEpubView> {
           child: IconButton.filledTonal(
             tooltip: 'Next EPUB section',
             onPressed: () => _turn(1),
-            icon: const Icon(Icons.chevron_right),
+            icon: Icon(
+              _pageProgressionDirection == 'rtl'
+                  ? Icons.chevron_left
+                  : Icons.chevron_right,
+            ),
           ),
         ),
       ],
