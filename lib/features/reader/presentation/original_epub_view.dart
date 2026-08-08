@@ -17,6 +17,8 @@ class OriginalEpubView extends StatefulWidget {
     required this.initialSpineIndex,
     required this.initialOffset,
     required this.onLocationChanged,
+    this.initialPresentation,
+    this.onPresentationChanged,
     this.onFirstReadable,
   });
 
@@ -24,6 +26,8 @@ class OriginalEpubView extends StatefulWidget {
   final int initialSpineIndex;
   final int initialOffset;
   final ValueChanged<OriginalEpubLocation> onLocationChanged;
+  final OriginalEpubPresentation? initialPresentation;
+  final ValueChanged<OriginalEpubPresentation>? onPresentationChanged;
   final VoidCallback? onFirstReadable;
 
   @override
@@ -38,13 +42,27 @@ class _OriginalEpubViewState extends State<OriginalEpubView> {
   var _generation = 0;
   var _lastOffset = 0;
   String? _pendingFragment;
+  late OriginalEpubPresentation _presentation;
   final _openTask = TimelineTask()..start('OriginalEpub.open');
   var _reportedReadable = false;
 
   @override
   void initState() {
     super.initState();
+    _presentation =
+        widget.initialPresentation ?? OriginalEpubPresentation.scroll;
     _open();
+  }
+
+  @override
+  void didUpdateWidget(covariant OriginalEpubView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final presentation = widget.initialPresentation;
+    if (presentation != null && presentation != _presentation) {
+      _presentation = presentation;
+      _generation++;
+      unawaited(_installNavigator());
+    }
   }
 
   Future<void> _open() async {
@@ -59,6 +77,10 @@ class _OriginalEpubViewState extends State<OriginalEpubView> {
         throw UnsupportedError(
           'Original view does not yet support fixed-layout EPUBs.',
         );
+      }
+      if (widget.initialPresentation == null &&
+          publication.renditionFlow == 'paginated') {
+        _presentation = OriginalEpubPresentation.pages;
       }
       final server = await publication.serve();
       if (!mounted) {
@@ -155,6 +177,10 @@ class _OriginalEpubViewState extends State<OriginalEpubView> {
       unawaited(_goTo(Uri.parse(value['href'] as String)));
       return;
     }
+    if (value['type'] == 'boundary' && value['delta'] is num) {
+      unawaited(_moveSpine((value['delta'] as num).sign.toInt()));
+      return;
+    }
     if (value['type'] != 'relocate') return;
     final server = _server;
     if (server == null) return;
@@ -173,7 +199,7 @@ class _OriginalEpubViewState extends State<OriginalEpubView> {
     try {
       await controller.runJavaScript(
         OriginalEpubNavigatorScript(
-          presentation: OriginalEpubPresentation.scroll,
+          presentation: _presentation,
           initialOffset: _lastOffset == 0 ? widget.initialOffset : _lastOffset,
           initialFragment: _pendingFragment,
           generation: _generation,
@@ -203,6 +229,26 @@ class _OriginalEpubViewState extends State<OriginalEpubView> {
     if (server == null) return;
     final index = server.adjacentLinearSpine(_spineIndex, delta);
     if (index != null) await _goTo(server.spineUri(index));
+  }
+
+  Future<void> _turn(int delta) async {
+    final controller = _controller;
+    if (_presentation == OriginalEpubPresentation.scroll ||
+        controller == null) {
+      await _moveSpine(delta);
+      return;
+    }
+    await controller.runJavaScript(
+      'window.__bookBitesOriginalReader?.turn(${delta.sign});',
+    );
+  }
+
+  void _setPresentation(OriginalEpubPresentation presentation) {
+    if (_presentation == presentation) return;
+    setState(() => _presentation = presentation);
+    _generation++;
+    widget.onPresentationChanged?.call(presentation);
+    unawaited(_installNavigator());
   }
 
   @override
@@ -239,11 +285,33 @@ class _OriginalEpubViewState extends State<OriginalEpubView> {
       children: [
         WebViewWidget(controller: controller),
         Positioned(
+          top: 8,
+          left: 0,
+          right: 0,
+          child: Center(
+            child: SegmentedButton<OriginalEpubPresentation>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(
+                  value: OriginalEpubPresentation.scroll,
+                  label: Text('Scroll'),
+                ),
+                ButtonSegment(
+                  value: OriginalEpubPresentation.pages,
+                  label: Text('Pages'),
+                ),
+              ],
+              selected: {_presentation},
+              onSelectionChanged: (value) => _setPresentation(value.single),
+            ),
+          ),
+        ),
+        Positioned(
           left: 8,
           bottom: 8,
           child: IconButton.filledTonal(
             tooltip: 'Previous EPUB section',
-            onPressed: () => _moveSpine(-1),
+            onPressed: () => _turn(-1),
             icon: const Icon(Icons.chevron_left),
           ),
         ),
@@ -252,7 +320,7 @@ class _OriginalEpubViewState extends State<OriginalEpubView> {
           bottom: 8,
           child: IconButton.filledTonal(
             tooltip: 'Next EPUB section',
-            onPressed: () => _moveSpine(1),
+            onPressed: () => _turn(1),
             icon: const Icon(Icons.chevron_right),
           ),
         ),

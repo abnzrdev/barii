@@ -19,6 +19,7 @@ class OriginalEpubPublication {
     required this.spinePaths,
     required this.isFixedLayout,
     required this.hasScriptedContent,
+    required this.renditionFlow,
   });
 
   factory OriginalEpubPublication.fromBytes(List<int> bytes) {
@@ -68,6 +69,13 @@ class OriginalEpubPublication {
         )
         .map((element) => element.innerText.trim())
         .contains('pre-paginated');
+    final renditionFlow = package
+        .findAllElements('meta')
+        .where(
+          (element) => element.getAttribute('property') == 'rendition:flow',
+        )
+        .map((element) => element.innerText.trim())
+        .firstOrNull;
     final itemrefLayout = package
         .findAllElements('itemref')
         .any(
@@ -93,6 +101,7 @@ class OriginalEpubPublication {
       spinePaths: List.unmodifiable(spine),
       isFixedLayout: metadataLayout || itemrefLayout,
       hasScriptedContent: manifestScripted || sourceScripted,
+      renditionFlow: renditionFlow,
     );
   }
 
@@ -100,6 +109,7 @@ class OriginalEpubPublication {
   final List<String> spinePaths;
   final bool isFixedLayout;
   final bool hasScriptedContent;
+  final String? renditionFlow;
 
   Future<OriginalEpubServer> serve() => OriginalEpubServer._start(this);
 }

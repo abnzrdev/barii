@@ -1,6 +1,18 @@
 import 'dart:convert';
 
-enum OriginalEpubPresentation { scroll, pages }
+enum OriginalEpubPresentation {
+  scroll,
+  pages;
+
+  static OriginalEpubPresentation? fromReaderViewMode(String mode) =>
+      switch (mode) {
+        'original-scroll' => scroll,
+        'original-pages' => pages,
+        _ => null,
+      };
+
+  String get readerViewMode => 'original-$name';
+}
 
 class OriginalEpubLocation {
   const OriginalEpubLocation({
@@ -70,6 +82,56 @@ class OriginalEpubNavigatorScript {
   String get source {
     final mode = presentation.name;
     final fragment = jsonEncode(initialFragment);
+    final layoutCss = switch (presentation) {
+      OriginalEpubPresentation.scroll =>
+        '''
+    body {
+      margin: 0 auto !important;
+      padding: clamp(1rem, 4vw, 3rem) !important;
+      max-inline-size: 46rem;
+      min-block-size: 100vh;
+    }''',
+      OriginalEpubPresentation.pages =>
+        '''
+    html {
+      overflow: hidden;
+      padding-inline: max(1rem, calc((100vw - 92rem) / 2));
+    }
+    body {
+      margin: 0 !important;
+      padding: clamp(1rem, 3vw, 2.5rem) !important;
+      max-inline-size: none;
+      block-size: 100vh;
+      column-count: var(--bookbites-columns, 1);
+      column-gap: clamp(1.5rem, 5vw, 4rem);
+      column-fill: auto;
+      overflow: hidden;
+    }''',
+    };
+    final pageSetup = presentation == OriginalEpubPresentation.pages
+        ? '''
+  const layoutPages = () => {
+    document.documentElement.style.setProperty(
+      '--bookbites-columns', innerWidth >= 1100 ? '2' : '1');
+  };
+  const turn = delta => {
+    const root = document.scrollingElement;
+    const direction = delta < 0 ? -1 : 1;
+    const next = root.scrollLeft + direction * innerWidth;
+    const max = Math.max(0, root.scrollWidth - innerWidth);
+    if (next < -1 || next > max + 1) {
+      post({type: 'boundary', generation: generation, delta: delta});
+      return;
+    }
+    root.scrollTo({left: Math.max(0, Math.min(max, next)), behavior: 'auto'});
+    requestAnimationFrame(report);
+  };
+  layoutPages();
+'''
+        : '''
+  const layoutPages = () => {};
+  const turn = delta => post({type: 'boundary', generation: generation, delta: delta});
+''';
     return '''
 (() => {
   ${teardown.trim()}
@@ -91,12 +153,7 @@ class OriginalEpubNavigatorScript {
     :root { color-scheme: light dark; overflow-wrap: break-word; }
     html { box-sizing: border-box; }
     *, *::before, *::after { box-sizing: inherit; }
-    body {
-      margin: 0 auto !important;
-      padding: clamp(1rem, 4vw, 3rem) !important;
-      max-inline-size: 46rem;
-      min-block-size: 100vh;
-    }
+$layoutCss
     img, svg, video, canvas, table {
       max-width: 100% !important;
       max-inline-size: 100% !important;
@@ -179,14 +236,16 @@ class OriginalEpubNavigatorScript {
   };
   const resize = () => {
     const location = current();
+    layoutPages();
     requestAnimationFrame(() => restore(location.startOffset));
   };
+$pageSetup
   const resizeObserver = new ResizeObserver(resize);
   resizeObserver.observe(document.body);
   document.addEventListener('scroll', report, {passive: true, capture: true});
   document.addEventListener('click', link, true);
   window.addEventListener('resize', resize);
-  window.__bookBitesOriginalReader = {report, link, resize, resizeObserver, style, viewport, viewportContent};
+  window.__bookBitesOriginalReader = {report, link, resize, resizeObserver, style, viewport, viewportContent, turn: turn};
   Promise.resolve(document.fonts?.ready).then(() => {
     const target = $fragment == null ? null : document.getElementById($fragment);
     if (target) target.scrollIntoView({block: 'start'});

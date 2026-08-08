@@ -11,6 +11,7 @@ List<int> epubFixtureBytes({
   bool canonicalSemantics = false,
   bool semanticContent = false,
   String? firstXhtml,
+  String? renditionFlow,
 }) {
   final archive = Archive()
     ..addFile(ArchiveFile.string('mimetype', 'application/epub+zip'))
@@ -29,7 +30,8 @@ unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
 <dc:identifier id="id">fixture</dc:identifier>
 <dc:title>Fixture Book</dc:title><dc:creator>Fixture Author</dc:creator>
 <dc:language>${canonicalSemantics ? 'ar' : 'en'}</dc:language>
-${canonicalSemantics ? '<meta property="rendition:layout">pre-paginated</meta>' : ''}</metadata><manifest>
+${canonicalSemantics ? '<meta property="rendition:layout">pre-paginated</meta>' : ''}
+${renditionFlow == null ? '' : '<meta property="rendition:flow">$renditionFlow</meta>'}</metadata><manifest>
 <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml"
 properties="nav"/><item id="one" href="one.xhtml"
 media-type="application/xhtml+xml"/><item id="two" href="two.xhtml"

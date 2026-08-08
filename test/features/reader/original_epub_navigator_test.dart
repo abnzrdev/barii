@@ -58,4 +58,31 @@ void main() {
     expect(script, contains('getElementById("note-1")'));
     expect(script, contains("scrollIntoView({block: 'start'})"));
   });
+
+  test('page presentation uses bounded responsive CSS columns', () {
+    final script = OriginalEpubNavigatorScript(
+      presentation: OriginalEpubPresentation.pages,
+      initialOffset: 9,
+      generation: 4,
+    ).source;
+
+    expect(script, contains('column-count'));
+    expect(script, contains('column-gap'));
+    expect(script, contains('92rem'));
+    expect(script, contains('overflow: hidden'));
+    expect(script, contains('turn: turn'));
+    expect(script, contains("type: 'boundary'"));
+  });
+
+  test('explicit presentation names round-trip through persisted mode', () {
+    expect(
+      OriginalEpubPresentation.fromReaderViewMode('original-pages'),
+      OriginalEpubPresentation.pages,
+    );
+    expect(
+      OriginalEpubPresentation.fromReaderViewMode('original-scroll'),
+      OriginalEpubPresentation.scroll,
+    );
+    expect(OriginalEpubPresentation.pages.readerViewMode, 'original-pages');
+  });
 }

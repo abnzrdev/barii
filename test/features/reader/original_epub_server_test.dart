@@ -81,6 +81,18 @@ void main() {
     final scripted = OriginalEpubPublication.fromBytes(epubFixtureBytes());
     expect(scripted.hasScriptedContent, isTrue);
   });
+
+  test('reads the publisher preferred reflowable presentation', () {
+    final paginated = OriginalEpubPublication.fromBytes(
+      epubFixtureBytes(renditionFlow: 'paginated'),
+    );
+    final scrolled = OriginalEpubPublication.fromBytes(
+      epubFixtureBytes(renditionFlow: 'scrolled-doc'),
+    );
+
+    expect(paginated.renditionFlow, 'paginated');
+    expect(scrolled.renditionFlow, 'scrolled-doc');
+  });
 }
 
 Future<({int statusCode, HttpHeaders headers, List<int> bytes, String body})>

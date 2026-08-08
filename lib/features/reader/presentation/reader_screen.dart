@@ -93,6 +93,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   var _plainReadingMode = false;
   var _originalView = false;
   var _originalSpineIndex = 0;
+  OriginalEpubPresentation? _originalPresentation;
   List<CanonicalSpineOccurrence> _originalOccurrences = const [];
   var _canonicalBackfillStarted = false;
   var _chromeVisible = true;
@@ -169,7 +170,10 @@ class _ReaderScreenState extends State<ReaderScreen>
         _showProgress = preferences.showProgress;
         _plainReadingMode = preferences.plainReadingMode;
         _originalView =
-            viewMode == 'original' && widget.book.fileType == 'epub';
+            viewMode.startsWith('original') && widget.book.fileType == 'epub';
+        _originalPresentation = OriginalEpubPresentation.fromReaderViewMode(
+          viewMode,
+        );
         _originalSpineIndex = spineIndex;
         _originalOccurrences =
             canonical?.readingOrder
@@ -207,7 +211,20 @@ class _ReaderScreenState extends State<ReaderScreen>
     });
     await widget.database.saveReaderViewMode(
       widget.book.id,
-      original ? 'original' : 'bookbites',
+      original
+          ? (_originalPresentation?.readerViewMode ?? 'original')
+          : 'bookbites',
+    );
+  }
+
+  void _setOriginalPresentation(OriginalEpubPresentation presentation) {
+    if (_originalPresentation == presentation) return;
+    setState(() => _originalPresentation = presentation);
+    _serializeWrite(
+      () => widget.database.saveReaderViewMode(
+        widget.book.id,
+        presentation.readerViewMode,
+      ),
     );
   }
 
@@ -1021,6 +1038,8 @@ class _ReaderScreenState extends State<ReaderScreen>
                     initialSpineIndex: _originalSpineIndex,
                     initialOffset: _canonicalSourceOffset,
                     onLocationChanged: _updateOriginalLocation,
+                    initialPresentation: _originalPresentation,
+                    onPresentationChanged: _setOriginalPresentation,
                     onFirstReadable: _backfillCanonicalLocations,
                   )
                 : LayoutBuilder(
