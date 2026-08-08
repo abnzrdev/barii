@@ -165,15 +165,18 @@ class OriginalEpubServer {
       return;
     }
     final mediaType = _mediaType(resourcePath!);
+    final isHtml =
+        mediaType == 'application/xhtml+xml' || mediaType == 'text/html';
     request.response.headers
-      ..contentType = ContentType.parse(mediaType)
+      ..contentType = ContentType.parse(
+        isHtml ? '$mediaType; charset=utf-8' : mediaType,
+      )
       ..set('Content-Security-Policy', _csp)
       ..set('X-Content-Type-Options', 'nosniff')
       ..set('Cache-Control', 'private, max-age=300');
-    if (mediaType == 'application/xhtml+xml' || mediaType == 'text/html') {
-      request.response.write(
-        _withCsp(utf8.decode(bytes, allowMalformed: true)),
-      );
+    if (isHtml) {
+      final source = utf8.decode(bytes, allowMalformed: true);
+      request.response.add(utf8.encode(_withCsp(_withUtf8Encoding(source))));
     } else {
       request.response.add(bytes);
     }
@@ -194,6 +197,29 @@ String? _safePath(String value) {
     return null;
   }
   return normalized;
+}
+
+String _withUtf8Encoding(String source) {
+  final xmlDeclaration = RegExp(r'<\?xml\b[^?]*\?>', caseSensitive: false);
+  final meta = RegExp(r'<meta\b[^>]*>', caseSensitive: false);
+  final encoding = RegExp(
+    r'''(encoding\s*=\s*)(["'])[^"']+\2''',
+    caseSensitive: false,
+  );
+  final charset = RegExp(
+    r'''(charset\s*=\s*)(["']?)[^"'\s;>]+\2''',
+    caseSensitive: false,
+  );
+  String normalize(String value, RegExp attribute) => value.replaceAllMapped(
+    attribute,
+    (match) => '${match[1]}${match[2]}UTF-8${match[2]}',
+  );
+  return source
+      .replaceAllMapped(
+        xmlDeclaration,
+        (match) => normalize(match[0]!, encoding),
+      )
+      .replaceAllMapped(meta, (match) => normalize(match[0]!, charset));
 }
 
 String _withCsp(String source) {

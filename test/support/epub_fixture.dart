@@ -10,6 +10,7 @@ List<int> epubFixtureBytes({
   bool richText = false,
   bool canonicalSemantics = false,
   bool semanticContent = false,
+  String? firstXhtml,
 }) {
   final archive = Archive()
     ..addFile(ArchiveFile.string('mimetype', 'application/epub+zip'))
@@ -56,9 +57,10 @@ ${figures ? '<item id="png" href="images/dot.png" media-type="image/png"/><item 
     ..addFile(
       ArchiveFile.string(
         'OEBPS/one.xhtml',
-        emptyContent
-            ? '<html><body><script>remove me</script></body></html>'
-            : '''<html${canonicalSemantics ? ' lang="ar" dir="rtl"' : ''}><body><h1>Chapter One</h1><script>remove me</script>
+        firstXhtml ??
+            (emptyContent
+                ? '<html><body><script>remove me</script></body></html>'
+                : '''<html${canonicalSemantics ? ' lang="ar" dir="rtl"' : ''}><body><h1>Chapter One</h1><script>remove me</script>
 <p>First safe sentence.</p><p>Second safe sentence.</p>
 ${canonicalSemantics ? '<p id="semantic-start">Alpha <strong>bold <em id="inner-mark">inner</em></strong> omega.</p>' : ''}
 ${figures ? '<figure><img src="images/dot.png" alt="Green dot"/><figcaption>PNG caption</figcaption></figure><img src="./images/photo.jpg" alt="JPEG portrait"/><img src="images/shape.svg" alt="External SVG"/><svg aria-label="Inline SVG" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4"/></svg>' : ''}
@@ -67,7 +69,7 @@ ${anchoredNavigation ? '<h2 id="start">Start</h2><p>Intentional refrain.</p><h2 
 ${richText ? '<h2 id="details">Details</h2><p><strong>Bold words</strong> and <em>italic words</em> with <a href="#footnote">a footnote</a> and <a href="https://example.com">an external source</a>.</p><p><strong>Echo</strong> then <strong>Echo</strong>.</p><blockquote>Quoted wisdom.</blockquote><ol><li><p>Outer item</p><ul><li><p>Nested item</p></li></ul></li></ol><aside id="footnote" epub:type="footnote">Footnote text.</aside>' : ''}
 ${semanticContent ? '''<main id="main-content" role="main"><article id="article" epub:type="chapter"><section id="semantic-section" lang="en" dir="ltr"><div id="readable-container"><p>Container <span id="french" lang="fr">texte</span>.</p><pre id="sample-code">line one
   line two <code id="code-token">let x = 1;</code></pre><table id="data-table"><caption>Table caption</caption><thead><tr><th id="year-header">Year</th><th>Value</th></tr></thead><tbody><tr><td>2025</td><td>42</td></tr></tbody></table><p id="inline-semantics">Ruby <ruby id="ruby-word">漢<rp>(</rp><rt>kan</rt><rp>)</rp></ruby>, power x<sup id="power">2</sup>, water H<sub id="water-index">2</sub>O.<br id="line-break"/>Next line.</p><hr id="divider"/><p id="footnote-body" role="doc-footnote" epub:type="footnote"><a id="backlink" href="#inline-semantics">Return target</a>.</p><img id="semantic-image" src="images/dot.png" alt="Semantic green dot" aria-label="Green semantic figure"/></div></section></article></main><script id="excluded-script">never readable</script>''' : ''}
-</body></html>''',
+</body></html>'''),
       ),
     )
     ..addFile(
