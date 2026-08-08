@@ -135,6 +135,19 @@ class OriginalEpubServer {
       .resolve(_publication.spinePaths[index])
       .replace(fragment: fragment);
 
+  String spinePath(int index) => _publication.spinePaths[index];
+
+  bool owns(Uri uri) =>
+      uri.scheme == origin.scheme &&
+      uri.host == origin.host &&
+      uri.port == origin.port &&
+      uri.path.startsWith(origin.path);
+
+  int? adjacentLinearSpine(int index, int delta) {
+    final next = index + delta;
+    return next < 0 || next >= _publication.spinePaths.length ? null : next;
+  }
+
   int? spineIndexFor(Uri uri) {
     if (uri.host != origin.host || uri.port != origin.port) return null;
     final prefix = origin.path;

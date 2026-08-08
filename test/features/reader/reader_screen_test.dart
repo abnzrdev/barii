@@ -458,6 +458,17 @@ void main() {
     expect(find.byTooltip('Search book'), findsOneWidget);
     expect(find.byTooltip('Add bookmark'), findsOneWidget);
     expect(find.byTooltip('Reader settings'), findsOneWidget);
+    expect(
+      tester
+          .widget<Icon>(
+            find.descendant(
+              of: find.byTooltip('Reader settings'),
+              matching: find.byType(Icon),
+            ),
+          )
+          .icon,
+      Icons.settings,
+    );
 
     await tester.tap(find.byTooltip('Contents'));
     await tester.pumpAndSettle();

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:developer';
@@ -7,13 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_all/webview_all.dart';
 
 import '../data/original_epub_server.dart';
-
-class OriginalEpubLocation {
-  const OriginalEpubLocation({required this.spineIndex, required this.offset});
-
-  final int spineIndex;
-  final int offset;
-}
+import 'original_epub_navigator.dart';
 
 class OriginalEpubView extends StatefulWidget {
   const OriginalEpubView({
@@ -40,6 +35,9 @@ class _OriginalEpubViewState extends State<OriginalEpubView> {
   WebViewController? _controller;
   Object? _error;
   var _spineIndex = 0;
+  var _generation = 0;
+  var _lastOffset = 0;
+  String? _pendingFragment;
   final _openTask = TimelineTask()..start('OriginalEpub.open');
   var _reportedReadable = false;
 
@@ -85,7 +83,7 @@ class _OriginalEpubViewState extends State<OriginalEpubView> {
           onPageFinished: (url) {
             final index = server.spineIndexFor(Uri.parse(url));
             if (index != null) _spineIndex = index;
-            _installRelocationBridge();
+            _installNavigator();
             if (!_reportedReadable) {
               _reportedReadable = true;
               Timeline.timeSync('OriginalEpub.firstReadable', () {});
@@ -150,48 +148,61 @@ class _OriginalEpubViewState extends State<OriginalEpubView> {
 
   void _receiveLocation(JavaScriptMessage message) {
     final value = jsonDecode(message.message);
-    if (value is! Map<String, dynamic>) return;
-    final offset = value['offset'];
-    if (offset is int) {
-      widget.onLocationChanged(
-        OriginalEpubLocation(spineIndex: _spineIndex, offset: offset),
-      );
+    if (value is! Map<String, dynamic> || value['generation'] != _generation) {
+      return;
     }
+    if (value['type'] == 'link' && value['href'] is String) {
+      unawaited(_goTo(Uri.parse(value['href'] as String)));
+      return;
+    }
+    if (value['type'] != 'relocate') return;
+    final server = _server;
+    if (server == null) return;
+    final location = OriginalEpubLocation.fromMessage(
+      message.message,
+      spineIndex: _spineIndex,
+      href: server.spinePath(_spineIndex),
+    );
+    _lastOffset = location.offset;
+    widget.onLocationChanged(location);
   }
 
-  Future<void> _installRelocationBridge() async {
+  Future<void> _installNavigator() async {
     final controller = _controller;
     if (controller == null) return;
     try {
-      await controller.runJavaScript('''
-      (() => {
-        const postLocation = message => {
-          if (window.BookBitesLocation?.postMessage) {
-            window.BookBitesLocation.postMessage(message);
-          } else {
-            window.webkit?.messageHandlers?.BookBitesLocation?.postMessage(message);
-          }
-        };
-        const report = () => {
-          const element = document.elementFromPoint(16, 16) || document.body;
-          const range = document.createRange();
-          range.selectNodeContents(document.body);
-          range.setEndBefore(element);
-          postLocation(JSON.stringify({
-            offset: range.toString().length
-          }));
-        };
-        document.addEventListener('scroll', report, {passive: true});
-        report();
-        if (${widget.initialOffset} > 0 && document.body.scrollHeight > innerHeight) {
-          const fraction = Math.min(1, ${widget.initialOffset} / Math.max(1, document.body.innerText.length));
-          scrollTo(0, fraction * (document.body.scrollHeight - innerHeight));
-        }
-      })();
-    ''');
+      await controller.runJavaScript(
+        OriginalEpubNavigatorScript(
+          presentation: OriginalEpubPresentation.scroll,
+          initialOffset: _lastOffset == 0 ? widget.initialOffset : _lastOffset,
+          initialFragment: _pendingFragment,
+          generation: _generation,
+        ).source,
+      );
     } on Object {
       // Rendering remains useful if a platform cannot expose relocation.
     }
+  }
+
+  Future<void> _goTo(Uri uri) async {
+    final server = _server;
+    final controller = _controller;
+    if (server == null || controller == null || !server.owns(uri)) return;
+    final index = server.spineIndexFor(uri);
+    if (index == null) return;
+    _generation++;
+    _spineIndex = index;
+    _lastOffset = 0;
+    _pendingFragment = uri.fragment.isEmpty ? null : uri.fragment;
+    await controller.runJavaScript(OriginalEpubNavigatorScript.teardown);
+    await controller.loadRequest(uri);
+  }
+
+  Future<void> _moveSpine(int delta) async {
+    final server = _server;
+    if (server == null) return;
+    final index = server.adjacentLinearSpine(_spineIndex, delta);
+    if (index != null) await _goTo(server.spineUri(index));
   }
 
   @override
@@ -200,6 +211,11 @@ class _OriginalEpubViewState extends State<OriginalEpubView> {
       _reportedReadable = true;
       _openTask.finish(arguments: {'cancelled': true});
     }
+    final controller = _controller;
+    if (controller != null) {
+      unawaited(controller.runJavaScript(OriginalEpubNavigatorScript.teardown));
+    }
+    _generation++;
     _server?.close();
     super.dispose();
   }
@@ -219,6 +235,28 @@ class _OriginalEpubViewState extends State<OriginalEpubView> {
     if (controller == null) {
       return const Center(child: CircularProgressIndicator());
     }
-    return WebViewWidget(controller: controller);
+    return Stack(
+      children: [
+        WebViewWidget(controller: controller),
+        Positioned(
+          left: 8,
+          bottom: 8,
+          child: IconButton.filledTonal(
+            tooltip: 'Previous EPUB section',
+            onPressed: () => _moveSpine(-1),
+            icon: const Icon(Icons.chevron_left),
+          ),
+        ),
+        Positioned(
+          right: 8,
+          bottom: 8,
+          child: IconButton.filledTonal(
+            tooltip: 'Next EPUB section',
+            onPressed: () => _moveSpine(1),
+            icon: const Icon(Icons.chevron_right),
+          ),
+        ),
+      ],
+    );
   }
 }

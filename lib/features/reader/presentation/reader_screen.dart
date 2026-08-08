@@ -14,11 +14,13 @@ import '../../../core/database/app_database.dart';
 import '../../dictionary/data/bundled_dictionary.dart';
 import '../../dictionary/domain/dictionary_repository.dart';
 import '../../dictionary/presentation/dictionary_panel.dart';
+import '../../library/domain/canonical_publication.dart';
 import '../domain/highlight_anchor.dart';
 import 'bite_paginator.dart';
 import '../data/canonical_locator_backfill.dart';
 import 'reader_navigation.dart';
 import 'original_epub_view.dart';
+import 'original_epub_navigator.dart';
 import 'reader_panel.dart';
 
 enum _OpenPanel { reader, dictionary }
@@ -91,6 +93,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   var _plainReadingMode = false;
   var _originalView = false;
   var _originalSpineIndex = 0;
+  List<CanonicalSpineOccurrence> _originalOccurrences = const [];
   var _canonicalBackfillStarted = false;
   var _chromeVisible = true;
   var _alignment = TextAlign.start;
@@ -127,6 +130,15 @@ class _ReaderScreenState extends State<ReaderScreen>
     final progress = await widget.database.progressFor(widget.book.id);
     final preferences = await widget.database.preferences();
     final viewMode = await widget.database.readerViewMode(widget.book.id);
+    final canonicalRecord = await widget.database.canonicalPublicationFor(
+      widget.book.id,
+    );
+    final canonical = canonicalRecord == null
+        ? null
+        : CanonicalPublication.fromJson(
+            (jsonDecode(canonicalRecord.publicationJson) as Map)
+                .cast<String, Object?>(),
+          );
     loadTask.finish(arguments: {'bites': bites.length});
     final restored = progress == null
         ? 0
@@ -159,6 +171,11 @@ class _ReaderScreenState extends State<ReaderScreen>
         _originalView =
             viewMode == 'original' && widget.book.fileType == 'epub';
         _originalSpineIndex = spineIndex;
+        _originalOccurrences =
+            canonical?.readingOrder
+                .where((occurrence) => occurrence.linear)
+                .toList() ??
+            const [];
         _alignment = switch (preferences.alignment) {
           'center' => TextAlign.center,
           'justify' => TextAlign.justify,
@@ -206,14 +223,36 @@ class _ReaderScreenState extends State<ReaderScreen>
       0,
       bite.content.length,
     );
-    await _serializeWrite(
-      () => widget.database.saveProgress(
-        widget.book.id,
-        bite.id,
-        bite.position,
-        _sourceOffset,
-      ),
-    );
+    final occurrence = location.spineIndex < _originalOccurrences.length
+        ? _originalOccurrences[location.spineIndex]
+        : null;
+    final locator = occurrence == null
+        ? null
+        : CanonicalLocator(
+            href: occurrence.resourceHref,
+            mediaType: occurrence.mediaType,
+            spineOccurrence: occurrence.occurrenceId,
+            fragment: location.fragment,
+            startOffset: location.offset,
+            endOffset: location.endOffset,
+          );
+    await _serializeWrite(() {
+      if (locator == null) {
+        return widget.database.saveProgress(
+          widget.book.id,
+          bite.id,
+          bite.position,
+          _sourceOffset,
+        );
+      }
+      return widget.database.saveProgressWithLocator(
+        bookId: widget.book.id,
+        biteId: bite.id,
+        position: bite.position,
+        sourceOffset: _sourceOffset,
+        canonicalLocator: jsonEncode(locator.toJson()),
+      );
+    });
   }
 
   void _backfillCanonicalLocations() {
@@ -967,7 +1006,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                         IconButton(
                           tooltip: 'Reader settings',
                           onPressed: _showSettings,
-                          icon: const Icon(Icons.text_fields),
+                          icon: const Icon(Icons.settings),
                         ),
                       ],
                     ),
