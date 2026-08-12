@@ -45,3 +45,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Barii Android release signing — private, never commit
+/android/key.properties
+*.jks
+*.keystore
