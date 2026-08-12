@@ -10,7 +10,7 @@ sentences once. Duplication first appeared during EPUB extraction:
 - EPUB navigation entries with different anchors could expose the same spine
   XHTML more than once.
 
-BookBites now extracts only leaf text blocks and traverses canonical OPF spine
+Barii now extracts only leaf text blocks and traverses canonical OPF spine
 files once, using navigation data only for titles. It does not globally
 deduplicate text, so intentional repeated paragraphs remain intact.
 

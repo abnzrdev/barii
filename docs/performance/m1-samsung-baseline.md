@@ -1,12 +1,12 @@
 # M1 incremental first-readable Samsung baseline
 
-Recorded 2026-08-07 from M1 on top of BookBites M0 commit
+Recorded 2026-08-07 from M1 on top of Barii M0 commit
 `01a93aae139722dd4e20c0adc3e6e1bd4e859625` using the same physical Samsung
 `SM-M145F` (`R9ZX30B0CHB`, Android 15), profile mode, and M0 fixture.
 
 ## Fixture and procedure
 
-- file: Readest test fixture `sample-alice.epub` (not committed to BookBites)
+- file: Readest test fixture `sample-alice.epub` (not committed to Barii)
 - size: 414345 bytes
 - SHA-256: `a6403b7951058243f91843bbe8a9e46ed205d5a7dcdb9758f70f11e360e17246`
 - result: 16 sections, 208 bites, 246 display pages
@@ -19,9 +19,9 @@ the delay is outside every traced open action.
 ```sh
 flutter build apk --profile \
   --target=integration_test/reader_android_test.dart \
-  --dart-define=BOOKBITES_BASELINE_PROFILE_ONLY=true \
-  --dart-define=BOOKBITES_BENCHMARK_EPUB_PATH=/data/user/0/com.abnzr.bookbites/files/benchmark.epub \
-  --dart-define=BOOKBITES_BENCHMARK_SETUP_DELAY_SECONDS=10
+  --dart-define=BARII_BASELINE_PROFILE_ONLY=true \
+  --dart-define=BARII_BENCHMARK_EPUB_PATH=/data/user/0/com.abnzr.barii/files/benchmark.epub \
+  --dart-define=BARII_BENCHMARK_SETUP_DELAY_SECONDS=10
 
 flutter drive --profile --no-start-paused --no-dds \
   --use-application-binary=build/app/outputs/flutter-apk/app-profile.apk \
@@ -33,9 +33,9 @@ flutter drive --profile --no-start-paused --no-dds \
 During the ten-second setup window:
 
 ```sh
-adb -s R9ZX30B0CHB shell run-as com.abnzr.bookbites mkdir -p files
-adb -s R9ZX30B0CHB shell run-as com.abnzr.bookbites cp \
-  /data/local/tmp/bookbites-baseline.epub files/benchmark.epub
+adb -s R9ZX30B0CHB shell run-as com.abnzr.barii mkdir -p files
+adb -s R9ZX30B0CHB shell run-as com.abnzr.barii cp \
+  /data/local/tmp/barii-baseline.epub files/benchmark.epub
 ```
 
 ## Reader timings
@@ -99,7 +99,7 @@ The normal profile APK was inspected on the Samsung using the same Alice EPUB:
 - changing font size reflowed while retaining the same bite;
 - the completed reader contained all 246 display pages in the benchmark and
   the widget regression materialized all 200 fixture pages;
-- no BookBites ANR, input timeout, fatal signal, fatal Android exception, or
+- no Barii ANR, input timeout, fatal signal, fatal Android exception, or
   Flutter exception appeared in the captured logcat.
 
 Android `dumpsys gfxinfo` from the short manual session contained only seven

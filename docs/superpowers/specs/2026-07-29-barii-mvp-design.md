@@ -1,8 +1,8 @@
-# BookBites MVP Design
+# Barii MVP Design
 
 ## Scope
 
-BookBites is an offline-first Flutter reader for Android and Linux. It imports
+Barii is an offline-first Flutter reader for Android and Linux. It imports
 DRM-free EPUB and TXT files, copies them into app storage, converts them into
 stable 100–180-word reading bites, and stores all reader data locally. PDF,
 DRM, accounts, sync, downloads, and non-target platform setup are excluded.

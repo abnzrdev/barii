@@ -1,4 +1,4 @@
-# BookBites Agent Instructions
+# Barii Agent Instructions
 
 ## Working style
 
@@ -13,7 +13,7 @@
 
 ## Product
 
-BookBites is an offline-first Flutter reader for Android and Linux.
+Barii is an offline-first Flutter reader for Android and Linux.
 
 The reader displays one small text bite at a time:
 
@@ -51,11 +51,11 @@ package already exists.
 Readest itself uses AGPL-3.0.
 
 Study its architecture, behavior, tests, dependency choices, and user experience.
-Do not paste or mechanically translate Readest source into BookBites unless the
+Do not paste or mechanically translate Readest source into Barii unless the
 project owner explicitly chooses an AGPL-compatible licence and the required
 attribution and source obligations are followed.
 
-Prefer independently implementing the BookBites interface with permissively
+Prefer independently implementing the Barii interface with permissively
 licensed Flutter packages.
 
 ## Validation

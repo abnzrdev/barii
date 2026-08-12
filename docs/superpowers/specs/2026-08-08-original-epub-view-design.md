@@ -1,6 +1,6 @@
 # Original EPUB view design
 
-BookBites remains the default reader. Original EPUB view is an optional,
+Barii remains the default reader. Original EPUB view is an optional,
 per-book reflowable rendering of managed EPUB resources.
 
 The view uses the cross-platform `webview_all` surface on Android and Linux.

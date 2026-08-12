@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
-import 'app/bookbites_app.dart';
+import 'app/barii_app.dart';
 import 'core/database/app_database.dart';
 
 Future<void> main() async {
@@ -20,7 +20,7 @@ Future<void> main() async {
 
   runApp(
     ProviderScope(
-      child: BookBitesApp(database: database, storageDirectory: storage),
+      child: BariiApp(database: database, storageDirectory: storage),
     ),
   );
 }

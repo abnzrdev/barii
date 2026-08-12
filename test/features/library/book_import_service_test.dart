@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:bookbites/core/database/app_database.dart';
-import 'package:bookbites/features/library/data/book_import_service.dart';
+import 'package:barii/core/database/app_database.dart';
+import 'package:barii/features/library/data/book_import_service.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -13,8 +13,8 @@ void main() {
   late AppDatabase database;
 
   setUp(() async {
-    source = await Directory.systemTemp.createTemp('bookbites-source-');
-    storage = await Directory.systemTemp.createTemp('bookbites-storage-');
+    source = await Directory.systemTemp.createTemp('barii-source-');
+    storage = await Directory.systemTemp.createTemp('barii-storage-');
     database = AppDatabase.forTesting(NativeDatabase.memory());
   });
 

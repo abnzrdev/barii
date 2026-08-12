@@ -143,7 +143,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: const Text('BookBites'),
+      title: const Text('Barii'),
       actions: [
         IconButton(
           tooltip: 'Offline dictionaries',

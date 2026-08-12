@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:bookbites/core/database/app_database.dart';
-import 'package:bookbites/features/dictionary/data/sqlite_dictionary_repository.dart';
+import 'package:barii/core/database/app_database.dart';
+import 'package:barii/features/dictionary/data/sqlite_dictionary_repository.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -12,7 +12,7 @@ void main() {
 
   setUp(() async {
     database = AppDatabase.forTesting(NativeDatabase.memory());
-    temporary = await Directory.systemTemp.createTemp('bookbites-dictionary-');
+    temporary = await Directory.systemTemp.createTemp('barii-dictionary-');
   });
 
   tearDown(() async {

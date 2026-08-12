@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:bookbites/features/reader/presentation/original_epub_navigator.dart';
+import 'package:barii/features/reader/presentation/original_epub_navigator.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -16,7 +16,7 @@ void main() {
     expect(script, contains('document.fonts?.ready'));
     expect(script, contains('caretRangeFromPoint'));
     expect(script, contains('const generation = 7'));
-    expect(script, contains('style.dataset.bookbitesOriginalReader'));
+    expect(script, contains('style.dataset.bariiOriginalReader'));
     expect(script, contains('max-width: 100%'));
   });
 

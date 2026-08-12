@@ -7,12 +7,12 @@ materialization of unloaded navigation targets.
 
 - A, optimizing complete background pagination, still spends CPU and retains
   pages for unread content.
-- B removes whole-book work and fits BookBites' existing canonical
+- B removes whole-book work and fits Barii' existing canonical
   `biteId + sourceOffset` location model with the smallest change.
 - C, opportunistic idle completion, adds scheduling and ultimately recreates
   the CPU and memory cost M2 is intended to remove.
 
-## BookBites data flow
+## Barii data flow
 
 On open or reflow, paginate and publish the authoritative anchor bite first.
 Then paginate a small contiguous bite window around it. When the current page

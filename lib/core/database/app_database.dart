@@ -228,7 +228,7 @@ class ReaderPreferences extends Table {
 class ReaderViewModes extends Table {
   TextColumn get bookId =>
       text().references(Books, #id, onDelete: KeyAction.cascade)();
-  TextColumn get mode => text().withDefault(const Constant('bookbites'))();
+  TextColumn get mode => text().withDefault(const Constant('barii'))();
 
   @override
   Set<Column> get primaryKey => {bookId};
@@ -302,7 +302,7 @@ class StoredBite {
   ],
 )
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(driftDatabase(name: 'bookbites'));
+  AppDatabase() : super(driftDatabase(name: 'barii'));
   AppDatabase.forTesting(super.executor);
 
   @override
@@ -986,7 +986,7 @@ class AppDatabase extends _$AppDatabase {
       (await (select(
         readerViewModes,
       )..where((row) => row.bookId.equals(bookId))).getSingleOrNull())?.mode ??
-      'bookbites';
+      'barii';
 
   Future<void> saveReaderViewMode(String bookId, String mode) =>
       into(readerViewModes).insertOnConflictUpdate(

@@ -69,7 +69,7 @@ class OriginalEpubNavigatorScript {
 
   static const teardown = '''
 (() => {
-  const reader = window.__bookBitesOriginalReader;
+  const reader = window.__bariiOriginalReader;
   if (!reader) return;
   document.removeEventListener('scroll', reader.report, true);
   document.removeEventListener('click', reader.link, true);
@@ -80,7 +80,7 @@ class OriginalEpubNavigatorScript {
   if (reader.viewport) reader.viewport.content = reader.viewportContent;
   document.documentElement.style.direction = reader.rootDirection;
   document.body.style.direction = reader.bodyDirection;
-  delete window.__bookBitesOriginalReader;
+  delete window.__bariiOriginalReader;
 })();
 ''';
 
@@ -108,7 +108,7 @@ class OriginalEpubNavigatorScript {
       padding: clamp(1rem, 3vw, 2.5rem) !important;
       max-inline-size: none;
       block-size: 100vh;
-      column-count: var(--bookbites-columns, 1);
+      column-count: var(--barii-columns, 1);
       column-gap: clamp(1.5rem, 5vw, 4rem);
       column-fill: auto;
       overflow: hidden;
@@ -118,7 +118,7 @@ class OriginalEpubNavigatorScript {
         ? '''
   const layoutPages = () => {
     document.documentElement.style.setProperty(
-      '--bookbites-columns', innerWidth >= 1100 ? '2' : '1');
+      '--barii-columns', innerWidth >= 1100 ? '2' : '1');
   };
   const rootDirection = document.documentElement.style.direction;
   const bodyDirection = document.body.style.direction;
@@ -157,17 +157,17 @@ class OriginalEpubNavigatorScript {
   const rtlProgression = $rtlProgression;
   const post = value => {
     const message = JSON.stringify(value);
-    if (window.BookBitesLocation?.postMessage) {
-      window.BookBitesLocation.postMessage(message);
+    if (window.BariiLocation?.postMessage) {
+      window.BariiLocation.postMessage(message);
     } else {
-      window.webkit?.messageHandlers?.BookBitesLocation?.postMessage(message);
+      window.webkit?.messageHandlers?.BariiLocation?.postMessage(message);
     }
   };
   const viewport = document.querySelector('meta[name="viewport" i]');
   const viewportContent = viewport?.content ?? '';
   if (viewport) viewport.content = 'width=device-width, initial-scale=1';
   const style = document.createElement('style');
-  style.dataset.bookbitesOriginalReader = '$mode';
+  style.dataset.bariiOriginalReader = '$mode';
   style.textContent = `
     :root { color-scheme: light dark; overflow-wrap: break-word; }
     html { box-sizing: border-box; }
@@ -278,7 +278,7 @@ $pageSetup
   document.addEventListener('click', link, true);
   document.addEventListener('keydown', keydown, true);
   window.addEventListener('resize', resize);
-  window.__bookBitesOriginalReader = {report, link, keydown, resize, resizeObserver, style, viewport, viewportContent, rootDirection, bodyDirection, turn: turn};
+  window.__bariiOriginalReader = {report, link, keydown, resize, resizeObserver, style, viewport, viewportContent, rootDirection, bodyDirection, turn: turn};
   Promise.resolve(document.fonts?.ready).then(() => {
     const target = $fragment == null ? null : document.getElementById($fragment);
     if (target) target.scrollIntoView({block: 'start'});

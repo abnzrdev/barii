@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:bookbites/core/database/app_database.dart';
-import 'package:bookbites/features/library/data/book_import_service.dart';
-import 'package:bookbites/features/library/presentation/library_screen.dart';
-import 'package:bookbites/features/reader/presentation/reader_screen.dart';
+import 'package:barii/core/database/app_database.dart';
+import 'package:barii/features/library/data/book_import_service.dart';
+import 'package:barii/features/library/presentation/library_screen.dart';
+import 'package:barii/features/reader/presentation/reader_screen.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -15,34 +15,32 @@ import 'package:webview_all/webview_all.dart';
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   const settingsProfileOnly = bool.fromEnvironment(
-    'BOOKBITES_SETTINGS_PROFILE_ONLY',
+    'BARII_SETTINGS_PROFILE_ONLY',
   );
   const baselineProfileOnly = bool.fromEnvironment(
-    'BOOKBITES_BASELINE_PROFILE_ONLY',
+    'BARII_BASELINE_PROFILE_ONLY',
   );
   const originalProfileOnly = bool.fromEnvironment(
-    'BOOKBITES_ORIGINAL_PROFILE_ONLY',
+    'BARII_ORIGINAL_PROFILE_ONLY',
   );
-  const benchmarkEpubPath = String.fromEnvironment(
-    'BOOKBITES_BENCHMARK_EPUB_PATH',
-  );
+  const benchmarkEpubPath = String.fromEnvironment('BARII_BENCHMARK_EPUB_PATH');
   const benchmarkSetupDelay = int.fromEnvironment(
-    'BOOKBITES_BENCHMARK_SETUP_DELAY_SECONDS',
+    'BARII_BENCHMARK_SETUP_DELAY_SECONDS',
   );
 
   if (originalProfileOnly) {
-    testWidgets('switches between BookBites and original EPUB', (tester) async {
+    testWidgets('switches between Barii and original EPUB', (tester) async {
       if (benchmarkSetupDelay > 0) {
         await Future<void>.delayed(Duration(seconds: benchmarkSetupDelay));
       }
       final fixture = File(benchmarkEpubPath);
       expect(await fixture.exists(), isTrue, reason: benchmarkEpubPath);
       final directory = await Directory.systemTemp.createTemp(
-        'bookbites-original-',
+        'barii-original-',
       );
       addTearDown(() => directory.delete(recursive: true));
       final database = AppDatabase.forTesting(
-        NativeDatabase(File('${directory.path}/bookbites.sqlite')),
+        NativeDatabase(File('${directory.path}/barii.sqlite')),
       );
       addTearDown(database.close);
       final book = await BookImportService(
@@ -61,10 +59,10 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
       expect(find.byType(WebViewWidget), findsOneWidget);
       expect(await database.readerViewMode(book.id), 'original');
-      await tester.tap(find.byTooltip('Switch to BookBites'));
+      await tester.tap(find.byTooltip('Switch to Barii'));
       await tester.pumpAndSettle();
       expect(find.byType(PageView), findsOneWidget);
-      expect(await database.readerViewMode(book.id), 'bookbites');
+      expect(await database.readerViewMode(book.id), 'barii');
     });
   }
 
@@ -76,11 +74,11 @@ void main() {
       final fixture = File(benchmarkEpubPath);
       expect(await fixture.exists(), isTrue, reason: benchmarkEpubPath);
       final directory = await Directory.systemTemp.createTemp(
-        'bookbites-baseline-',
+        'barii-baseline-',
       );
       addTearDown(() => directory.delete(recursive: true));
       final database = AppDatabase.forTesting(
-        NativeDatabase(File('${directory.path}/bookbites.sqlite')),
+        NativeDatabase(File('${directory.path}/barii.sqlite')),
       );
       addTearDown(database.close);
       final importer = BookImportService(
@@ -193,9 +191,7 @@ void main() {
     testWidgets('stored SVG figures render and open zoom', (tester) async {
       final database = AppDatabase.forTesting(NativeDatabase.memory());
       addTearDown(database.close);
-      final directory = await Directory.systemTemp.createTemp(
-        'bookbites-figure-',
-      );
+      final directory = await Directory.systemTemp.createTemp('barii-figure-');
       addTearDown(() => directory.delete(recursive: true));
       final svg = File('${directory.path}/figure.svg');
       await svg.writeAsString(

@@ -6871,7 +6871,7 @@ class $ReaderViewModesTable extends ReaderViewModes
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
-    defaultValue: const Constant('bookbites'),
+    defaultValue: const Constant('barii'),
   );
   @override
   List<GeneratedColumn> get $columns => [bookId, mode];

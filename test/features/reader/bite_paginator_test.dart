@@ -1,5 +1,5 @@
-import 'package:bookbites/core/database/app_database.dart';
-import 'package:bookbites/features/reader/presentation/bite_paginator.dart';
+import 'package:barii/core/database/app_database.dart';
+import 'package:barii/features/reader/presentation/bite_paginator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

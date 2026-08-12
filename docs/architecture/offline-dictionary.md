@@ -3,7 +3,7 @@
 ## Decision
 
 The first production-capable provider is a Limmud-compatible SQLite/FTS5 pack.
-BookBites keeps its tiny built-in development definitions as a lowest-priority
+Barii keeps its tiny built-in development definitions as a lowest-priority
 source and supports application-managed imports of validated SQLite packs.
 
 | Option | Android/Linux reality | Licence | Decision |

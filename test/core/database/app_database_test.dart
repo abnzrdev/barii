@@ -1,4 +1,4 @@
-import 'package:bookbites/core/database/app_database.dart';
+import 'package:barii/core/database/app_database.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -15,7 +15,7 @@ void main() {
       fileType: 'epub',
     );
 
-    expect(await database.readerViewMode('book'), 'bookbites');
+    expect(await database.readerViewMode('book'), 'barii');
     await database.saveReaderViewMode('book', 'original');
     expect(await database.readerViewMode('book'), 'original');
   });

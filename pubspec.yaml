@@ -1,5 +1,5 @@
-name: bookbites
-description: "A new Flutter project."
+name: barii
+description: "Offline-first EPUB and TXT reading workspace with local progress, notes, highlights, and vocabulary."
 publish_to: 'none'
 version: 0.1.0+1
 

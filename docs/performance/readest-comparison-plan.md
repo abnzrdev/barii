@@ -1,4 +1,4 @@
-# BookBites and Readest comparison plan
+# Barii and Readest comparison plan
 
 ## Controls
 
@@ -22,14 +22,14 @@
 6. Rotate portrait → landscape → portrait while settings remain open.
 7. Close settings, reopen the book, and verify location and settings.
 
-BookBites' bite and Readest's page are each one native navigation action; the
+Barii' bite and Readest's page are each one native navigation action; the
 comparison must not claim they contain equivalent amounts of text.
 
 ## Measurements
 
 - Startup milliseconds: Android launch timing plus first-interactive timeline
   marker.
-- Frame jank: Flutter DevTools frame chart for BookBites and the equivalent
+- Frame jank: Flutter DevTools frame chart for Barii and the equivalent
   browser/Tauri frame trace for Readest; retain missed-frame counts and worst
   frame duration.
 - CPU: profiler samples over the complete scripted interval and the 15-second

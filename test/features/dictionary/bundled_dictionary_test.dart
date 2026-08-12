@@ -1,5 +1,5 @@
-import 'package:bookbites/features/dictionary/data/bundled_dictionary.dart';
-import 'package:bookbites/features/dictionary/domain/dictionary_repository.dart';
+import 'package:barii/features/dictionary/data/bundled_dictionary.dart';
+import 'package:barii/features/dictionary/domain/dictionary_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

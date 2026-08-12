@@ -1,4 +1,4 @@
-# BookBites MVP Implementation Plan
+# Barii MVP Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans
 > to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for
@@ -29,11 +29,11 @@ file_picker, path_provider, crypto, html, epubx.
 
 ### Task 1: Research, dependencies, and application shell
 
-**Files:** `pubspec.yaml`, `lib/main.dart`, `lib/app/bookbites_app.dart`,
+**Files:** `pubspec.yaml`, `lib/main.dart`, `lib/app/barii_app.dart`,
 `docs/architecture/epub-options.md`, `docs/readest-reference.md`,
 `assets/sample_book.txt`
 
-**Produces:** Material 3 `BookBitesApp` and documented dependency choices.
+**Produces:** Material 3 `BariiApp` and documented dependency choices.
 
 - [ ] Record current EPUB package versions, licenses, and verified platform
       constraints from documentation and source.

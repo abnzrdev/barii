@@ -2,7 +2,7 @@
 
 ## Scope
 
-Reviewed BookBites' settings-to-render path and Readest commit
+Reviewed Barii' settings-to-render path and Readest commit
 `6469cbb5b5799912b6376765d57175f5552eedf7`. Readest was inspected only; no
 Readest files were changed and no AGPL source was copied.
 
@@ -55,7 +55,7 @@ frames missed the raster budget. The timeline contains `Reader.paginateBite`
 events, confirming that the expensive method remained observable while the
 debounce/cancellation path prevented it from running on every drag tick.
 
-`adb logcat` recorded no ANR, input-dispatch timeout, crash, or BookBites
+`adb logcat` recorded no ANR, input-dispatch timeout, crash, or Barii
 skipped-frame warning during the sustained interaction interval. Startup did
 show skipped frames before the activity was displayed; that is outside this
 settings repair and remains a candidate for the later comparison benchmark.
@@ -64,7 +64,7 @@ Capture command:
 
 ```sh
 flutter drive --profile --no-start-paused --no-dds \
-  --dart-define=BOOKBITES_SETTINGS_PROFILE_ONLY=true \
+  --dart-define=BARII_SETTINGS_PROFILE_ONLY=true \
   --driver=test_driver/integration_test.dart \
   --target=integration_test/reader_android_test.dart \
   -d R9ZX30B0CHB

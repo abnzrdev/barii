@@ -213,7 +213,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       widget.book.id,
       original
           ? (_originalPresentation?.readerViewMode ?? 'original')
-          : 'bookbites',
+          : 'barii',
     );
   }
 
@@ -988,7 +988,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                         if (widget.book.fileType == 'epub')
                           IconButton(
                             tooltip: _originalView
-                                ? 'Switch to BookBites'
+                                ? 'Switch to Barii'
                                 : 'Switch to Original EPUB',
                             onPressed: _toggleReaderView,
                             icon: Icon(

@@ -1,12 +1,12 @@
 # M2 bounded lazy pagination Samsung baseline
 
-Recorded 2026-08-08 from BookBites M2 on top of M1 commit
+Recorded 2026-08-08 from Barii M2 on top of M1 commit
 `b40b3d8fe95dde42a8379d504b8d78415ac9a412`, on the detected physical
 Samsung `SM-M145F` (`R9ZX30B0CHB`, Android 15) in Flutter profile mode.
 
 ## Fixture and method
 
-- file: Readest test fixture `sample-alice.epub` (not committed to BookBites)
+- file: Readest test fixture `sample-alice.epub` (not committed to Barii)
 - size: 414345 bytes
 - SHA-256: `a6403b7951058243f91843bbe8a9e46ed205d5a7dcdb9758f70f11e360e17246`
 - imported result: 16 sections and 208 bites
@@ -83,7 +83,7 @@ at or below nine bites while moving across window boundaries.
 
 On the normal profile app with the same Alice fixture:
 
-- opening displayed the cover immediately and retained BookBites' vertical
+- opening displayed the cover immediately and retained Barii' vertical
   bite presentation;
 - repeated vertical swipes crossed several lazy-window boundaries without a
   blank page, duplication, or visible location shift;
@@ -93,7 +93,7 @@ On the normal profile app with the same Alice fixture:
 - Plain Reading Mode and font-size reflow retained the Cheshire-Cat content;
 - closing to the library and reopening restored the same saved location;
 - five repeated close/open cycles stabilized in memory;
-- captured logcat contained no BookBites ANR, input-dispatch timeout, fatal
+- captured logcat contained no Barii ANR, input-dispatch timeout, fatal
   signal, fatal Android exception, Flutter exception, or unhandled exception.
 
 Device rotation settings were restored to their detected original values:
@@ -110,7 +110,7 @@ This remains concept-only adaptation:
   loading; bounded adjacent fill (`minPages = 5`, `maxSections = 8`); distant
   view trimming; resource reference counting/unload; stale-work guards; and
   full teardown
-- BookBites translation: a nine-bite Flutter PageView window, direct canonical
+- Barii translation: a nine-bite Flutter PageView window, direct canonical
   target materialization, generation guards, and a 32-entry pagination LRU
 - no Readest or Foliate source was copied or mechanically translated
 

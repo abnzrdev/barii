@@ -1,4 +1,4 @@
-import 'package:bookbites/features/reader/domain/highlight_anchor.dart';
+import 'package:barii/features/reader/domain/highlight_anchor.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

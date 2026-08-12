@@ -1,6 +1,6 @@
 # M0 Samsung profile baseline
 
-Recorded 2026-08-07 from BookBites `a71371191805ae482213f8ac618682afc4e0b72c`
+Recorded 2026-08-07 from Barii `a71371191805ae482213f8ac618682afc4e0b72c`
 plus the M0 instrumentation change, on the detected physical device:
 
 - serial: `R9ZX30B0CHB`
@@ -12,7 +12,7 @@ plus the M0 instrumentation change, on the detected physical device:
 
 The benchmark uses Readest's local test fixture
 `apps/readest-app/src/__tests__/fixtures/data/sample-alice.epub`. It is not
-copied into or committed to BookBites.
+copied into or committed to Barii.
 
 - size: 414345 bytes
 - SHA-256: `a6403b7951058243f91843bbe8a9e46ed205d5a7dcdb9758f70f11e360e17246`
@@ -27,27 +27,27 @@ stat -c '%s' ../_references/readest/apps/readest-app/src/__tests__/fixtures/data
 
 flutter build apk --profile \
   --target=integration_test/reader_android_test.dart \
-  --dart-define=BOOKBITES_BASELINE_PROFILE_ONLY=true \
-  --dart-define=BOOKBITES_BENCHMARK_EPUB_PATH=/data/user/0/com.abnzr.bookbites/files/benchmark.epub
+  --dart-define=BARII_BASELINE_PROFILE_ONLY=true \
+  --dart-define=BARII_BENCHMARK_EPUB_PATH=/data/user/0/com.abnzr.barii/files/benchmark.epub
 adb -s R9ZX30B0CHB install -r build/app/outputs/flutter-apk/app-profile.apk
 adb -s R9ZX30B0CHB push \
   ../_references/readest/apps/readest-app/src/__tests__/fixtures/data/sample-alice.epub \
-  /data/local/tmp/bookbites-baseline.epub
-adb -s R9ZX30B0CHB shell run-as com.abnzr.bookbites mkdir -p files
-adb -s R9ZX30B0CHB shell run-as com.abnzr.bookbites cp \
-  /data/local/tmp/bookbites-baseline.epub files/benchmark.epub
+  /data/local/tmp/barii-baseline.epub
+adb -s R9ZX30B0CHB shell run-as com.abnzr.barii mkdir -p files
+adb -s R9ZX30B0CHB shell run-as com.abnzr.barii cp \
+  /data/local/tmp/barii-baseline.epub files/benchmark.epub
 flutter drive --profile --no-start-paused --no-dds \
   --use-application-binary=build/app/outputs/flutter-apk/app-profile.apk \
   --driver=test_driver/integration_test.dart \
   --target=integration_test/reader_android_test.dart \
   -d R9ZX30B0CHB
 
-adb -s R9ZX30B0CHB shell am force-stop com.abnzr.bookbites
+adb -s R9ZX30B0CHB shell am force-stop com.abnzr.barii
 adb -s R9ZX30B0CHB shell am start -W \
-  -n com.abnzr.bookbites/.MainActivity
-adb -s R9ZX30B0CHB shell dumpsys meminfo com.abnzr.bookbites
-adb -s R9ZX30B0CHB shell dumpsys gfxinfo com.abnzr.bookbites
-adb -s R9ZX30B0CHB shell top -b -n 1 -p "$(adb -s R9ZX30B0CHB shell pidof com.abnzr.bookbites)"
+  -n com.abnzr.barii/.MainActivity
+adb -s R9ZX30B0CHB shell dumpsys meminfo com.abnzr.barii
+adb -s R9ZX30B0CHB shell dumpsys gfxinfo com.abnzr.barii
+adb -s R9ZX30B0CHB shell top -b -n 1 -p "$(adb -s R9ZX30B0CHB shell pidof com.abnzr.barii)"
 adb -s R9ZX30B0CHB logcat -d -v threadtime
 ```
 
@@ -114,7 +114,7 @@ ceiling, not a claimed 62597 KB production reader delta. A `top` sample during
 reader work showed 46.6% process CPU. The five Flutter reports recorded 12-18
 new-generation and 4-6 old-generation collections per run.
 
-No BookBites ANR, input timeout, fatal signal, or fatal Dart/Android exception
+No Barii ANR, input timeout, fatal signal, or fatal Dart/Android exception
 appeared in the captured logcat. One initial harness run failed because the
 fixture's first page is a cover figure rather than `SelectableText`; the
 behavior-neutral assertion was corrected and the failed run was not included
@@ -135,4 +135,4 @@ pagination before publishing any page. It consumes about 98% of measured
 tap-to-readable latency for this fixture; parsing and import occur only once
 and are an order of magnitude smaller. M1 should make the first anchored page
 available before the remaining book is paginated, while retaining canonical
-anchors and BookBites' vertical bite presentation.
+anchors and Barii' vertical bite presentation.

@@ -1,7 +1,7 @@
 # Readest Dictionary and Annotation Research
 
 Readest was inspected locally at `../_references/readest`. It is AGPL-3.0.
-BookBites uses its behavior and terminology as a reference; no Readest source
+Barii uses its behavior and terminology as a reference; no Readest source
 was copied or mechanically translated.
 
 ## Dictionary findings
@@ -42,7 +42,7 @@ Useful independent ideas:
 - notebook entries retain quotation and location context;
 - range recovery must not blindly choose the first repeated sentence.
 
-BookBites uses stable bite IDs plus UTF-16 offsets and surrounding context
-instead of EPUB CFI/XPointer because BookBites renders canonical generated
+Barii uses stable bite IDs plus UTF-16 offsets and surrounding context
+instead of EPUB CFI/XPointer because Barii renders canonical generated
 bites rather than publication DOM ranges.
 

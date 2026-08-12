@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:bookbites/core/database/app_database.dart';
+import 'package:barii/core/database/app_database.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -10,9 +10,9 @@ void main() {
     'v2 migration preserves books, progress, notes, and vocabulary',
     () async {
       final directory = await Directory.systemTemp.createTemp(
-        'bookbites-migration-',
+        'barii-migration-',
       );
-      final file = File('${directory.path}/bookbites.sqlite');
+      final file = File('${directory.path}/barii.sqlite');
       final old = sqlite3.open(file.path);
       old.execute('''
       PRAGMA user_version = 2;

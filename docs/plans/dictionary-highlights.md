@@ -3,7 +3,7 @@
 ## Goal
 
 Add validated Limmud-compatible offline dictionary packs and persistent,
-selection-driven highlights without damaging existing BookBites data.
+selection-driven highlights without damaging existing Barii data.
 
 ## Milestones
 
@@ -14,7 +14,7 @@ selection-driven highlights without damaging existing BookBites data.
    read-only SQLite/FTS5 provider with validated atomic import, priority,
    enablement, suggestions, and removal.
 3. Add dictionary settings and richer adaptive lookup UI using current
-   BookBites panels and navigation.
+   Barii panels and navigation.
 4. Add a deterministic highlight anchor resolver and persistence tests,
    including repeated identical text and unresolved ranges.
 5. Replace word recognizers with `SelectableText.rich`, native adaptive context

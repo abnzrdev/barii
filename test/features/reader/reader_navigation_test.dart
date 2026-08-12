@@ -1,4 +1,4 @@
-import 'package:bookbites/features/reader/presentation/reader_navigation.dart';
+import 'package:barii/features/reader/presentation/reader_navigation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 

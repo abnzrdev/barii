@@ -1,6 +1,6 @@
-import 'package:bookbites/features/library/data/epub_parser.dart';
-import 'package:bookbites/features/library/domain/canonical_publication.dart';
-import 'package:bookbites/features/reader/domain/bite_generator.dart';
+import 'package:barii/features/library/data/epub_parser.dart';
+import 'package:barii/features/library/domain/canonical_publication.dart';
+import 'package:barii/features/reader/domain/bite_generator.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/epub_fixture.dart';

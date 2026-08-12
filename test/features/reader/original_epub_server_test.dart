@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:bookbites/features/reader/data/original_epub_server.dart';
+import 'package:barii/features/reader/data/original_epub_server.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/epub_fixture.dart';

@@ -1,5 +1,5 @@
-import 'package:bookbites/core/database/app_database.dart';
-import 'package:bookbites/features/reader/presentation/reader_screen.dart';
+import 'package:barii/core/database/app_database.dart';
+import 'package:barii/features/reader/presentation/reader_screen.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -181,7 +181,7 @@ void main() {
           sourceStart: 32,
           sourceEnd: 54,
           kind: 'figure',
-          assetPath: '/tmp/bookbites-missing.png',
+          assetPath: '/tmp/barii-missing.png',
           altText: 'Diagram',
           caption: 'A calm caption',
         ),

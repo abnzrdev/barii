@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Preserve readable EPUB semantics canonically, then project every readable canonical node into BookBites bites without changing the reader or Plain Reading Mode.
+**Goal:** Preserve readable EPUB semantics canonically, then project every readable canonical node into Barii bites without changing the reader or Plain Reading Mode.
 
 **Architecture:** Enrich the existing `CanonicalNode` tree with effective language/direction and safe semantic attributes. Keep M3b parser-only, then make M3c perform one ordered projection from that tree into the existing `SourceBlock` contract, reusing current asset and bite behavior.
 
@@ -35,7 +35,7 @@
 - [ ] Run format, diff check, analyzer, and focused parser/import tests.
 - [ ] Commit `feat(epub): preserve canonical EPUB semantics`.
 
-### Task 2: M3c complete BookBites projection
+### Task 2: M3c complete Barii projection
 
 **Files:**
 - Modify: `lib/features/library/data/canonical_bite_projection.dart`

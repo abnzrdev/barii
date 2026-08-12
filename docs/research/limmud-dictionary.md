@@ -48,7 +48,7 @@ region, audio filename metadata, forms, relations, etymology, and contributing
 sources. Audio files are not bundled.
 
 The runtime is desktop-only Tauri. The pack format itself is portable.
-BookBites proved the same fixture pack can be opened read-only and queried,
+Barii proved the same fixture pack can be opened read-only and queried,
 including FTS5, through Flutter's current SQLite runtime. That runtime supports
 both Android and Linux.
 
@@ -62,13 +62,13 @@ both Android and Linux.
 - Limmud's synthetic WordNet-shaped fixture: CC BY 4.0.
 
 Application-code licensing does not grant redistribution rights to dictionary
-data. BookBites therefore does not bundle a production dictionary dump.
+data. Barii therefore does not bundle a production dictionary dump.
 
 ## Reuse decision
 
 Reused independently: the SQLite pack contract, validation rules, bounded
 search order, immutable definition snapshots, source metadata, atomic import
 workflow, and test cases. No Rust, TypeScript, Python, or dictionary records
-were copied into BookBites. Users may import a compatible Limmud pack they
+were copied into Barii. Users may import a compatible Limmud pack they
 build or obtain under appropriate data terms.
 

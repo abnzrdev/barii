@@ -1,4 +1,4 @@
-import 'package:bookbites/features/dictionary/domain/word_normalizer.dart';
+import 'package:barii/features/dictionary/domain/word_normalizer.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

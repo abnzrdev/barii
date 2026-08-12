@@ -106,7 +106,7 @@ class _OriginalEpubViewState extends State<OriginalEpubView>
         return;
       }
       await controller.addJavaScriptChannel(
-        'BookBitesLocation',
+        'BariiLocation',
         onMessageReceived: _receiveLocation,
       );
       await controller.setNavigationDelegate(
@@ -291,7 +291,7 @@ class _OriginalEpubViewState extends State<OriginalEpubView>
       return;
     }
     await controller.runJavaScript(
-      'window.__bookBitesOriginalReader?.turn(${delta.sign});',
+      'window.__bariiOriginalReader?.turn(${delta.sign});',
     );
   }
 
@@ -310,7 +310,7 @@ class _OriginalEpubViewState extends State<OriginalEpubView>
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
       unawaited(
-        controller.runJavaScript('window.__bookBitesOriginalReader?.report();'),
+        controller.runJavaScript('window.__bariiOriginalReader?.report();'),
       );
     } else if (state == AppLifecycleState.resumed) {
       _generation++;

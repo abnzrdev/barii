@@ -1,6 +1,6 @@
 # Incremental first-readable pagination
 
-BookBites will treat `biteId + sourceOffset` as the authoritative reader
+Barii will treat `biteId + sourceOffset` as the authoritative reader
 location. On each pagination generation it will paginate that bite first,
 publish the containing page after one frame, and then materialize the remaining
 bites incrementally. Each later publication will resolve the same canonical

@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import '../core/database/app_database.dart';
 import '../features/library/presentation/library_screen.dart';
 
-class BookBitesApp extends StatefulWidget {
-  const BookBitesApp({
+class BariiApp extends StatefulWidget {
+  const BariiApp({
     super.key,
     required this.database,
     required this.storageDirectory,
@@ -16,10 +16,10 @@ class BookBitesApp extends StatefulWidget {
   final Directory storageDirectory;
 
   @override
-  State<BookBitesApp> createState() => _BookBitesAppState();
+  State<BariiApp> createState() => _BariiAppState();
 }
 
-class _BookBitesAppState extends State<BookBitesApp> {
+class _BariiAppState extends State<BariiApp> {
   ThemeMode _themeMode = ThemeMode.system;
 
   @override
@@ -48,7 +48,7 @@ class _BookBitesAppState extends State<BookBitesApp> {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-    title: 'BookBites',
+    title: 'Barii',
     debugShowCheckedModeBanner: false,
     themeMode: _themeMode,
     theme: ThemeData(
