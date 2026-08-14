@@ -14,10 +14,6 @@ A focused reading workspace for EPUB and TXT on Android and Linux.
 ![Platforms](https://img.shields.io/badge/platforms-Android%20%7C%20Linux-5F9B66?style=flat&labelColor=1D2A22)
 ![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-5F9B66?style=flat&labelColor=1D2A22)
 
-<br />
-
-<img src="docs/assets/focus-banner.svg" alt="Focus on the next step, not the summit. A long book can feel like a mountain. Barii helps you move through it one small bite at a time." width="100%" />
-
 </div>
 
 Barii is a local-first reading workspace built to make long-form reading feel lighter and more focused. Instead of filling the screen with an entire chapter, Barii can present a small **bite** at a time while keeping your library, progress, notes, highlights, and reading state on your device.
