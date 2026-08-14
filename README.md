@@ -7,6 +7,8 @@
 
 A focused reading workspace for EPUB and TXT on Android and Linux.
 
+[Install](#build-from-source) · [Documentation](docs/) · [Features](#features) · [Project Notes](#project-notes) · [Contribute](https://github.com/abnzrdev/barii/issues)
+
 ![Status](https://img.shields.io/badge/status-beta-D8B66A)
 ![Flutter](https://img.shields.io/badge/Flutter-Dart-02569B?logo=flutter&logoColor=white)
 ![Platforms](https://img.shields.io/badge/platforms-Android%20%7C%20Linux-1F5A43)
