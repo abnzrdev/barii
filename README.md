@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="docs/assets/barii-logo.webp" alt="Barii app icon" width="180" />
+  <img src="docs/assets/barii-logo.webp" alt="Barii app icon" width="220" />
 
 # Barii
 
@@ -9,16 +9,14 @@ A focused reading workspace for EPUB and TXT on Android and Linux.
 
 [Install](#build-from-source) · [Documentation](docs/) · [Features](#features) · [Project Notes](#project-notes) · [Contribute](https://github.com/abnzrdev/barii/issues)
 
-![Status](https://img.shields.io/badge/status-beta-D8B66A)
-![Flutter](https://img.shields.io/badge/Flutter-Dart-02569B?logo=flutter&logoColor=white)
-![Platforms](https://img.shields.io/badge/platforms-Android%20%7C%20Linux-1F5A43)
-![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-1F5A43)
+![Status](https://img.shields.io/badge/status-beta-C9A34A?style=flat&labelColor=1D2A22)
+![Flutter](https://img.shields.io/badge/Flutter-Dart-0D6CA8?style=flat&logo=flutter&logoColor=white&labelColor=1D2A22)
+![Platforms](https://img.shields.io/badge/platforms-Android%20%7C%20Linux-5F9B66?style=flat&labelColor=1D2A22)
+![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-5F9B66?style=flat&labelColor=1D2A22)
 
 <br />
 
-### Focus on the next step, not the summit.
-
-**A long book can feel like a mountain. Barii helps you move through it one small bite at a time.**
+<img src="docs/assets/focus-banner.svg" alt="Focus on the next step, not the summit. A long book can feel like a mountain. Barii helps you move through it one small bite at a time." width="100%" />
 
 </div>
 
