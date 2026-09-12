@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../core/database/app_database.dart';
 import '../features/library/presentation/library_screen.dart';
+import 'barii_theme.dart';
 
 class BariiApp extends StatefulWidget {
   const BariiApp({
@@ -51,17 +52,8 @@ class _BariiAppState extends State<BariiApp> {
     title: 'Barii',
     debugShowCheckedModeBanner: false,
     themeMode: _themeMode,
-    theme: ThemeData(
-      colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff52634f)),
-      useMaterial3: true,
-    ),
-    darkTheme: ThemeData(
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xff9cb596),
-        brightness: Brightness.dark,
-      ),
-      useMaterial3: true,
-    ),
+    theme: BariiTheme.light(),
+    darkTheme: BariiTheme.dark(),
     home: LibraryScreen(
       database: widget.database,
       storageDirectory: widget.storageDirectory,

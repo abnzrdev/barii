@@ -931,6 +931,12 @@ class _ReaderScreenState extends State<ReaderScreen>
         (Theme.of(context).textTheme.bodyLarge ?? const TextStyle()).copyWith(
           fontSize: _fontSize,
           height: _lineHeight,
+          fontFamily: 'Georgia',
+          fontFamilyFallback: const [
+            'Noto Serif',
+            'Liberation Serif',
+            'DejaVu Serif',
+          ],
         );
     final paginationStyle = textStyle.copyWith(
       fontSize: _paginationFontSize,
@@ -2042,7 +2048,7 @@ class _BiteTextState extends State<_BiteText> {
       'green' => Colors.green.withValues(alpha: 0.28),
       'blue' => Colors.blue.withValues(alpha: 0.25),
       'pink' => Colors.pink.withValues(alpha: 0.25),
-      _ => Colors.amber.withValues(alpha: 0.30),
+      _ => Theme.of(context).colorScheme.tertiaryContainer,
     };
     return highlight.style == 'underline'
         ? TextStyle(

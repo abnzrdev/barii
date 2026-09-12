@@ -8,6 +8,17 @@ import '../../support/epub_fixture.dart';
 void main() {
   const parser = EpubParser();
 
+  test('ignores HTML comments in spine documents', () async {
+    final publication = await parser.parse(
+      epubFixtureBytes(htmlComments: true),
+    );
+
+    expect(publication.sections.first.paragraphs, [
+      'First safe sentence.',
+      'Second safe sentence.',
+    ]);
+  });
+
   test('extracts metadata and sanitized chapters in spine order', () async {
     final publication = await parser.parse(epubFixtureBytes());
 

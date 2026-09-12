@@ -252,7 +252,10 @@ class EpubParser {
           logicalText: node.data,
         );
       }
-      final element = node as Element;
+      if (node is! Element) {
+        return null;
+      }
+      final element = node;
       if (element.localName == 'script' || element.localName == 'style') {
         return null;
       }

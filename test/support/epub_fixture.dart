@@ -14,6 +14,7 @@ List<int> epubFixtureBytes({
   String? renditionFlow,
   String pageProgressionDirection = 'ltr',
   bool nonLinearMiddle = false,
+  bool htmlComments = false,
 }) {
   final archive = Archive()
     ..addFile(ArchiveFile.string('mimetype', 'application/epub+zip'))
@@ -65,7 +66,7 @@ ${figures ? '<item id="png" href="images/dot.png" media-type="image/png"/><item 
         firstXhtml ??
             (emptyContent
                 ? '<html><body><script>remove me</script></body></html>'
-                : '''<html${canonicalSemantics ? ' lang="ar" dir="rtl"' : ''}><body><h1>Chapter One</h1><script>remove me</script>
+                : '''<html${canonicalSemantics ? ' lang="ar" dir="rtl"' : ''}><body>${htmlComments ? '<!-- calibre split -->' : ''}<h1>Chapter One</h1><script>remove me</script>
 <p>First safe sentence.</p><p>Second safe sentence.</p>
 ${canonicalSemantics ? '<p id="semantic-start">Alpha <strong>bold <em id="inner-mark">inner</em></strong> omega.</p>' : ''}
 ${figures ? '<figure><img src="images/dot.png" alt="Green dot"/><figcaption>PNG caption</figcaption></figure><img src="./images/photo.jpg" alt="JPEG portrait"/><img src="images/shape.svg" alt="External SVG"/><svg aria-label="Inline SVG" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4"/></svg>' : ''}

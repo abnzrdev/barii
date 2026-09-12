@@ -197,6 +197,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 const Icon(Icons.auto_stories_outlined, size: 64),
                 const SizedBox(height: 16),
                 Text(
+                  'YOUR SHELF',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    letterSpacing: 3.2,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
                   'Your library is empty',
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
@@ -226,92 +234,115 @@ class _LibraryScreenState extends State<LibraryScreen> {
               itemCount: books.length,
               itemBuilder: (context, index) {
                 final book = books[index];
-                return Card(
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => ReaderScreen(
-                          database: widget.database,
-                          book: book,
-                          themeMode: widget.themeMode,
-                          onThemeChanged: widget.onThemeChanged,
-                          dictionaryRepository: _dictionary,
+                final scheme = Theme.of(context).colorScheme;
+                return DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: scheme.surface,
+                    border: Border.all(color: scheme.onSurface, width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: scheme.onSurface,
+                        offset: const Offset(6, 6),
+                      ),
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => ReaderScreen(
+                            database: widget.database,
+                            book: book,
+                            themeMode: widget.themeMode,
+                            onThemeChanged: widget.onThemeChanged,
+                            dictionaryRepository: _dictionary,
+                          ),
                         ),
                       ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.menu_book),
-                              const Spacer(),
-                              PopupMenuButton<String>(
-                                tooltip: 'Book actions',
-                                onSelected: (action) {
-                                  switch (action) {
-                                    case 'rename':
-                                      _rename(book);
-                                    case 'notes':
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute<void>(
-                                          builder: (_) => NotebookScreen(
-                                            database: widget.database,
-                                            book: book,
-                                            dictionaryRepository: _dictionary,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  width: 28,
+                                  height: 3,
+                                  color: scheme.onSurface,
+                                ),
+                                const Spacer(),
+                                PopupMenuButton<String>(
+                                  tooltip: 'Book actions',
+                                  onSelected: (action) {
+                                    switch (action) {
+                                      case 'rename':
+                                        _rename(book);
+                                      case 'notes':
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute<void>(
+                                            builder: (_) => NotebookScreen(
+                                              database: widget.database,
+                                              book: book,
+                                              dictionaryRepository: _dictionary,
+                                            ),
                                           ),
-                                        ),
-                                      );
-                                    case 'vocabulary':
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute<void>(
-                                          builder: (_) => VocabularyScreen(
-                                            database: widget.database,
-                                            book: book,
+                                        );
+                                      case 'vocabulary':
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute<void>(
+                                            builder: (_) => VocabularyScreen(
+                                              database: widget.database,
+                                              book: book,
+                                            ),
                                           ),
-                                        ),
-                                      );
-                                    case 'delete':
-                                      _delete(book);
-                                  }
-                                },
-                                itemBuilder: (_) => const [
-                                  PopupMenuItem(
-                                    value: 'rename',
-                                    child: Text('Rename'),
+                                        );
+                                      case 'delete':
+                                        _delete(book);
+                                    }
+                                  },
+                                  itemBuilder: (_) => const [
+                                    PopupMenuItem(
+                                      value: 'rename',
+                                      child: Text('Rename'),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'notes',
+                                      child: Text('Notebook'),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'vocabulary',
+                                      child: Text('Vocabulary'),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'delete',
+                                      child: Text('Delete'),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            const Spacer(),
+                            Text(
+                              book.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            Text(
+                              book.author,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: scheme.onSurface.withValues(
+                                      alpha: 0.6,
+                                    ),
                                   ),
-                                  PopupMenuItem(
-                                    value: 'notes',
-                                    child: Text('Notebook'),
-                                  ),
-                                  PopupMenuItem(
-                                    value: 'vocabulary',
-                                    child: Text('Vocabulary'),
-                                  ),
-                                  PopupMenuItem(
-                                    value: 'delete',
-                                    child: Text('Delete'),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const Spacer(),
-                          Text(
-                            book.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          Text(
-                            book.author,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
