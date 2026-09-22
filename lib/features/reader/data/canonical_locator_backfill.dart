@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import '../../library/data/epub_parser.dart';
 import '../../library/domain/canonical_publication.dart';
@@ -47,7 +48,12 @@ class CanonicalLocatorBackfill {
     }
 
     try {
-      final parsed = await parser.parse(await source.readAsBytes());
+      final sourcePath = source.path;
+      final epubParser = parser;
+      final parsed = await Isolate.run(
+        () async => epubParser.parse(await File(sourcePath).readAsBytes()),
+        debugName: 'Barii canonical locator backfill',
+      );
       final canonical = parsed.canonical;
       if (canonical == null) {
         return CanonicalBackfillResult(updated: 0, skipped: missing.length);

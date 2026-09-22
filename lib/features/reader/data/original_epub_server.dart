@@ -2,11 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:path/path.dart' as path;
 import 'package:xml/xml.dart';
+
+import '../../library/data/book_resource_limits.dart';
 
 const _csp =
     "default-src 'self' data: blob:; script-src 'none'; "
@@ -24,7 +27,11 @@ class OriginalEpubPublication {
     required this.pageProgressionDirection,
   });
 
-  factory OriginalEpubPublication.fromBytes(List<int> bytes) {
+  factory OriginalEpubPublication.fromBytes(
+    List<int> bytes, {
+    BookResourceLimits limits = const BookResourceLimits(),
+  }) {
+    limits.validateEpub(bytes);
     final archive = ZipDecoder().decodeBytes(bytes, verify: true);
     final resources = <String, Uint8List>{};
     for (final file in archive.files) {
@@ -119,6 +126,17 @@ class OriginalEpubPublication {
       pageProgressionDirection: pageProgressionDirection,
     );
   }
+
+  static Future<OriginalEpubPublication> openFile(
+    String path, {
+    BookResourceLimits limits = const BookResourceLimits(),
+  }) => Isolate.run(
+    () async => OriginalEpubPublication.fromBytes(
+      await File(path).readAsBytes(),
+      limits: limits,
+    ),
+    debugName: 'Barii original EPUB processing',
+  );
 
   final Map<String, Uint8List> resources;
   final List<String> spinePaths;

@@ -185,6 +185,31 @@ class _LibraryScreenState extends State<LibraryScreen> {
     body: FutureBuilder<List<Book>>(
       future: _books,
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline, size: 48),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Your library could not be loaded.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    onPressed: () =>
+                        setState(() => _books = widget.database.allBooks()),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
         final books = snapshot.data;
         if (books == null || _busy) {
           return const Center(child: CircularProgressIndicator());

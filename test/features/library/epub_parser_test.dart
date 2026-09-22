@@ -1,4 +1,5 @@
 import 'package:barii/features/library/data/epub_parser.dart';
+import 'package:barii/features/library/data/book_resource_limits.dart';
 import 'package:barii/features/library/domain/canonical_publication.dart';
 import 'package:barii/features/reader/domain/bite_generator.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -40,6 +41,97 @@ void main() {
 
   test('reports invalid archives without leaking parser errors', () async {
     expect(() => parser.parse([1, 2, 3]), throwsA(isA<BookParseException>()));
+  });
+
+  group('resource limits', () {
+    test('rejects source bytes before archive decoding', () async {
+      const limited = EpubParser(limits: BookResourceLimits(maxSourceBytes: 8));
+
+      expect(
+        () => limited.parse(epubFixtureBytes()),
+        throwsA(
+          isA<BookResourceLimitException>().having(
+            (error) => error.kind,
+            'kind',
+            BookResourceLimitKind.sourceBytes,
+          ),
+        ),
+      );
+    });
+
+    test('rejects too many entries from central-directory metadata', () async {
+      const limited = EpubParser(
+        limits: BookResourceLimits(maxArchiveEntries: 2),
+      );
+
+      expect(
+        () => limited.parse(epubFixtureBytes()),
+        throwsA(
+          isA<BookResourceLimitException>().having(
+            (error) => error.kind,
+            'kind',
+            BookResourceLimitKind.archiveEntries,
+          ),
+        ),
+      );
+    });
+
+    test('rejects oversized expanded entries before decompression', () async {
+      const limited = EpubParser(
+        limits: BookResourceLimits(maxExpandedEntryBytes: 8),
+      );
+
+      expect(
+        () => limited.parse(epubFixtureBytes()),
+        throwsA(
+          isA<BookResourceLimitException>().having(
+            (error) => error.kind,
+            'kind',
+            BookResourceLimitKind.expandedEntryBytes,
+          ),
+        ),
+      );
+    });
+
+    test(
+      'rejects oversized aggregate expansion before decompression',
+      () async {
+        const limited = EpubParser(
+          limits: BookResourceLimits(maxExpandedArchiveBytes: 32),
+        );
+
+        expect(
+          () => limited.parse(epubFixtureBytes()),
+          throwsA(
+            isA<BookResourceLimitException>().having(
+              (error) => error.kind,
+              'kind',
+              BookResourceLimitKind.expandedArchiveBytes,
+            ),
+          ),
+        );
+      },
+    );
+
+    test(
+      'rejects suspicious compression ratios before decompression',
+      () async {
+        const limited = EpubParser(
+          limits: BookResourceLimits(maxCompressionRatio: 1),
+        );
+
+        expect(
+          () => limited.parse(epubFixtureBytes()),
+          throwsA(
+            isA<BookResourceLimitException>().having(
+              (error) => error.kind,
+              'kind',
+              BookResourceLimitKind.compressionRatio,
+            ),
+          ),
+        );
+      },
+    );
   });
 
   test('rejects EPUBs without readable content', () async {

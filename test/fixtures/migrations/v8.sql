@@ -1,0 +1,2 @@
+-- c38c0095ca0df7e705b2584c58e84ff2a46a9a3e
+ALTER TABLE bites ADD COLUMN markup TEXT;

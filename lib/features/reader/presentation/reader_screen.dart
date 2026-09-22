@@ -100,6 +100,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   var _alignment = TextAlign.start;
   String _recentWord = 'book';
   _OpenPanel? _panel;
+  Object? _loadError;
 
   @override
   void initState() {
@@ -127,69 +128,76 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   Future<void> _load() async {
     final loadTask = TimelineTask()..start('Reader.contentLoad');
-    final bites = await widget.database.bitesForBook(widget.book.id);
-    final progress = await widget.database.progressFor(widget.book.id);
-    final preferences = await widget.database.preferences();
-    final viewMode = await widget.database.readerViewMode(widget.book.id);
-    final canonicalRecord = await widget.database.canonicalPublicationFor(
-      widget.book.id,
-    );
-    final canonical = canonicalRecord == null
-        ? null
-        : CanonicalPublication.fromJson(
-            (jsonDecode(canonicalRecord.publicationJson) as Map)
-                .cast<String, Object?>(),
-          );
-    loadTask.finish(arguments: {'bites': bites.length});
-    final restored = progress == null
-        ? 0
-        : bites.indexWhere((bite) => bite.id == progress.biteId);
-    if (mounted) {
-      final index = (restored < 0 ? progress?.bitePosition ?? 0 : restored)
-          .clamp(0, bites.isEmpty ? 0 : bites.length - 1);
-      final spineIndex = bites.isEmpty
+    if (mounted) setState(() => _loadError = null);
+    try {
+      final bites = await widget.database.bitesForBook(widget.book.id);
+      final progress = await widget.database.progressFor(widget.book.id);
+      final preferences = await widget.database.preferences();
+      final viewMode = await widget.database.readerViewMode(widget.book.id);
+      final canonicalRecord = await widget.database.canonicalPublicationFor(
+        widget.book.id,
+      );
+      final canonical = canonicalRecord == null
+          ? null
+          : CanonicalPublication.fromJson(
+              (jsonDecode(canonicalRecord.publicationJson) as Map)
+                  .cast<String, Object?>(),
+            );
+      final restored = progress == null
           ? 0
-          : await widget.database.sectionPositionForBite(bites[index].id) ?? 0;
-      if (!mounted) return;
-      setState(() {
-        _bites = bites;
-        _index = 0;
-        _anchorBiteId = bites.isEmpty ? null : bites[index].id;
-        _sourceOffset = progress?.sourceOffset ?? 0;
-        _pageController = PageController();
-        _fontSize = preferences.fontSize;
-        _lineHeight = preferences.lineHeight;
-        _paginationFontSize = preferences.fontSize;
-        _paginationLineHeight = preferences.lineHeight;
-        _readingWidth = preferences.readingWidth;
-        _pageMargin = preferences.pageMargin;
-        _paginationReadingWidth = preferences.readingWidth;
-        _paginationPageMargin = preferences.pageMargin;
-        _autoHideControls = preferences.autoHideControls;
-        _hapticsEnabled = preferences.hapticsEnabled;
-        _showProgress = preferences.showProgress;
-        _plainReadingMode = preferences.plainReadingMode;
-        _originalView =
-            viewMode.startsWith('original') && widget.book.fileType == 'epub';
-        _originalPresentation = OriginalEpubPresentation.fromReaderViewMode(
-          viewMode,
-        );
-        _originalSpineIndex = spineIndex;
-        _originalOccurrences =
-            canonical?.readingOrder
-                .where((occurrence) => occurrence.linear)
-                .toList() ??
-            const [];
-        _alignment = switch (preferences.alignment) {
-          'center' => TextAlign.center,
-          'justify' => TextAlign.justify,
-          _ => TextAlign.start,
-        };
-        if (bites.isNotEmpty) _recentWord = _firstWord(bites[_index].content);
-      });
-      _focusNode.requestFocus();
-      _resetFocusTimer();
-      _refreshBookmark();
+          : bites.indexWhere((bite) => bite.id == progress.biteId);
+      if (mounted) {
+        final index = (restored < 0 ? progress?.bitePosition ?? 0 : restored)
+            .clamp(0, bites.isEmpty ? 0 : bites.length - 1);
+        final spineIndex = bites.isEmpty
+            ? 0
+            : await widget.database.sectionPositionForBite(bites[index].id) ??
+                  0;
+        if (!mounted) return;
+        setState(() {
+          _bites = bites;
+          _index = 0;
+          _anchorBiteId = bites.isEmpty ? null : bites[index].id;
+          _sourceOffset = progress?.sourceOffset ?? 0;
+          _pageController = PageController();
+          _fontSize = preferences.fontSize;
+          _lineHeight = preferences.lineHeight;
+          _paginationFontSize = preferences.fontSize;
+          _paginationLineHeight = preferences.lineHeight;
+          _readingWidth = preferences.readingWidth;
+          _pageMargin = preferences.pageMargin;
+          _paginationReadingWidth = preferences.readingWidth;
+          _paginationPageMargin = preferences.pageMargin;
+          _autoHideControls = preferences.autoHideControls;
+          _hapticsEnabled = preferences.hapticsEnabled;
+          _showProgress = preferences.showProgress;
+          _plainReadingMode = preferences.plainReadingMode;
+          _originalView =
+              viewMode.startsWith('original') && widget.book.fileType == 'epub';
+          _originalPresentation = OriginalEpubPresentation.fromReaderViewMode(
+            viewMode,
+          );
+          _originalSpineIndex = spineIndex;
+          _originalOccurrences =
+              canonical?.readingOrder
+                  .where((occurrence) => occurrence.linear)
+                  .toList() ??
+              const [];
+          _alignment = switch (preferences.alignment) {
+            'center' => TextAlign.center,
+            'justify' => TextAlign.justify,
+            _ => TextAlign.start,
+          };
+          if (bites.isNotEmpty) _recentWord = _firstWord(bites[_index].content);
+        });
+        _focusNode.requestFocus();
+        _resetFocusTimer();
+        _refreshBookmark();
+      }
+      loadTask.finish(arguments: {'bites': bites.length});
+    } catch (error) {
+      loadTask.finish(arguments: {'error': error.runtimeType.toString()});
+      if (mounted) setState(() => _loadError = error);
     }
   }
 
@@ -1037,7 +1045,31 @@ class _ReaderScreenState extends State<ReaderScreen>
                 ),
               ],
             ),
-            body: _originalView
+            body: _loadError != null
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.error_outline, size: 48),
+                          const SizedBox(height: 16),
+                          const Text('This book could not be loaded.'),
+                          const SizedBox(height: 16),
+                          FilledButton.icon(
+                            onPressed: _load,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Retry'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.maybePop(context),
+                            child: const Text('Return to library'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : _originalView
                 ? OriginalEpubView(
                     key: ValueKey('original-${widget.book.id}'),
                     epubPath: widget.book.filePath,

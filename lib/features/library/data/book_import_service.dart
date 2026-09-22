@@ -6,22 +6,19 @@ import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as path;
 
 import '../../../core/database/app_database.dart';
-import '../../reader/domain/bite_generator.dart';
 import '../domain/canonical_publication.dart';
-import 'epub_parser.dart';
+import 'book_processing_worker.dart';
 
 class BookImportService {
   BookImportService({
     required this.database,
     required this.storageDirectory,
-    this.epubParser = const EpubParser(),
-    this.biteGenerator = const BiteGenerator(),
+    this.processingWorker = const BookProcessingWorker(),
   });
 
   final AppDatabase database;
   final Directory storageDirectory;
-  final EpubParser epubParser;
-  final BiteGenerator biteGenerator;
+  final BookProcessingWorker processingWorker;
 
   Future<Book> importFile(String sourcePath) async {
     final importTask = TimelineTask()..start('Import.total');
@@ -41,44 +38,22 @@ class BookImportService {
     if (extension != '.txt' && extension != '.epub') {
       throw const UnsupportedBookException();
     }
-    final readTask = TimelineTask()..start('Import.fileRead');
-    final bytes = await source.readAsBytes();
-    readTask.finish(arguments: {'bytes': bytes.length});
-    final fingerprint = Timeline.timeSync(
-      'Import.fingerprint',
-      () => sha256.convert(bytes).toString(),
-      arguments: {'bytes': bytes.length},
-    );
+    final fingerprint = await processingWorker.fingerprint(sourcePath);
     final existing = await database.bookByFingerprint(fingerprint);
     if (existing != null) return existing;
 
-    final ParsedPublication publication;
-    if (extension == '.epub') {
-      publication = await epubParser.parse(bytes);
-    } else {
-      final text = await source.readAsString();
-      final paragraphs = text
-          .split(RegExp(r'\n\s*\n'))
-          .map((part) => part.replaceAll(RegExp(r'\s+'), ' ').trim())
-          .where((part) => part.isNotEmpty)
-          .toList();
-      if (paragraphs.isEmpty) throw const EmptyBookException();
-      publication = ParsedPublication(
-        title: path.basenameWithoutExtension(sourcePath),
-        author: 'Unknown author',
-        sections: [SourceSection(index: 0, paragraphs: paragraphs)],
+    late final ProcessedBook processed;
+    try {
+      processed = await processingWorker.process(
+        sourcePath: sourcePath,
+        extension: extension,
+        fingerprint: fingerprint,
       );
+    } on EmptyProcessedBookException {
+      throw const EmptyBookException();
     }
-
-    final generated = Timeline.timeSync(
-      'Import.biteGeneration',
-      () => biteGenerator.generate(
-        bookFingerprint: fingerprint,
-        sections: publication.sections,
-      ),
-      arguments: {'sections': publication.sections.length},
-    );
-    if (generated.isEmpty) throw const EmptyBookException();
+    final publication = processed.publication;
+    final generated = processed.bites;
     final filesTask = TimelineTask()..start('Import.managedFiles');
     await storageDirectory.create(recursive: true);
     final destination = File(

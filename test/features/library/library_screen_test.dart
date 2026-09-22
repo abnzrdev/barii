@@ -37,4 +37,18 @@ void main() {
     expect(find.byTooltip('Import EPUB or TXT'), findsWidgets);
     expect(find.text('Add sample book'), findsOneWidget);
   });
+
+  testWidgets('shows an actionable library load failure', (tester) async {
+    await database.close();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LibraryScreen(database: database, storageDirectory: storage),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Your library could not be loaded.'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Retry'), findsOneWidget);
+  });
 }

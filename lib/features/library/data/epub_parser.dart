@@ -11,6 +11,7 @@ import 'package:image/image.dart' as image;
 import '../domain/canonical_publication.dart';
 import '../../reader/domain/bite_generator.dart';
 import 'canonical_bite_projection.dart';
+import 'book_resource_limits.dart';
 
 class ParsedPublication {
   const ParsedPublication({
@@ -31,11 +32,14 @@ class ParsedPublication {
 }
 
 class EpubParser {
-  const EpubParser();
+  const EpubParser({this.limits = const BookResourceLimits()});
+
+  final BookResourceLimits limits;
 
   Future<ParsedPublication> parse(List<int> bytes) async {
     final parseTask = TimelineTask()..start('Epub.parse');
     try {
+      limits.validateEpub(bytes);
       final archive = Timeline.timeSync(
         'Epub.archiveDecode',
         () => ZipDecoder().decodeBytes(bytes, verify: true),
@@ -115,6 +119,12 @@ class EpubParser {
         },
       );
       return publication;
+    } on BookResourceLimitException catch (error) {
+      parseTask.finish(arguments: {'error': 'resourceLimit'});
+      if (error.kind == BookResourceLimitKind.invalidArchive) {
+        throw const BookParseException('This EPUB could not be read.');
+      }
+      rethrow;
     } on UnsupportedDrmException {
       parseTask.finish(arguments: {'error': 'unsupportedDrm'});
       rethrow;

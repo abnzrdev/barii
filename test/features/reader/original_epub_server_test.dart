@@ -2,11 +2,21 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:barii/features/reader/data/original_epub_server.dart';
+import 'package:barii/features/library/data/book_resource_limits.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/epub_fixture.dart';
 
 void main() {
+  test('original publication applies the shared resource limits', () {
+    expect(
+      () => OriginalEpubPublication.fromBytes(
+        epubFixtureBytes(),
+        limits: const BookResourceLimits(maxArchiveEntries: 2),
+      ),
+      throwsA(isA<BookResourceLimitException>()),
+    );
+  });
   test('serves only managed EPUB resources with restrictive CSP', () async {
     final publication = OriginalEpubPublication.fromBytes(epubFixtureBytes());
     final server = await publication.serve();

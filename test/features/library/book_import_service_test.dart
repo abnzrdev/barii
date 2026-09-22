@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:barii/core/database/app_database.dart';
 import 'package:barii/features/library/data/book_import_service.dart';
+import 'package:barii/features/library/data/book_resource_limits.dart';
+import 'package:barii/features/library/data/book_processing_worker.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -182,5 +184,24 @@ void main() {
       () => service.importFile(pdf.path),
       throwsA(isA<UnsupportedBookException>()),
     );
+  });
+
+  test('rejects oversized TXT before storing it', () async {
+    final file = File('${source.path}/large.txt');
+    await file.writeAsString('A sentence that exceeds the test limit.');
+    final service = BookImportService(
+      database: database,
+      storageDirectory: storage,
+      processingWorker: const BookProcessingWorker(
+        limits: BookResourceLimits(maxSourceBytes: 8),
+      ),
+    );
+
+    expect(
+      () => service.importFile(file.path),
+      throwsA(isA<BookResourceLimitException>()),
+    );
+    expect(await database.allBooks(), isEmpty);
+    expect(await storage.list().toList(), isEmpty);
   });
 }

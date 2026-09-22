@@ -49,6 +49,26 @@ void main() {
 
   tearDown(() => database.close());
 
+  testWidgets('reader load failure offers retry and return actions', (
+    tester,
+  ) async {
+    await database.close();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReaderScreen(database: database, book: book),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('This book could not be loaded.'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Retry'), findsOneWidget);
+    expect(
+      find.widgetWithText(TextButton, 'Return to library'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('renders one bite with accessible equivalent controls', (
     tester,
   ) async {

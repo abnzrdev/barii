@@ -1,0 +1,2 @@
+-- c380524f35b442838ab1bffad5e539d87c8e72df
+ALTER TABLE reading_progress ADD COLUMN source_offset INTEGER NOT NULL DEFAULT 0;

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
@@ -71,9 +70,18 @@ class _OriginalEpubViewState extends State<OriginalEpubView>
   }
 
   Future<void> _open() async {
+    final previousServer = _server;
+    _server = null;
+    if (previousServer != null) await previousServer.close();
+    if (mounted) {
+      setState(() {
+        _error = null;
+        _controller = null;
+      });
+    }
     try {
-      final publication = OriginalEpubPublication.fromBytes(
-        await File(widget.epubPath).readAsBytes(),
+      final publication = await OriginalEpubPublication.openFile(
+        widget.epubPath,
       );
       if (publication.spinePaths.isEmpty) {
         throw const FormatException('This EPUB has no readable spine.');
@@ -341,7 +349,25 @@ class _OriginalEpubViewState extends State<OriginalEpubView>
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text(error.toString(), textAlign: TextAlign.center),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, size: 48),
+              const SizedBox(height: 16),
+              const Text(
+                'This book could not be opened in Original view.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(error.toString(), textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: _open,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
         ),
       );
     }
