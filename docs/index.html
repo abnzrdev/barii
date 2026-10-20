@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Barii is an offline-first EPUB and TXT reader for Android and Linux with bite-sized reading, notes, highlights, and local progress.">
+<meta name="theme-color" content="#f5f8f1">
+<meta property="og:title" content="Barii — A quieter way to read.">
+<meta property="og:description" content="Barii is an offline-first EPUB and TXT reader for Android and Linux with bite-sized reading, notes, highlights, and local progress.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://abnzrdev.github.io/barii/">
+<title>Barii — A quieter way to read.</title>
+<style>
+:root{--ink:#1c2c30;--muted:#647370;--line:#dae5df;--cream:#f7f9f5;--accent:#3c8f72;--surface:white;--shadow:0 24px 72px rgba(20,40,35,.09);font-synthesis:none}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--cream);color:var(--ink);line-height:1.55}
+a{color:inherit;text-decoration:none}
+a:focus-visible{outline:3px solid var(--accent);outline-offset:5px;border-radius:4px}
+.container{width:min(1130px,calc(100% - 48px));margin:auto}
+.site-nav{height:86px;display:flex;justify-content:space-between;align-items:center;gap:16px}
+.brand{display:flex;align-items:center;gap:11px;font-size:22px;font-weight:790;letter-spacing:-.06em}
+.mark{display:grid;place-items:center;width:36px;height:36px;border-radius:12px;background:var(--accent);color:#fff;font-size:20px}
+.nav-links{display:flex;align-items:center;gap:30px;color:var(--muted);font-size:14px;font-weight:630}
+.nav-links a:hover,.subtle-link:hover{text-decoration:underline;text-underline-offset:4px}
+.nav-pill{padding:10px 17px;border:1px solid var(--line);border-radius:99px;color:var(--ink)}
+.hero{display:grid;grid-template-columns:1.03fr .97fr;align-items:center;gap:55px;padding:70px 0 80px}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:760;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.eyebrow:before{content:"";height:8px;width:8px;border-radius:50%;background:var(--accent)}
+h1,h2,h3,p{margin-top:0}
+h1{font-size:clamp(49px,6.2vw,77px);line-height:1.02;letter-spacing:-.073em;margin:24px 0 25px;font-weight:790}
+.lead{font-size:18px;color:var(--muted);line-height:1.75;max-width:535px}
+.ctas{display:flex;gap:13px;flex-wrap:wrap;margin-top:30px}
+.button{display:inline-flex;justify-content:center;align-items:center;gap:11px;padding:13px 21px;border-radius:11px;font-size:14px;font-weight:730;transition:transform .2s,box-shadow .2s}
+.button:hover{transform:translateY(-2px)}
+.button-primary{background:var(--accent);color:#fff;box-shadow:0 10px 26px color-mix(in srgb,var(--accent),transparent 76%)}
+.button-secondary{background:transparent;border:1px solid var(--line)}
+.hero-note{font-size:12px;color:var(--muted);margin:18px 0 0}
+.showcase{position:relative;min-width:0}
+.preview{border:1px solid var(--line);box-shadow:var(--shadow);background:var(--surface);border-radius:22px;overflow:hidden}
+.preview-label{color:var(--muted);text-align:center;font-size:11px;margin-top:13px}
+.section{padding:82px 0;border-top:1px solid var(--line)}
+.section-head{display:flex;align-items:end;justify-content:space-between;gap:35px;margin-bottom:33px}
+.section h2{font-size:clamp(29px,3.8vw,42px);line-height:1.12;letter-spacing:-.055em;font-weight:760;margin:14px 0 0;max-width:700px}
+.section-subtitle{max-width:400px;color:var(--muted);font-size:15px;line-height:1.75}
+.features{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.feature{background:var(--surface);padding:27px;border:1px solid var(--line);border-radius:17px;min-height:180px}
+.feature .number{font-size:12px;letter-spacing:.11em;font-weight:780;color:var(--accent)}
+.feature h3{font-size:18px;letter-spacing:-.035em;margin:25px 0 9px}
+.feature p{font-size:14px;line-height:1.75;color:var(--muted);margin:0}
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px;counter-reset:step}
+.step{border-left:1px solid var(--line);padding-left:22px}
+.step:before{counter-increment:step;content:"0" counter(step);display:block;color:var(--accent);font-size:15px;font-weight:770;margin-bottom:16px}
+.step h3{margin-bottom:9px;font-size:17px;letter-spacing:-.035em}
+.step p{color:var(--muted);font-size:14px;line-height:1.7}
+.detail{background:var(--surface);border-radius:21px;border:1px solid var(--line);padding:32px;display:grid;grid-template-columns:1.2fr .8fr;gap:35px}
+.detail h3{letter-spacing:-.04em;font-size:23px;margin:12px 0}
+.detail p{color:var(--muted);font-size:14px;line-height:1.8}
+.stack{display:flex;flex-wrap:wrap;gap:8px;align-content:start;justify-content:start}
+.chip{display:inline-block;border:1px solid var(--line);border-radius:99px;padding:7px 13px;color:var(--ink);font-size:12px;font-weight:620;background:var(--cream)}
+.note{color:var(--muted);font-size:12px!important}
+.cta-band{margin:60px 0;background:var(--ink);color:white;padding:44px;border-radius:22px;display:flex;align-items:center;justify-content:space-between;gap:24px}
+.cta-band h2{font-size:30px;letter-spacing:-.05em;margin:8px 0}
+.cta-band p{color:#d3dbd7;font-size:14px;margin:0}
+.cta-band .button{background:#fff;color:#1b302b;white-space:nowrap}
+.footer{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:28px 0 46px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+.footer a:hover{text-decoration:underline}
+@media(max-width:850px){.hero{grid-template-columns:1fr;gap:36px;padding:52px 0}.hero .showcase{max-width:680px;width:100%;margin:auto}.section-head{align-items:start;flex-direction:column;gap:7px}.features{grid-template-columns:repeat(2,minmax(0,1fr))}.detail{grid-template-columns:1fr}.steps{grid-template-columns:1fr}.step{padding-bottom:14px}}
+@media(max-width:570px){.container{width:min(100% - 34px,1130px)}.site-nav{height:72px}.nav-links{gap:13px}.nav-links a:not(.nav-pill){display:none}.nav-pill{padding:8px 13px}h1{font-size:53px}.lead{font-size:16px}.features{grid-template-columns:1fr}.section{padding:64px 0}.cta-band{flex-direction:column;align-items:start;padding:28px}.footer{flex-direction:column;align-items:start}.button{padding:12px 16px}}
+
+:root{--ink:#1c312a;--muted:#64746b;--line:#dce8dc;--cream:#f5f8f1;--accent:#427d54;--surface:#fff;}
+.reader-scene{min-height:478px;padding:0 26px 25px;background:#eaf1e6}
+.reader-toolbar{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#55685b;font-weight:700;padding:20px 0;letter-spacing:.02em}.reader-symbol{display:grid;place-items:center;background:#dcebd9;width:33px;height:33px;border-radius:11px;color:#427d54;font-size:24px}.reader-moon{font-size:22px}
+.reader-book{background:#fdfaf1;max-width:370px;margin:8px auto 15px;padding:32px 31px 23px;border:1px solid #e6deca;border-radius:7px;box-shadow:0 14px 35px #7b876f20;min-height:340px}
+.reader-book .chapter{font-size:10px;font-weight:760;letter-spacing:.13em;color:#8a8d7b;margin-bottom:24px}
+.reader-book h3{font:italic 28px/1.18 Georgia,serif;letter-spacing:-.04em;color:#2e4433;margin-bottom:20px}
+.reader-book p{font:16px/1.8 Georgia,serif;color:#596450;margin-bottom:15px}
+.reader-progress{background:#e4e7d6;border-radius:99px;height:4px;margin-top:27px}.reader-progress span{display:block;width:37%;height:100%;border-radius:99px;background:#4c8366}
+.reader-bottom{display:flex;justify-content:space-between;margin-top:16px;font-size:11px;color:#7a897d}
+.reader-dock{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}.reader-dock span{font-size:10px;background:#e0eade;color:#54725c;padding:6px 10px;border-radius:99px}</style>
+</head>
+<body>
+<div class="container">
+<nav class="site-nav" aria-label="Main navigation">
+  <a href="#top" class="brand" aria-label="Barii home"><span class="mark" aria-hidden="true">◒</span>Barii</a>
+  <div class="nav-links"><a href="#features">Features</a><a href="#how-it-works">How it works</a><a class="nav-pill" href="https://github.com/abnzrdev/barii" target="_blank" rel="noopener noreferrer">View source ↗</a></div>
+</nav>
+<main id="top">
+<section class="hero" aria-labelledby="hero-title">
+  <div class="hero-copy">
+    <div class="eyebrow">EARLY BETA · v0.1.0-beta.1</div>
+    <h1 id="hero-title">A quieter way to read.</h1>
+    <p class="lead">An offline-first EPUB and TXT reading workspace for Android and Linux. Move through books one small bite at a time, without losing your place.</p>
+    <div class="ctas"><a class="button button-primary" href="https://github.com/abnzrdev/barii" target="_blank" rel="noopener noreferrer">Explore on GitHub <span aria-hidden="true">↗</span></a><a class="button button-secondary" href="#features">Explore features <span aria-hidden="true">↓</span></a></div>
+    <p class="hero-note">Open source · Local-first · No account required</p>
+  </div>
+  <div class="showcase">
+    <div class="preview" role="img" aria-label="Illustrative Barii interface layout, not a screenshot of the running application"><div class="reader-scene">
+    <div class="reader-toolbar"><span class="reader-symbol">◒</span><span>Reading space</span><span class="reader-moon">☼</span></div>
+    <div class="reader-book"><div class="chapter">A SMALL MOMENT · CHAPTER 03</div><h3>One page at a time.</h3><p>Good reading asks for very little. A quiet place, a few sentences, and permission to begin again.</p><p>Let the next paragraph be enough for now.</p><div class="reader-progress"><span></span></div><div class="reader-bottom"><span>← Previous bite</span><span>Next bite →</span></div></div>
+    <div class="reader-dock"><span>EPUB &amp; TXT</span><span>Notes</span><span>Highlights</span><span>Local progress</span></div>
+  </div></div>
+    <div class="preview-label">Illustrative interface preview · not a product screenshot</div>
+  </div>
+</section>
+<section class="section" id="features">
+  <div class="section-head"><div><div class="eyebrow">WHY IT EXISTS</div><h2>Less friction. More focus.</h2></div><p class="section-subtitle">Designed around simple, offline-first workflows. These are the features in the project's published scope.</p></div>
+  <div class="features"><article class="feature"><div class="number">01</div><h3>Read in bites</h3><p>A focused mode reveals a small piece of text at a time. Switch to the book's original EPUB view whenever you prefer.</p></article><article class="feature"><div class="number">02</div><h3>Keep what matters</h3><p>Notes, highlights, reading position and progress stay with your local library.</p></article><article class="feature"><div class="number">03</div><h3>Read without the cloud</h3><p>The core reading workflow works offline with books stored on your device.</p></article><article class="feature"><div class="number">04</div><h3>Stay with your book</h3><p>Directional gestures make it easy to move between bites, notes, and dictionary workflows.</p></article><article class="feature"><div class="number">05</div><h3>Your reading space</h3><p>Adjust themes and typography to make longer sessions more comfortable.</p></article><article class="feature"><div class="number">06</div><h3>Android and Linux</h3><p>Cross-platform Flutter application with local-first persistence.</p></article></div>
+</section>
+<section class="section" id="how-it-works">
+  <div class="section-head"><div><div class="eyebrow">THE WORKFLOW</div><h2>Three steps, one clear experience.</h2></div></div>
+  <div class="steps"><article class="step"><h3>Bring a book</h3><p>Import EPUB or TXT content directly from your device.</p></article><article class="step"><h3>Choose your pace</h3><p>Read bite by bite or keep the original EPUB structure.</p></article><article class="step"><h3>Pick up where you left off</h3><p>Find your last position, notes and highlights, even offline.</p></article></div>
+</section>
+<section class="section" id="technical">
+  <div class="detail"><div><div class="eyebrow">UNDER THE HOOD</div><h3>Built for offline-first reading.</h3><p>Barii uses Flutter, Dart, Riverpod and a local SQLite database. Its architecture separates reader, library and notes features so the experience can grow without requiring accounts or a hosted service.</p><p><strong>Early beta, built in the open.</strong> The current release is v0.1.0-beta.1. Installable GitHub Release artifacts are not published yet; interested users can clone the source and run the project locally using the README instructions.</p></div><div><div class="eyebrow" style="margin-bottom:20px">TECHNOLOGIES</div><div class="stack"><span class="chip">Flutter</span><span class="chip">Dart</span><span class="chip">Riverpod</span><span class="chip">Drift + SQLite</span><span class="chip">EPUB / TXT</span><span class="chip">Android</span><span class="chip">Linux</span></div></div></div>
+</section>
+<section class="cta-band"><div><div class="eyebrow" style="color:#a9d3bf">OPEN SOURCE</div><h2>Curious how it's built?</h2><p>Browse the code, run a development build, or open an issue on GitHub.</p></div><a href="https://github.com/abnzrdev/barii" class="button" target="_blank" rel="noopener noreferrer">Visit repository ↗</a></section>
+</main>
+<footer class="footer"><span>© 2026 Abenezer Alemayehu · Barii is open source under AGPL-3.0-or-later.</span><span><a href="https://github.com/abnzrdev/barii">GitHub</a> &nbsp;·&nbsp; <a href="https://github.com/abnzrdev/limmud">Also see Limmud</a></span></footer>
+</div>
+</body>
+</html>
