@@ -114,8 +114,8 @@ class _DictionarySettingsScreenState extends State<DictionarySettingsScreen> {
             child: Padding(
               padding: EdgeInsets.all(24),
               child: Text(
-                'The small bundled dictionary is active. Import a validated '
-                'Limmud SQLite dictionary pack for broader coverage.',
+                'No dictionary is installed. Restart Barii to restore the '
+                'English dictionary included with the app.',
                 textAlign: TextAlign.center,
               ),
             ),
@@ -159,11 +159,16 @@ class _DictionarySettingsScreenState extends State<DictionarySettingsScreen> {
                       subtitle: Text(
                         '${(source.sizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB',
                       ),
-                      trailing: IconButton(
-                        tooltip: 'Remove dictionary',
-                        onPressed: () => _remove(source),
-                        icon: const Icon(Icons.delete_outline),
-                      ),
+                      trailing: source.format == 'barii-bundled-v1'
+                          ? const Tooltip(
+                              message: 'Included with Barii',
+                              child: Icon(Icons.offline_pin_outlined),
+                            )
+                          : IconButton(
+                              tooltip: 'Remove dictionary',
+                              onPressed: () => _remove(source),
+                              icon: const Icon(Icons.delete_outline),
+                            ),
                     ),
                   ],
                 ),

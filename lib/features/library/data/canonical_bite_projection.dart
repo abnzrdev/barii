@@ -377,22 +377,21 @@ class _ProjectionState {
   }
 
   _MarkSpec? _markFor(CanonicalNode node) {
+    if (node.kind == 'a') {
+      final href = _resolveHref(fileName, node.href);
+      if (href == null) return null;
+      return _MarkSpec('link', href);
+    }
     final kind = switch (node.kind) {
       'strong' || 'b' => 'bold',
       'em' || 'i' => 'italic',
-      'a' => 'link',
       'sup' => 'superscript',
       'sub' => 'subscript',
       'code' => 'code',
       'rt' => 'ruby-annotation',
       _ => null,
     };
-    return kind == null
-        ? null
-        : _MarkSpec(
-            kind,
-            node.kind == 'a' ? _resolveHref(fileName, node.href) : null,
-          );
+    return kind == null ? null : _MarkSpec(kind, null);
   }
 
   SourceBlock? _figure(CanonicalNode node) {

@@ -5,15 +5,21 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../../../core/database/app_database.dart';
 import '../../dictionary/data/bundled_dictionary.dart';
 import '../../dictionary/domain/dictionary_repository.dart';
 import '../../dictionary/presentation/dictionary_panel.dart';
+import '../../dictionary/presentation/quick_definition.dart';
+import '../../dictionary/domain/reader_word_selection.dart';
+import '../../dictionary/domain/word_normalizer.dart';
 import '../../library/domain/canonical_publication.dart';
 import '../domain/highlight_anchor.dart';
 import 'bite_paginator.dart';
@@ -22,6 +28,7 @@ import 'reader_navigation.dart';
 import 'original_epub_view.dart';
 import 'original_epub_navigator.dart';
 import 'reader_panel.dart';
+import 'reader_appearance.dart';
 
 enum _OpenPanel { reader, dictionary }
 
@@ -34,6 +41,7 @@ class ReaderScreen extends StatefulWidget {
     this.onThemeChanged,
     this.hapticFeedback,
     this.dictionaryRepository = const BundledDictionary(),
+    this.initialVocabulary,
   });
 
   final AppDatabase database;
@@ -42,13 +50,14 @@ class ReaderScreen extends StatefulWidget {
   final ValueChanged<ThemeMode>? onThemeChanged;
   final Future<void> Function()? hapticFeedback;
   final DictionaryRepository dictionaryRepository;
+  final VocabularyEntry? initialVocabulary;
 
   @override
   State<ReaderScreen> createState() => _ReaderScreenState();
 }
 
 class _ReaderScreenState extends State<ReaderScreen>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, WindowListener {
   static const _paginationWindowRadius = 4;
   static const _paginationPrefetchThreshold = 1;
 
@@ -80,6 +89,8 @@ class _ReaderScreenState extends State<ReaderScreen>
   var _refreshBookmarkAfterPagination = false;
   final _linkHistory = <ReaderLocation>[];
   var _fontSize = 20.0;
+  var _readerFont = ReaderFont.serif;
+  var _readingBackground = ReaderBackground.theme;
   var _lineHeight = 1.6;
   var _paginationFontSize = 20.0;
   var _paginationLineHeight = 1.6;
@@ -93,7 +104,6 @@ class _ReaderScreenState extends State<ReaderScreen>
   var _plainReadingMode = false;
   var _originalView = false;
   var _originalSpineIndex = 0;
-  OriginalEpubPresentation? _originalPresentation;
   List<CanonicalSpineOccurrence> _originalOccurrences = const [];
   var _canonicalBackfillStarted = false;
   var _chromeVisible = true;
@@ -101,17 +111,102 @@ class _ReaderScreenState extends State<ReaderScreen>
   String _recentWord = 'book';
   _OpenPanel? _panel;
   Object? _loadError;
+  ReaderWordSelection? _lookupSelection;
+  ReaderWordSelection? _previewSelection;
+  DictionaryEntry? _previewEntry;
+  Rect? _previewBounds;
+  OverlayEntry? _quickOverlay;
+  Timer? _quickDismissTimer;
+  var _lookupGeneration = 0;
+  var _previewBusy = false;
+  var _lookupGestureActive = false;
+  var _dictionaryOpen = false;
+  String? _flashBiteId;
+  ({int start, int end})? _flashRange;
+  Timer? _flashTimer;
+  Map<String, dynamic>? _originalReturn;
+  var _fullscreen = false;
+  var _fullscreenChanging = false;
+
+  bool get _desktop =>
+      !kIsWeb &&
+      switch (defaultTargetPlatform) {
+        TargetPlatform.windows ||
+        TargetPlatform.linux ||
+        TargetPlatform.macOS => true,
+        _ => false,
+      };
 
   @override
   void initState() {
     super.initState();
     _openTask.start('Reader.open');
     WidgetsBinding.instance.addObserver(this);
+    if (_desktop) {
+      windowManager.addListener(this);
+      unawaited(_readFullscreen());
+    }
     _load();
+  }
+
+  Future<void> _readFullscreen() async {
+    try {
+      final value = await windowManager.isFullScreen();
+      if (mounted) setState(() => _fullscreen = value);
+    } on PlatformException catch (error) {
+      debugPrint('Could not read fullscreen state: $error');
+    }
+  }
+
+  Future<void> _setFullscreen(bool value) async {
+    if (!_desktop || _fullscreenChanging || value == _fullscreen) return;
+    setState(() => _fullscreenChanging = true);
+    try {
+      await windowManager.setFullScreen(value);
+      if (!mounted) {
+        if (value) await windowManager.setFullScreen(false);
+        return;
+      }
+      setState(() => _fullscreen = value);
+    } on PlatformException catch (error) {
+      debugPrint('Could not change fullscreen state: $error');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not change fullscreen mode.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _fullscreenChanging = false);
+    }
+  }
+
+  @override
+  void onWindowEnterFullScreen() {
+    if (mounted) setState(() => _fullscreen = true);
+  }
+
+  @override
+  void onWindowLeaveFullScreen() {
+    if (mounted) setState(() => _fullscreen = false);
+  }
+
+  void _escape() {
+    if (_dictionaryOpen) {
+      Navigator.of(context).pop();
+    } else if (_quickOverlay != null) {
+      _dismissQuick();
+    } else if (_panel != null) {
+      _perform(ReaderAction.closePanel);
+    } else if (_fullscreen) {
+      unawaited(_setFullscreen(false));
+    } else {
+      _perform(ReaderAction.closePanel);
+    }
   }
 
   @override
   void didChangeMetrics() {
+    _dismissQuick();
     if (_bites.isEmpty || !(_pageController?.hasClients ?? false)) return;
     final anchor = _currentPage;
     if (anchor != null) {
@@ -147,8 +242,55 @@ class _ReaderScreenState extends State<ReaderScreen>
           ? 0
           : bites.indexWhere((bite) => bite.id == progress.biteId);
       if (mounted) {
-        final index = (restored < 0 ? progress?.bitePosition ?? 0 : restored)
+        var index = (restored < 0 ? progress?.bitePosition ?? 0 : restored)
             .clamp(0, bites.isEmpty ? 0 : bites.length - 1);
+        final saved = widget.initialVocabulary;
+        var offset = progress?.sourceOffset ?? 0;
+        if (saved != null) {
+          final locator = saved.canonicalLocator == null
+              ? <String, dynamic>{}
+              : (jsonDecode(saved.canonicalLocator!) as Map)
+                    .cast<String, dynamic>();
+          if (locator['renderer'] == 'original') {
+            _originalReturn = locator;
+          } else {
+            final quote = saved.selectedText.isEmpty
+                ? saved.word
+                : saved.selectedText;
+            final anchor = HighlightAnchor(
+              start: saved.sourceOffset ?? -1,
+              end: saved.endOffset ?? -1,
+              text: quote,
+              prefix: locator['before'] as String? ?? '',
+              suffix: locator['after'] as String? ?? '',
+            );
+            final candidates = bites
+                .where((bite) => bite.id == saved.biteId)
+                .toList();
+            final matches = <({Bite bite, int start, int end})>[];
+            for (final bite in candidates.isEmpty ? bites : candidates) {
+              final range = anchor.resolve(bite.content);
+              if (range != null) {
+                matches.add((bite: bite, start: range.start, end: range.end));
+              }
+            }
+            if (matches.length == 1) {
+              final match = matches.single;
+              index = bites.indexOf(match.bite);
+              offset = match.start;
+              _flashBiteId = match.bite.id;
+              _flashRange = (start: match.start, end: match.end);
+              _flashTimer = Timer(const Duration(seconds: 3), () {
+                if (mounted) {
+                  setState(() {
+                    _flashBiteId = null;
+                    _flashRange = null;
+                  });
+                }
+              });
+            }
+          }
+        }
         final spineIndex = bites.isEmpty
             ? 0
             : await widget.database.sectionPositionForBite(bites[index].id) ??
@@ -158,9 +300,13 @@ class _ReaderScreenState extends State<ReaderScreen>
           _bites = bites;
           _index = 0;
           _anchorBiteId = bites.isEmpty ? null : bites[index].id;
-          _sourceOffset = progress?.sourceOffset ?? 0;
+          _sourceOffset = offset;
           _pageController = PageController();
           _fontSize = preferences.fontSize;
+          _readerFont = ReaderFont.parse(preferences.fontFamily);
+          _readingBackground = ReaderBackground.parse(
+            preferences.readingBackground,
+          );
           _lineHeight = preferences.lineHeight;
           _paginationFontSize = preferences.fontSize;
           _paginationLineHeight = preferences.lineHeight;
@@ -173,11 +319,12 @@ class _ReaderScreenState extends State<ReaderScreen>
           _showProgress = preferences.showProgress;
           _plainReadingMode = preferences.plainReadingMode;
           _originalView =
-              viewMode.startsWith('original') && widget.book.fileType == 'epub';
-          _originalPresentation = OriginalEpubPresentation.fromReaderViewMode(
-            viewMode,
-          );
-          _originalSpineIndex = spineIndex;
+              (saved == null
+                  ? viewMode.startsWith('original')
+                  : _originalReturn != null) &&
+              widget.book.fileType == 'epub';
+          _originalSpineIndex =
+              _originalReturn?['spineIndex'] as int? ?? spineIndex;
           _originalOccurrences =
               canonical?.readingOrder
                   .where((occurrence) => occurrence.linear)
@@ -219,20 +366,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     });
     await widget.database.saveReaderViewMode(
       widget.book.id,
-      original
-          ? (_originalPresentation?.readerViewMode ?? 'original')
-          : 'barii',
-    );
-  }
-
-  void _setOriginalPresentation(OriginalEpubPresentation presentation) {
-    if (_originalPresentation == presentation) return;
-    setState(() => _originalPresentation = presentation);
-    _serializeWrite(
-      () => widget.database.saveReaderViewMode(
-        widget.book.id,
-        presentation.readerViewMode,
-      ),
+      original ? 'original-scroll' : 'barii',
     );
   }
 
@@ -291,7 +425,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     if (show && mounted && !_chromeVisible) {
       setState(() => _chromeVisible = true);
     }
-    if (_autoHideControls && _panel == null) {
+    if (_autoHideControls && _panel == null && !_dictionaryOpen) {
       _focusTimer = Timer(const Duration(seconds: 4), () {
         if (mounted && _panel == null) setState(() => _chromeVisible = false);
       });
@@ -313,7 +447,221 @@ class _ReaderScreenState extends State<ReaderScreen>
     }
   }
 
+  void _dismissQuick() {
+    _lookupGeneration++;
+    _quickDismissTimer?.cancel();
+    _quickOverlay?.remove();
+    _quickOverlay = null;
+    _previewSelection = null;
+    _previewEntry = null;
+    _previewBounds = null;
+  }
+
+  void _scheduleQuickDismiss() {
+    _quickDismissTimer?.cancel();
+    _quickDismissTimer = Timer(
+      const Duration(milliseconds: 180),
+      _dismissQuick,
+    );
+  }
+
+  Future<void> _previewWord(ReaderWordSelection selection, Rect bounds) async {
+    if (_dictionaryOpen) return;
+    _quickDismissTimer?.cancel();
+    if (_previewSelection?.word == selection.word &&
+        _previewSelection?.contextOffset == selection.contextOffset &&
+        _previewSelection?.context == selection.context &&
+        _quickOverlay != null) {
+      return;
+    }
+    final request = ++_lookupGeneration;
+    _previewSelection = selection;
+    _lookupSelection = selection;
+    _recentWord = selection.word;
+    _previewBounds = bounds;
+    _previewEntry = null;
+    _previewBusy = true;
+    if (_quickOverlay == null) {
+      _quickOverlay = OverlayEntry(
+        builder: (_) {
+          final selection = _previewSelection;
+          final rect = _previewBounds;
+          if (selection == null || rect == null) return const SizedBox.shrink();
+          return Theme(
+            data: _readingBackground.apply(Theme.of(context)),
+            child: QuickDefinition(
+              word: selection.word,
+              bounds: rect,
+              entry: _previewEntry,
+              busy: _previewBusy,
+              onExpand: () => _showDictionary(selection: selection),
+              onEnter: () => _quickDismissTimer?.cancel(),
+              onExit: _scheduleQuickDismiss,
+            ),
+          );
+        },
+      );
+      Overlay.of(context).insert(_quickOverlay!);
+    } else {
+      _quickOverlay!.markNeedsBuild();
+    }
+    try {
+      final entry = await widget.dictionaryRepository.lookupEntry(
+        selection.word,
+        context: selection.context,
+        contextOffset: selection.contextOffset,
+      );
+      if (!mounted || request != _lookupGeneration) return;
+      _previewEntry = entry;
+      _previewBusy = false;
+      _quickOverlay?.markNeedsBuild();
+    } catch (_) {
+      if (mounted && request == _lookupGeneration) {
+        _previewBusy = false;
+        _quickOverlay?.markNeedsBuild();
+      }
+    }
+  }
+
+  Future<void> _showDictionary({ReaderWordSelection? selection}) async {
+    if (_dictionaryOpen || _bites.isEmpty) return;
+    final selected = selection ?? _lookupSelection;
+    final initialEntry = selected == _previewSelection ? _previewEntry : null;
+    final bite =
+        _bites
+            .where((b) => b.id == (selected?.biteId ?? _anchorBiteId))
+            .firstOrNull ??
+        _bites.first;
+    final request =
+        selected ??
+        ReaderWordSelection(
+          word: _recentWord,
+          context: bite.content,
+          contextOffset: bite.content
+              .indexOf(_recentWord)
+              .clamp(0, bite.content.length),
+          biteId: bite.id,
+        );
+    _dismissQuick();
+    _dictionaryOpen = true;
+    _focusTimer?.cancel();
+    await _feedback();
+    if (!mounted) return;
+    Widget panel(BuildContext routeContext, [ScrollController? controller]) =>
+        DictionaryPanel(
+          database: widget.database,
+          book: widget.book,
+          bite: bite,
+          word: request.word,
+          selection: request,
+          initialEntry: initialEntry,
+          scrollController: controller,
+          repository: widget.dictionaryRepository,
+          onSaved: _feedback,
+          onClose: () => Navigator.of(routeContext).pop(),
+        );
+    final theme = _readingBackground.apply(Theme.of(context));
+    try {
+      if (MediaQuery.sizeOf(context).width >= 900) {
+        await showDialog<void>(
+          context: context,
+          builder: (context) => Theme(
+            data: theme,
+            child: Dialog(
+              alignment: AlignmentDirectional.centerEnd,
+              insetPadding: EdgeInsets.zero,
+              child: SizedBox(
+                width: 420,
+                height: double.infinity,
+                child: panel(context),
+              ),
+            ),
+          ),
+        );
+      } else {
+        await showModalBottomSheet<void>(
+          context: context,
+          isScrollControlled: true,
+          useSafeArea: true,
+          showDragHandle: true,
+          backgroundColor: theme.colorScheme.surface,
+          builder: (context) => Theme(
+            data: theme,
+            child: DraggableScrollableSheet(
+              initialChildSize: .7,
+              minChildSize: .3,
+              maxChildSize: .95,
+              expand: false,
+              snap: true,
+              snapSizes: const [.7, .95],
+              builder: (context, controller) => panel(context, controller),
+            ),
+          ),
+        );
+      }
+    } finally {
+      _dictionaryOpen = false;
+      _lookupGestureActive = false;
+      if (mounted) {
+        _focusNode.requestFocus();
+        _resetFocusTimer();
+      }
+    }
+  }
+
+  Future<ReaderWordSelection> _resolveOriginalWord(
+    ReaderWordSelection selection,
+  ) async {
+    final data =
+        jsonDecode(selection.canonicalLocator!) as Map<String, dynamic>;
+    data['fingerprint'] = widget.book.fingerprint;
+    final bite = await widget.database.biteAtSectionOffset(
+      widget.book.id,
+      data['spineIndex'] as int? ?? 0,
+      selection.startOffset ?? 0,
+    );
+    return ReaderWordSelection(
+      word: selection.word,
+      context: selection.context,
+      contextOffset: selection.contextOffset,
+      biteId: bite?.id ?? _anchorBiteId,
+      startOffset: bite == null
+          ? null
+          : ((selection.startOffset ?? 0) - bite.sourceStart).clamp(
+              0,
+              bite.content.length,
+            ),
+      endOffset: bite == null
+          ? null
+          : ((selection.endOffset ?? 0) - bite.sourceStart).clamp(
+              0,
+              bite.content.length,
+            ),
+      canonicalLocator: jsonEncode(data),
+    );
+  }
+
+  Future<void> _previewOriginalWord(
+    ReaderWordSelection selection,
+    Rect bounds,
+  ) async {
+    final request = _lookupGeneration;
+    final resolved = await _resolveOriginalWord(selection);
+    if (mounted && request == _lookupGeneration) {
+      await _previewWord(resolved, bounds);
+    }
+  }
+
+  Future<void> _expandOriginalWord(ReaderWordSelection selection) async {
+    final resolved = await _resolveOriginalWord(selection);
+    if (mounted) await _showDictionary(selection: resolved);
+  }
+
   void _openPanel(_OpenPanel panel) {
+    if (panel == _OpenPanel.dictionary) {
+      unawaited(_showDictionary());
+      return;
+    }
     if (_bites.isEmpty || _panel == panel) return;
     _focusTimer?.cancel();
     setState(() {
@@ -335,6 +683,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Future<void> _move(int change) async {
+    _dismissQuick();
     if (_pages.isEmpty) return;
     final next = (_index + change).clamp(0, _pages.length - 1);
     if (next == _index) return;
@@ -367,6 +716,7 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   Future<void> _saveCompletedPage(int next) async {
     if (next == _index || _pages.isEmpty) return;
+    _dismissQuick();
     final page = _pages[next];
     setState(() {
       _index = next;
@@ -374,6 +724,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       _sourceOffset = page.startOffset;
       _panel = null;
       _recentWord = _firstWord(page.text);
+      _lookupSelection = null;
       final biteIndex = _bites.indexWhere((bite) => bite.id == page.bite.id);
       if (biteIndex >= 0 &&
           ((_materializedStart > 0 &&
@@ -552,8 +903,13 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   Map<ShortcutActivator, VoidCallback> _shortcuts() {
     final bindings = <ShortcutActivator, VoidCallback>{
-      const SingleActivator(LogicalKeyboardKey.escape): () =>
-          _perform(ReaderAction.closePanel),
+      const SingleActivator(LogicalKeyboardKey.escape): _escape,
+      if (_desktop)
+        const SingleActivator(
+          LogicalKeyboardKey.f11,
+          includeRepeats: false,
+        ): () =>
+            unawaited(_setFullscreen(!_fullscreen)),
     };
     if (_panel != null) return bindings;
     void bind(LogicalKeyboardKey key, ReaderAction action) {
@@ -586,6 +942,25 @@ class _ReaderScreenState extends State<ReaderScreen>
             children: [
               const Text('Reader settings', style: TextStyle(fontSize: 20)),
               const _SettingsSection('Font'),
+              DropdownButtonFormField<ReaderFont>(
+                initialValue: _readerFont,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Reading font'),
+                items: [
+                  for (final font in ReaderFont.values)
+                    DropdownMenuItem(value: font, child: Text(font.label)),
+                ],
+                onChanged: (font) {
+                  if (font == null) return;
+                  setState(() {
+                    _readerFont = font;
+                    _paginationSignature = null;
+                  });
+                  setSheetState(() {});
+                  _savePreferences();
+                },
+              ),
+              const SizedBox(height: 12),
               _SettingsValue(
                 label: 'Font size',
                 value: '${_fontSize.round()} sp',
@@ -728,6 +1103,27 @@ class _ReaderScreenState extends State<ReaderScreen>
                 ),
               ),
               const _SettingsSection('Theme'),
+              DropdownButtonFormField<ReaderBackground>(
+                initialValue: _readingBackground,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Reading background',
+                ),
+                items: [
+                  for (final background in ReaderBackground.values)
+                    DropdownMenuItem(
+                      value: background,
+                      child: Text(background.label),
+                    ),
+                ],
+                onChanged: (background) {
+                  if (background == null) return;
+                  setState(() => _readingBackground = background);
+                  setSheetState(() {});
+                  _savePreferences();
+                },
+              ),
+              const SizedBox(height: 12),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Color theme'),
@@ -873,6 +1269,8 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   Future<void> _savePreferences() => _serializeWrite(
     () => widget.database.savePreferences(
+      fontFamily: _readerFont.name,
+      readingBackground: _readingBackground.name,
       fontSize: _fontSize,
       lineHeight: _lineHeight,
       alignment: switch (_alignment) {
@@ -897,10 +1295,22 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   @override
   void dispose() {
+    _flashTimer?.cancel();
+    _dismissQuick();
     if (!_firstReadableReported) {
       _openTask.finish(arguments: {'cancelled': true});
     }
     WidgetsBinding.instance.removeObserver(this);
+    if (_desktop) {
+      windowManager.removeListener(this);
+      if (_fullscreen && !_fullscreenChanging) {
+        unawaited(
+          windowManager.setFullScreen(false).catchError((Object error) {
+            debugPrint('Could not leave fullscreen: $error');
+          }),
+        );
+      }
+    }
     _pageController?.dispose();
     _focusTimer?.cancel();
     _repaginationTimer?.cancel();
@@ -910,6 +1320,7 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   @override
   Widget build(BuildContext context) {
+    final readingTheme = _readingBackground.apply(Theme.of(context));
     final bite = _currentPage?.bite;
     Widget? panelFor(_OpenPanel? selection) => bite == null
         ? null
@@ -935,60 +1346,37 @@ class _ReaderScreenState extends State<ReaderScreen>
             null => null,
           };
     final panel = panelFor(_panel);
-    final textStyle =
-        (Theme.of(context).textTheme.bodyLarge ?? const TextStyle()).copyWith(
+    final textStyle = (readingTheme.textTheme.bodyLarge ?? const TextStyle())
+        .copyWith(
           fontSize: _fontSize,
           height: _lineHeight,
-          fontFamily: 'Georgia',
-          fontFamilyFallback: const [
-            'Noto Serif',
-            'Liberation Serif',
-            'DejaVu Serif',
-          ],
+          fontFamily: _readerFont.families.first,
+          fontFamilyFallback: _readerFont.families.skip(1).toList(),
         );
     final paginationStyle = textStyle.copyWith(
       fontSize: _paginationFontSize,
       height: _paginationLineHeight,
     );
-    return PopScope(
-      canPop: _panel == null && _linkHistory.isEmpty,
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop) return;
-        if (_panel != null) {
-          _closePanel();
-        } else {
-          _backFromLink();
-        }
-      },
-      child: CallbackShortcuts(
-        bindings: _shortcuts(),
-        child: Focus(
-          focusNode: _focusNode,
-          autofocus: true,
-          child: Scaffold(
-            appBar: AppBar(
-              leading: AnimatedOpacity(
-                opacity: _chromeVisible ? 1 : 0,
-                alwaysIncludeSemantics: true,
-                duration: MediaQuery.disableAnimationsOf(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 180),
-                child: IgnorePointer(
-                  ignoring: !_chromeVisible,
-                  child: BackButton(onPressed: _backFromLink),
-                ),
-              ),
-              title: AnimatedOpacity(
-                key: const ValueKey('reader-title'),
-                opacity: _chromeVisible ? 1 : 0,
-                alwaysIncludeSemantics: true,
-                duration: MediaQuery.disableAnimationsOf(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 180),
-                child: Text(widget.book.title),
-              ),
-              actions: [
-                AnimatedOpacity(
+    return Theme(
+      data: readingTheme,
+      child: PopScope(
+        canPop: _panel == null && _linkHistory.isEmpty,
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop) return;
+          if (_panel != null) {
+            _closePanel();
+          } else {
+            _backFromLink();
+          }
+        },
+        child: CallbackShortcuts(
+          bindings: _shortcuts(),
+          child: Focus(
+            focusNode: _focusNode,
+            autofocus: true,
+            child: Scaffold(
+              appBar: AppBar(
+                leading: AnimatedOpacity(
                   opacity: _chromeVisible ? 1 : 0,
                   alwaysIncludeSemantics: true,
                   duration: MediaQuery.disableAnimationsOf(context)
@@ -996,390 +1384,477 @@ class _ReaderScreenState extends State<ReaderScreen>
                       : const Duration(milliseconds: 180),
                   child: IgnorePointer(
                     ignoring: !_chromeVisible,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (widget.book.fileType == 'epub')
-                          IconButton(
-                            tooltip: _originalView
-                                ? 'Switch to Barii'
-                                : 'Switch to Original EPUB',
-                            onPressed: _toggleReaderView,
-                            icon: Icon(
-                              _originalView
-                                  ? Icons.view_agenda_outlined
-                                  : Icons.chrome_reader_mode_outlined,
-                            ),
-                          ),
-                        IconButton(
-                          tooltip: 'Contents',
-                          onPressed: () =>
-                              _openReaderPanel(ReaderPanelTab.contents),
-                          icon: const Icon(Icons.list_alt),
-                        ),
-                        IconButton(
-                          tooltip: 'Search book',
-                          onPressed: () =>
-                              _openReaderPanel(ReaderPanelTab.search),
-                          icon: const Icon(Icons.search),
-                        ),
-                        IconButton(
-                          tooltip: _bookmarked
-                              ? 'Remove bookmark'
-                              : 'Add bookmark',
-                          onPressed: bite == null ? null : _toggleBookmark,
-                          icon: Icon(
-                            _bookmarked
-                                ? Icons.bookmark
-                                : Icons.bookmark_border,
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: 'Reader settings',
-                          onPressed: _showSettings,
-                          icon: const Icon(Icons.settings),
-                        ),
-                      ],
-                    ),
+                    child: BackButton(onPressed: _backFromLink),
                   ),
                 ),
-              ],
-            ),
-            body: _loadError != null
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
+                title: AnimatedOpacity(
+                  key: const ValueKey('reader-title'),
+                  opacity: _chromeVisible ? 1 : 0,
+                  alwaysIncludeSemantics: true,
+                  duration: MediaQuery.disableAnimationsOf(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 180),
+                  child: Text(widget.book.title),
+                ),
+                actions: [
+                  AnimatedOpacity(
+                    opacity: _chromeVisible ? 1 : 0,
+                    alwaysIncludeSemantics: true,
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 180),
+                    child: IgnorePointer(
+                      ignoring: !_chromeVisible,
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.error_outline, size: 48),
-                          const SizedBox(height: 16),
-                          const Text('This book could not be loaded.'),
-                          const SizedBox(height: 16),
-                          FilledButton.icon(
-                            onPressed: _load,
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('Retry'),
+                          if (_desktop)
+                            IconButton(
+                              tooltip: _fullscreen
+                                  ? 'Exit fullscreen (F11)'
+                                  : 'Fullscreen (F11)',
+                              onPressed: _fullscreenChanging
+                                  ? null
+                                  : () => _setFullscreen(!_fullscreen),
+                              icon: Icon(
+                                _fullscreen
+                                    ? Icons.fullscreen_exit
+                                    : Icons.fullscreen,
+                              ),
+                            ),
+                          if (widget.book.fileType == 'epub')
+                            IconButton(
+                              tooltip: _originalView
+                                  ? 'Switch to Barii'
+                                  : 'Switch to Original EPUB',
+                              onPressed: _toggleReaderView,
+                              icon: Icon(
+                                _originalView
+                                    ? Icons.view_agenda_outlined
+                                    : Icons.chrome_reader_mode_outlined,
+                              ),
+                            ),
+                          IconButton(
+                            tooltip: 'Contents',
+                            onPressed: () =>
+                                _openReaderPanel(ReaderPanelTab.contents),
+                            icon: const Icon(Icons.list_alt),
                           ),
-                          TextButton(
-                            onPressed: () => Navigator.maybePop(context),
-                            child: const Text('Return to library'),
+                          IconButton(
+                            tooltip: 'Search book',
+                            onPressed: () =>
+                                _openReaderPanel(ReaderPanelTab.search),
+                            icon: const Icon(Icons.search),
+                          ),
+                          IconButton(
+                            tooltip: _bookmarked
+                                ? 'Remove bookmark'
+                                : 'Add bookmark',
+                            onPressed: bite == null ? null : _toggleBookmark,
+                            icon: Icon(
+                              _bookmarked
+                                  ? Icons.bookmark
+                                  : Icons.bookmark_border,
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Reader settings',
+                            onPressed: _showSettings,
+                            icon: const Icon(Icons.settings),
                           ),
                         ],
                       ),
                     ),
-                  )
-                : _originalView
-                ? OriginalEpubView(
-                    key: ValueKey('original-${widget.book.id}'),
-                    epubPath: widget.book.filePath,
-                    initialSpineIndex: _originalSpineIndex,
-                    initialOffset: _canonicalSourceOffset,
-                    onLocationChanged: _updateOriginalLocation,
-                    initialPresentation: _originalPresentation,
-                    onPresentationChanged: _setOriginalPresentation,
-                    onFirstReadable: _backfillCanonicalLocations,
-                  )
-                : LayoutBuilder(
-                    builder: (context, constraints) {
-                      final wide = constraints.maxWidth >= 900;
-                      final reader = Column(
-                        children: [
-                          if (_showProgress && _chromeVisible)
-                            LinearProgressIndicator(
-                              value: _bookProgress,
-                              minHeight: 2,
-                              backgroundColor: Colors.transparent,
+                  ),
+                ],
+              ),
+              body: _loadError != null
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.error_outline, size: 48),
+                            const SizedBox(height: 16),
+                            const Text('This book could not be loaded.'),
+                            const SizedBox(height: 16),
+                            FilledButton.icon(
+                              onPressed: _load,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Retry'),
                             ),
-                          Expanded(
-                            child: LayoutBuilder(
-                              builder: (context, viewport) {
-                                _paginate(viewport, paginationStyle);
-                                return Listener(
-                                  behavior: HitTestBehavior.opaque,
-                                  onPointerDown: (event) {
-                                    final insets =
-                                        MediaQuery.systemGestureInsetsOf(
-                                          context,
-                                        );
-                                    final width = MediaQuery.sizeOf(
-                                      context,
-                                    ).width;
-                                    final leftEdge = insets.left.clamp(
-                                      24,
-                                      double.infinity,
-                                    );
-                                    final rightEdge = insets.right.clamp(
-                                      24,
-                                      double.infinity,
-                                    );
-                                    _ignoreHorizontalDrag =
-                                        _selectionActive ||
-                                        event.position.dx <= leftEdge ||
-                                        event.position.dx >= width - rightEdge;
-                                    _drag = Offset.zero;
-                                    _horizontalOffset = 0;
-                                  },
-                                  onPointerMove: (event) {
-                                    if (_ignoreHorizontalDrag ||
-                                        _selectionActive) {
-                                      return;
-                                    }
-                                    _drag += event.delta;
-                                    if (_drag.dx.abs() <= _drag.dy.abs()) {
-                                      return;
-                                    }
-                                    setState(() {
-                                      _horizontalOffset += event.delta.dx;
-                                      _dragPreview = _horizontalOffset < 0
-                                          ? _OpenPanel.reader
-                                          : _OpenPanel.dictionary;
-                                    });
-                                    _resetFocusTimer();
-                                  },
-                                  onPointerUp: (event) {
-                                    if (_ignoreHorizontalDrag ||
-                                        _selectionActive) {
-                                      return;
-                                    }
-                                    if (_drag.distance < 8) {
-                                      _toggleChrome();
-                                      return;
-                                    }
-                                    var action = readerActionForDrag(_drag);
-                                    setState(() {
-                                      _horizontalOffset = 0;
-                                      _dragPreview = null;
-                                    });
-                                    _perform(action);
-                                  },
-                                  onPointerCancel: (_) {
-                                    setState(() {
+                            TextButton(
+                              onPressed: () => Navigator.maybePop(context),
+                              child: const Text('Return to library'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : _originalView
+                  ? OriginalEpubView(
+                      key: ValueKey('original-${widget.book.id}'),
+                      onToggleFullscreen: _desktop
+                          ? () => unawaited(_setFullscreen(!_fullscreen))
+                          : null,
+                      onEscape: _escape,
+                      onWordPreview: _previewOriginalWord,
+                      onWordExpand: _expandOriginalWord,
+                      onWordDismiss: _dismissQuick,
+                      epubPath: widget.book.filePath,
+                      initialSpineIndex: _originalSpineIndex,
+                      initialOffset:
+                          _originalReturn?['startOffset'] as int? ??
+                          _canonicalSourceOffset,
+                      returnLocator: _originalReturn,
+                      fontFamily: _readerFont.css,
+                      fontSize: _fontSize,
+                      lineHeight: _lineHeight,
+                      readingWidth: _readingWidth,
+                      pageMargin: _pageMargin,
+                      backgroundColor: readingTheme.scaffoldBackgroundColor,
+                      textColor: readingTheme.colorScheme.onSurface,
+                      onLocationChanged: _updateOriginalLocation,
+                      onFirstReadable: _backfillCanonicalLocations,
+                    )
+                  : LayoutBuilder(
+                      builder: (context, constraints) {
+                        final wide = constraints.maxWidth >= 900;
+                        final reader = Column(
+                          children: [
+                            if (_showProgress && _chromeVisible)
+                              LinearProgressIndicator(
+                                value: _bookProgress,
+                                minHeight: 2,
+                                backgroundColor: Colors.transparent,
+                              ),
+                            Expanded(
+                              child: LayoutBuilder(
+                                builder: (context, viewport) {
+                                  _paginate(viewport, paginationStyle);
+                                  return Listener(
+                                    behavior: HitTestBehavior.opaque,
+                                    onPointerDown: (event) {
+                                      final insets =
+                                          MediaQuery.systemGestureInsetsOf(
+                                            context,
+                                          );
+                                      final width = MediaQuery.sizeOf(
+                                        context,
+                                      ).width;
+                                      final leftEdge = insets.left.clamp(
+                                        24,
+                                        double.infinity,
+                                      );
+                                      final rightEdge = insets.right.clamp(
+                                        24,
+                                        double.infinity,
+                                      );
+                                      _ignoreHorizontalDrag =
+                                          _selectionActive ||
+                                          _lookupGestureActive ||
+                                          event.position.dx <= leftEdge ||
+                                          event.position.dx >=
+                                              width - rightEdge;
                                       _drag = Offset.zero;
                                       _horizontalOffset = 0;
-                                      _dragPreview = null;
-                                    });
-                                  },
-                                  child: _pageController == null
-                                      ? const Center(
-                                          child: CircularProgressIndicator(),
-                                        )
-                                      : NotificationListener<
-                                          ScrollNotification
-                                        >(
-                                          onNotification: (notification) {
-                                            if (notification
-                                                is ScrollStartNotification) {
-                                              _resetFocusTimer();
-                                            } else if (notification
-                                                is ScrollEndNotification) {
-                                              _completePageChange();
-                                            }
-                                            return false;
-                                          },
-                                          child: PageView.builder(
-                                            key: ValueKey(_pageController),
-                                            controller: _pageController,
-                                            scrollDirection: Axis.vertical,
-                                            pageSnapping: true,
-                                            itemCount: _pages.length,
-                                            itemBuilder: (context, pageIndex) {
-                                              final page = _pages[pageIndex];
-                                              final pageBite = page.bite;
-                                              return KeyedSubtree(
-                                                key: ValueKey(
-                                                  '${pageBite.id}:${page.startOffset}',
-                                                ),
-                                                child: Padding(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 0,
-                                                      ),
-                                                  child: Center(
-                                                    child: ConstrainedBox(
-                                                      constraints:
-                                                          BoxConstraints(
-                                                            maxWidth:
-                                                                _readingWidth,
-                                                          ),
-                                                      child: Padding(
-                                                        padding:
-                                                            EdgeInsets.symmetric(
-                                                              horizontal:
-                                                                  _pageMargin,
+                                    },
+                                    onPointerMove: (event) {
+                                      if (_ignoreHorizontalDrag ||
+                                          _selectionActive ||
+                                          _lookupGestureActive) {
+                                        return;
+                                      }
+                                      _drag += event.delta;
+                                      if (_drag.dx.abs() <= _drag.dy.abs()) {
+                                        return;
+                                      }
+                                      setState(() {
+                                        _horizontalOffset += event.delta.dx;
+                                        _dragPreview = _horizontalOffset < 0
+                                            ? _OpenPanel.reader
+                                            : _OpenPanel.dictionary;
+                                      });
+                                      _resetFocusTimer();
+                                    },
+                                    onPointerUp: (event) {
+                                      if (_ignoreHorizontalDrag ||
+                                          _selectionActive ||
+                                          _lookupGestureActive) {
+                                        return;
+                                      }
+                                      if (_drag.distance < 8) {
+                                        _toggleChrome();
+                                        return;
+                                      }
+                                      var action = readerActionForDrag(_drag);
+                                      setState(() {
+                                        _horizontalOffset = 0;
+                                        _dragPreview = null;
+                                      });
+                                      _perform(action);
+                                    },
+                                    onPointerCancel: (_) {
+                                      setState(() {
+                                        _drag = Offset.zero;
+                                        _horizontalOffset = 0;
+                                        _dragPreview = null;
+                                      });
+                                    },
+                                    child: _pageController == null
+                                        ? const Center(
+                                            child: CircularProgressIndicator(),
+                                          )
+                                        : NotificationListener<
+                                            ScrollNotification
+                                          >(
+                                            onNotification: (notification) {
+                                              if (notification
+                                                  is ScrollStartNotification) {
+                                                _resetFocusTimer();
+                                              } else if (notification
+                                                  is ScrollEndNotification) {
+                                                _completePageChange();
+                                              }
+                                              return false;
+                                            },
+                                            child: PageView.builder(
+                                              key: ValueKey(_pageController),
+                                              controller: _pageController,
+                                              scrollDirection: Axis.vertical,
+                                              pageSnapping: true,
+                                              itemCount: _pages.length,
+                                              itemBuilder: (context, pageIndex) {
+                                                final page = _pages[pageIndex];
+                                                final pageBite = page.bite;
+                                                return KeyedSubtree(
+                                                  key: ValueKey(
+                                                    '${pageBite.id}:${page.startOffset}',
+                                                  ),
+                                                  child: Padding(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 0,
+                                                        ),
+                                                    child: Center(
+                                                      child: ConstrainedBox(
+                                                        constraints:
+                                                            BoxConstraints(
+                                                              maxWidth:
+                                                                  _readingWidth,
                                                             ),
-                                                        child: Semantics(
-                                                          label: 'Reading bite',
-                                                          child:
-                                                              pageBite.kind ==
-                                                                  'figure'
-                                                              ? _FigurePage(
-                                                                  bite:
-                                                                      pageBite,
-                                                                  style:
-                                                                      textStyle,
-                                                                )
-                                                              : _BiteText(
-                                                                  database: widget
-                                                                      .database,
-                                                                  book: widget
-                                                                      .book,
-                                                                  bite:
-                                                                      pageBite,
-                                                                  startOffset: page
-                                                                      .startOffset,
-                                                                  endOffset: page
-                                                                      .endOffset,
-                                                                  style:
-                                                                      textStyle,
-                                                                  alignment:
-                                                                      _alignment,
-                                                                  onWord: (word) {
-                                                                    _recentWord =
-                                                                        word;
-                                                                    _openPanel(
-                                                                      _OpenPanel
-                                                                          .dictionary,
-                                                                    );
-                                                                  },
-                                                                  onSelectionChanged:
-                                                                      (active) {
-                                                                        _selectionActive =
-                                                                            active;
-                                                                      },
-                                                                  onLink:
-                                                                      _followLink,
-                                                                  plainReadingMode:
-                                                                      _plainReadingMode,
-                                                                ),
+                                                        child: Padding(
+                                                          padding:
+                                                              EdgeInsets.symmetric(
+                                                                horizontal:
+                                                                    _pageMargin,
+                                                              ),
+                                                          child: Semantics(
+                                                            label:
+                                                                'Reading bite',
+                                                            child:
+                                                                pageBite.kind ==
+                                                                    'figure'
+                                                                ? _FigurePage(
+                                                                    bite:
+                                                                        pageBite,
+                                                                    style:
+                                                                        textStyle,
+                                                                  )
+                                                                : _BiteText(
+                                                                    flashRange:
+                                                                        page.bite.id ==
+                                                                            _flashBiteId
+                                                                        ? _flashRange
+                                                                        : null,
+                                                                    database: widget
+                                                                        .database,
+                                                                    book: widget
+                                                                        .book,
+                                                                    bite:
+                                                                        pageBite,
+                                                                    startOffset:
+                                                                        page.startOffset,
+                                                                    endOffset: page
+                                                                        .endOffset,
+                                                                    style:
+                                                                        textStyle,
+                                                                    alignment:
+                                                                        _alignment,
+                                                                    onWord: (selection) {
+                                                                      _lookupSelection =
+                                                                          selection;
+                                                                      _recentWord =
+                                                                          selection
+                                                                              .word;
+                                                                      _showDictionary(
+                                                                        selection:
+                                                                            selection,
+                                                                      );
+                                                                    },
+                                                                    onPreview:
+                                                                        _previewWord,
+                                                                    onPreviewEnd:
+                                                                        _dismissQuick,
+                                                                    onHoverEnd:
+                                                                        _scheduleQuickDismiss,
+                                                                    onLookupGesture:
+                                                                        (
+                                                                          active,
+                                                                        ) => _lookupGestureActive =
+                                                                            active,
+                                                                    onSelectionChanged:
+                                                                        (
+                                                                          active,
+                                                                        ) {
+                                                                          _selectionActive =
+                                                                              active;
+                                                                        },
+                                                                    onLink:
+                                                                        _followLink,
+                                                                    plainReadingMode:
+                                                                        _plainReadingMode,
+                                                                  ),
+                                                          ),
                                                         ),
                                                       ),
                                                     ),
                                                   ),
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                        ),
-                                );
-                              },
-                            ),
-                          ),
-                          AnimatedOpacity(
-                            key: const ValueKey('reader-controls'),
-                            opacity: _chromeVisible ? 1 : 0,
-                            alwaysIncludeSemantics: true,
-                            duration: MediaQuery.disableAnimationsOf(context)
-                                ? Duration.zero
-                                : const Duration(milliseconds: 180),
-                            child: IgnorePointer(
-                              ignoring: !_chromeVisible,
-                              child: SafeArea(
-                                top: false,
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceEvenly,
-                                  children: [
-                                    IconButton(
-                                      tooltip: 'Previous bite',
-                                      onPressed: _index == 0
-                                          ? null
-                                          : () =>
-                                                _perform(ReaderAction.previous),
-                                      icon: const Icon(Icons.keyboard_arrow_up),
-                                    ),
-                                    IconButton(
-                                      tooltip: 'Notes',
-                                      onPressed: bite == null
-                                          ? null
-                                          : () => _perform(ReaderAction.notes),
-                                      icon: const Icon(Icons.note_alt_outlined),
-                                    ),
-                                    IconButton(
-                                      tooltip: 'Dictionary',
-                                      onPressed: bite == null
-                                          ? null
-                                          : () => _perform(
-                                              ReaderAction.dictionary,
+                                                );
+                                              },
                                             ),
-                                      icon: const Icon(
-                                        Icons.menu_book_outlined,
-                                      ),
-                                    ),
-                                    IconButton(
-                                      tooltip: 'Next bite',
-                                      onPressed: _index >= _pages.length - 1
-                                          ? null
-                                          : () => _perform(ReaderAction.next),
-                                      icon: const Icon(
-                                        Icons.keyboard_arrow_down,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                          ),
+                                  );
+                                },
                               ),
                             ),
-                          ),
-                        ],
-                      );
-                      final base = wide
-                          ? Row(
-                              children: [
-                                Expanded(child: reader),
-                                if (panel != null)
-                                  SizedBox(width: 380, child: panel),
-                              ],
-                            )
-                          : Stack(
-                              children: [
-                                reader,
-                                if (panel != null)
-                                  Positioned.fill(
-                                    top: constraints.maxHeight * 0.25,
-                                    child: panel,
-                                  ),
-                              ],
-                            );
-                      final previewSelection = _dragPreview;
-                      if (previewSelection == null || bite == null) return base;
-                      final preview = panelFor(previewSelection)!;
-                      final panelWidth = wide ? 380.0 : constraints.maxWidth;
-                      final revealed = (_horizontalOffset.abs() / panelWidth)
-                          .clamp(0, 1);
-                      final translation = previewSelection == _OpenPanel.reader
-                          ? panelWidth * (1 - revealed)
-                          : -panelWidth * (1 - revealed);
-                      return Stack(
-                        clipBehavior: Clip.hardEdge,
-                        children: [
-                          base,
-                          Positioned(
-                            top: wide ? 0 : constraints.maxHeight * 0.25,
-                            bottom: 0,
-                            width: panelWidth,
-                            right: previewSelection == _OpenPanel.reader
-                                ? 0
-                                : null,
-                            left: previewSelection == _OpenPanel.dictionary
-                                ? 0
-                                : null,
-                            child: AnimatedContainer(
+                            AnimatedOpacity(
+                              key: const ValueKey('reader-controls'),
+                              opacity: _chromeVisible ? 1 : 0,
+                              alwaysIncludeSemantics: true,
                               duration: MediaQuery.disableAnimationsOf(context)
                                   ? Duration.zero
                                   : const Duration(milliseconds: 180),
-                              curve: Curves.easeOutCubic,
-                              transform: Matrix4.translationValues(
-                                translation,
-                                0,
-                                0,
+                              child: IgnorePointer(
+                                ignoring: !_chromeVisible,
+                                child: SafeArea(
+                                  top: false,
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceEvenly,
+                                    children: [
+                                      IconButton(
+                                        tooltip: 'Previous bite',
+                                        onPressed: _index == 0
+                                            ? null
+                                            : () => _perform(
+                                                ReaderAction.previous,
+                                              ),
+                                        icon: const Icon(
+                                          Icons.keyboard_arrow_up,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        tooltip: 'Notes',
+                                        onPressed: bite == null
+                                            ? null
+                                            : () =>
+                                                  _perform(ReaderAction.notes),
+                                        icon: const Icon(
+                                          Icons.note_alt_outlined,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        tooltip: 'Dictionary',
+                                        onPressed: bite == null
+                                            ? null
+                                            : () => _perform(
+                                                ReaderAction.dictionary,
+                                              ),
+                                        icon: const Icon(
+                                          Icons.menu_book_outlined,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        tooltip: 'Next bite',
+                                        onPressed: _index >= _pages.length - 1
+                                            ? null
+                                            : () => _perform(ReaderAction.next),
+                                        icon: const Icon(
+                                          Icons.keyboard_arrow_down,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
-                              child: IgnorePointer(child: preview),
                             ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
+                          ],
+                        );
+                        final base = wide
+                            ? Row(
+                                children: [
+                                  Expanded(child: reader),
+                                  if (panel != null)
+                                    SizedBox(width: 380, child: panel),
+                                ],
+                              )
+                            : Stack(
+                                children: [
+                                  reader,
+                                  if (panel != null)
+                                    Positioned.fill(
+                                      top: constraints.maxHeight * 0.25,
+                                      child: panel,
+                                    ),
+                                ],
+                              );
+                        final previewSelection = _dragPreview;
+                        if (previewSelection == null || bite == null) {
+                          return base;
+                        }
+                        final preview = panelFor(previewSelection)!;
+                        final panelWidth = wide ? 380.0 : constraints.maxWidth;
+                        final revealed = (_horizontalOffset.abs() / panelWidth)
+                            .clamp(0, 1);
+                        final translation =
+                            previewSelection == _OpenPanel.reader
+                            ? panelWidth * (1 - revealed)
+                            : -panelWidth * (1 - revealed);
+                        return Stack(
+                          clipBehavior: Clip.hardEdge,
+                          children: [
+                            base,
+                            Positioned(
+                              top: wide ? 0 : constraints.maxHeight * 0.25,
+                              bottom: 0,
+                              width: panelWidth,
+                              right: previewSelection == _OpenPanel.reader
+                                  ? 0
+                                  : null,
+                              left: previewSelection == _OpenPanel.dictionary
+                                  ? 0
+                                  : null,
+                              child: AnimatedContainer(
+                                duration:
+                                    MediaQuery.disableAnimationsOf(context)
+                                    ? Duration.zero
+                                    : const Duration(milliseconds: 180),
+                                curve: Curves.easeOutCubic,
+                                transform: Matrix4.translationValues(
+                                  translation,
+                                  0,
+                                  0,
+                                ),
+                                child: IgnorePointer(child: preview),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+            ),
           ),
         ),
       ),
@@ -1418,6 +1893,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       viewport.maxHeight,
       width,
       style.fontSize,
+      style.fontFamily,
       style.height,
       _alignment,
       textScaler,
@@ -1760,6 +2236,11 @@ class _BiteText extends StatefulWidget {
     required this.onSelectionChanged,
     required this.onLink,
     required this.plainReadingMode,
+    this.onPreview,
+    this.onPreviewEnd,
+    this.onHoverEnd,
+    this.onLookupGesture,
+    this.flashRange,
   });
 
   final AppDatabase database;
@@ -1769,16 +2250,212 @@ class _BiteText extends StatefulWidget {
   final int endOffset;
   final TextStyle style;
   final TextAlign alignment;
-  final ValueChanged<String> onWord;
+  final ValueChanged<ReaderWordSelection> onWord;
+  final void Function(ReaderWordSelection, Rect)? onPreview;
+  final VoidCallback? onPreviewEnd;
+  final VoidCallback? onHoverEnd;
+  final ValueChanged<bool>? onLookupGesture;
   final ValueChanged<bool> onSelectionChanged;
   final ValueChanged<String> onLink;
   final bool plainReadingMode;
+  final ({int start, int end})? flashRange;
 
   @override
   State<_BiteText> createState() => _BiteTextState();
 }
 
 class _BiteTextState extends State<_BiteText> {
+  final _textKey = GlobalKey();
+  Timer? _wordTimer;
+  int? _hoverStart;
+  int? _touchPointer;
+  Offset? _holdOrigin;
+  bool _held = false;
+  bool _selectionIntent = false;
+  ReaderWordSelection? _heldSelection;
+  RenderEditable? _editable() {
+    RenderEditable? find(RenderObject object) {
+      if (object is RenderEditable) return object;
+      RenderEditable? result;
+      object.visitChildren((child) => result ??= find(child));
+      return result;
+    }
+
+    final object = _textKey.currentContext?.findRenderObject();
+    return object == null ? null : find(object);
+  }
+
+  EditableTextState? _editor() {
+    EditableTextState? result;
+    void visit(Element element) {
+      if (element is StatefulElement && element.state is EditableTextState) {
+        result = element.state as EditableTextState;
+      } else {
+        element.visitChildren(visit);
+      }
+    }
+
+    _textKey.currentContext?.visitChildElements(visit);
+    return result;
+  }
+
+  ReaderWordSelection _selectionFor(String text, int start, int end) =>
+      ReaderWordSelection(
+        word: text,
+        context: widget.bite.content,
+        contextOffset: start,
+        biteId: widget.bite.id,
+        startOffset: start,
+        endOffset: end,
+        canonicalLocator: jsonEncode({
+          'renderer': 'barii',
+          'biteId': widget.bite.id,
+          'startOffset': start,
+          'endOffset': end,
+          'quote': text,
+          'before': widget.bite.content.substring(
+            (start - 32).clamp(0, start),
+            start,
+          ),
+          'after': widget.bite.content.substring(
+            end,
+            (end + 32).clamp(end, widget.bite.content.length),
+          ),
+          'fingerprint': widget.book.fingerprint,
+        }),
+      );
+
+  ({ReaderWordSelection selection, Rect bounds})? _wordAt(Offset global) {
+    final render = _editable();
+    if (render == null) return null;
+    final range = render.getWordBoundary(render.getPositionForPoint(global));
+    final start = range.start + widget.startOffset;
+    final end = range.end + widget.startOffset;
+    if (start < widget.startOffset || end > widget.endOffset || end <= start) {
+      return null;
+    }
+    final text = widget.bite.content.substring(start, end);
+    if (!RegExp('[A-Za-z]').hasMatch(text) || normalizeWord(text).isEmpty) {
+      return null;
+    }
+    final boxes = render.getBoxesForSelection(
+      TextSelection(baseOffset: range.start, extentOffset: range.end),
+    );
+    if (boxes.isEmpty) return null;
+    final box = boxes.first.toRect();
+    final rect = Rect.fromPoints(
+      render.localToGlobal(box.topLeft),
+      render.localToGlobal(box.bottomRight),
+    );
+    if (!rect.inflate(3).contains(global)) return null;
+    return (selection: _selectionFor(text, start, end), bounds: rect);
+  }
+
+  void _hover(PointerHoverEvent event) {
+    if (event.buttons != 0 || _editable()?.selection?.isCollapsed == false) {
+      return;
+    }
+    final hit = _wordAt(event.position);
+    if (hit == null) {
+      _wordTimer?.cancel();
+      _hoverStart = null;
+      widget.onHoverEnd?.call();
+      return;
+    }
+    if (_hoverStart == hit.selection.startOffset) return;
+    _wordTimer?.cancel();
+    _hoverStart = hit.selection.startOffset;
+    widget.onHoverEnd?.call();
+    _wordTimer = Timer(const Duration(milliseconds: 250), () {
+      if (mounted) widget.onPreview?.call(hit.selection, hit.bounds);
+    });
+  }
+
+  void _holdStart(PointerDownEvent event) {
+    _wordTimer?.cancel();
+    _hoverStart = null;
+    widget.onPreviewEnd?.call();
+    if (event.kind != PointerDeviceKind.touch &&
+        event.kind != PointerDeviceKind.stylus) {
+      return;
+    }
+    if (MediaQuery.accessibleNavigationOf(context)) return;
+    if (_touchPointer != null) {
+      _holdEnd();
+      return;
+    }
+    _touchPointer = event.pointer;
+    _holdOrigin = event.position;
+    _selectionIntent = false;
+    _wordTimer = Timer(const Duration(milliseconds: 450), () {
+      final hit = _wordAt(event.position);
+      if (!mounted || hit == null) return;
+      _held = true;
+      _heldSelection = hit.selection;
+      widget.onLookupGesture?.call(true);
+      widget.onPreview?.call(hit.selection, hit.bounds);
+    });
+  }
+
+  void _holdMove(PointerMoveEvent event) {
+    if (event.pointer != _touchPointer || _holdOrigin == null) return;
+    final delta = event.position - _holdOrigin!;
+    if (!_held && !_selectionIntent) {
+      if (delta.distance > 12) _wordTimer?.cancel();
+      return;
+    }
+    if (_held && delta.dy < -70 && delta.dy.abs() > delta.dx.abs() * 1.5) {
+      final selection = _heldSelection;
+      _held = false;
+      final editor = _editor();
+      if (editor != null) _dismissSelection(editor);
+      widget.onPreviewEnd?.call();
+      if (selection != null) widget.onWord(selection);
+      return;
+    }
+    if (!_selectionIntent && (delta.dx.abs() > 18 || delta.dy > 18)) {
+      _held = false;
+      _selectionIntent = true;
+      widget.onPreviewEnd?.call();
+    }
+    if (_selectionIntent) {
+      final editor = _editor();
+      final render = _editable();
+      final selected = _heldSelection;
+      if (editor != null && render != null && selected != null) {
+        final offset = render.getPositionForPoint(event.position).offset;
+        editor.widget.focusNode.requestFocus();
+        editor.userUpdateTextEditingValue(
+          editor.textEditingValue.copyWith(
+            selection: TextSelection(
+              baseOffset: selected.startOffset! - widget.startOffset,
+              extentOffset: offset,
+            ),
+          ),
+          SelectionChangedCause.drag,
+        );
+      }
+    }
+  }
+
+  void _holdEnd() {
+    final pointer = _touchPointer;
+    _touchPointer = null;
+    _wordTimer?.cancel();
+    if (pointer == null) return;
+    final clear = _held;
+    _held = false;
+    if (clear) widget.onPreviewEnd?.call();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final editor = _editor();
+      if (clear && editor != null) _dismissSelection(editor);
+      if (_selectionIntent && editor != null) editor.showToolbar();
+      widget.onLookupGesture?.call(false);
+      _selectionIntent = false;
+    });
+  }
+
   List<Highlight> _highlights = const [];
   final _linkRecognizers = <TapGestureRecognizer>[];
 
@@ -1815,6 +2492,7 @@ class _BiteTextState extends State<_BiteText> {
 
   @override
   void dispose() {
+    _wordTimer?.cancel();
     for (final recognizer in _linkRecognizers) {
       recognizer.dispose();
     }
@@ -1977,6 +2655,14 @@ class _BiteTextState extends State<_BiteText> {
             .toList()
           ..sort((a, b) => a.range!.start.compareTo(b.range!.start));
     final boundaries = <int>{widget.startOffset, widget.endOffset};
+    final flash = widget.flashRange;
+    if (flash != null &&
+        flash.end > widget.startOffset &&
+        flash.start < widget.endOffset) {
+      boundaries
+        ..add(flash.start.clamp(widget.startOffset, widget.endOffset))
+        ..add(flash.end.clamp(widget.startOffset, widget.endOffset));
+    }
     for (final mark in metadata.marks) {
       if (mark.end > widget.startOffset && mark.start < widget.endOffset) {
         boundaries
@@ -2039,14 +2725,19 @@ class _BiteTextState extends State<_BiteText> {
           fontSize: (widget.style.fontSize ?? 20) * 0.9,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
-        'link' => TextStyle(
-          color: Theme.of(context).colorScheme.primary,
-          decoration: TextDecoration.underline,
-        ),
+        'link' =>
+          mark.href == null || mark.href!.isEmpty
+              ? null
+              : TextStyle(
+                  color: Theme.of(context).colorScheme.primary,
+                  decoration: TextDecoration.underline,
+                ),
         _ => null,
       };
       if (next != null) style = style?.merge(next) ?? next;
-      if (mark.kind == 'link') href = mark.href;
+      if (mark.kind == 'link' && mark.href != null && mark.href!.isNotEmpty) {
+        href = mark.href;
+      }
       if (widget.plainReadingMode && mark.kind == 'heading') {
         text = '\u200B' * text.length;
       }
@@ -2064,6 +2755,13 @@ class _BiteTextState extends State<_BiteText> {
         final next = _highlightStyle(item.highlight);
         style = style?.merge(next) ?? next;
       }
+    }
+    final flash = widget.flashRange;
+    if (flash != null && flash.start <= start && flash.end >= end) {
+      final next = TextStyle(
+        backgroundColor: Theme.of(context).colorScheme.tertiaryContainer,
+      );
+      style = style?.merge(next) ?? next;
     }
     GestureRecognizer? recognizer;
     if (href != null) {
@@ -2092,55 +2790,81 @@ class _BiteTextState extends State<_BiteText> {
   }
 
   @override
-  Widget build(BuildContext context) => SelectableText.rich(
-    TextSpan(style: widget.style, children: _spans()),
-    textAlign: widget.alignment,
-    onSelectionChanged: (selection, _) =>
-        widget.onSelectionChanged(!selection.isCollapsed),
-    contextMenuBuilder: (context, state) {
-      final selected = _selection(state);
-      final items = [...state.contextMenuButtonItems];
-      if (selected != null) {
-        final text = widget.bite.content.substring(
-          selected.start + widget.startOffset,
-          selected.end + widget.startOffset,
-        );
-        items.addAll([
-          ContextMenuButtonItem(
-            label: 'Define',
-            onPressed: () {
-              _dismissSelection(state);
-              widget.onWord(text);
-            },
-          ),
-          ContextMenuButtonItem(
-            label: 'Highlight',
-            onPressed: () => _saveSelection(state),
-          ),
-          ContextMenuButtonItem(
-            label: 'Underline',
-            onPressed: () => _saveSelection(state, style: 'underline'),
-          ),
-          ContextMenuButtonItem(
-            label: 'Add note',
-            onPressed: () => _addNote(state),
-          ),
-          if (_highlights.any(
-            (highlight) =>
-                selected.start + widget.startOffset < highlight.endOffset &&
-                selected.end + widget.startOffset > highlight.startOffset,
-          ))
-            ContextMenuButtonItem(
-              label: 'Remove highlight',
-              onPressed: () => _removeSelection(state),
-            ),
-        ]);
-      }
-      return AdaptiveTextSelectionToolbar.buttonItems(
-        anchors: state.contextMenuAnchors,
-        buttonItems: items,
-      );
+  Widget build(BuildContext context) => MouseRegion(
+    onHover: _hover,
+    onExit: (_) {
+      _wordTimer?.cancel();
+      _hoverStart = null;
+      widget.onHoverEnd?.call();
     },
+    child: Listener(
+      onPointerDown: _holdStart,
+      onPointerMove: _holdMove,
+      onPointerUp: (_) => _holdEnd(),
+      onPointerCancel: (_) => _holdEnd(),
+      onPointerSignal: (_) {
+        _wordTimer?.cancel();
+        widget.onPreviewEnd?.call();
+      },
+      child: SelectableText.rich(
+        key: _textKey,
+        TextSpan(style: widget.style, children: _spans()),
+        textAlign: widget.alignment,
+        onSelectionChanged: (selection, _) =>
+            widget.onSelectionChanged(!selection.isCollapsed),
+        contextMenuBuilder: (context, state) {
+          if (_held) return const SizedBox.shrink();
+          final selected = _selection(state);
+          final items = [...state.contextMenuButtonItems];
+          if (selected != null) {
+            final text = widget.bite.content.substring(
+              selected.start + widget.startOffset,
+              selected.end + widget.startOffset,
+            );
+            items.addAll([
+              ContextMenuButtonItem(
+                label: 'Define',
+                onPressed: () {
+                  _dismissSelection(state);
+                  widget.onWord(
+                    _selectionFor(
+                      text,
+                      selected.start + widget.startOffset,
+                      selected.end + widget.startOffset,
+                    ),
+                  );
+                },
+              ),
+              ContextMenuButtonItem(
+                label: 'Highlight',
+                onPressed: () => _saveSelection(state),
+              ),
+              ContextMenuButtonItem(
+                label: 'Underline',
+                onPressed: () => _saveSelection(state, style: 'underline'),
+              ),
+              ContextMenuButtonItem(
+                label: 'Add note',
+                onPressed: () => _addNote(state),
+              ),
+              if (_highlights.any(
+                (highlight) =>
+                    selected.start + widget.startOffset < highlight.endOffset &&
+                    selected.end + widget.startOffset > highlight.startOffset,
+              ))
+                ContextMenuButtonItem(
+                  label: 'Remove highlight',
+                  onPressed: () => _removeSelection(state),
+                ),
+            ]);
+          }
+          return AdaptiveTextSelectionToolbar.buttonItems(
+            anchors: state.contextMenuAnchors,
+            buttonItems: items,
+          );
+        },
+      ),
+    ),
   );
 }
 

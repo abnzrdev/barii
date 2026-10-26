@@ -1,0 +1,28 @@
+{
+  "version": "barii-english-2026-10-26-v1",
+  "simple_entries": 42807,
+  "wordnet_entries": 135969,
+  "entries": 178776,
+  "senses": 239354,
+  "forms": 134886,
+  "phrases": 55111,
+  "source_sha256": {
+    "simple-extract.jsonl.gz": "813324e35a8cc2488692850626c54e457da03019ce33ee227e3c0cc82b69932d",
+    "english-wordnet-2025-json.zip": "7d749f6e2c39e6970e4997839dcf6e42fd281f3c2fae0171d2192bae8cfa4b51"
+  },
+  "source_urls": [
+    "https://kaikki.org/dictionary/downloads/simple/simple-extract.jsonl.gz",
+    "https://en-word.net/downloads/english-wordnet-2025-json.zip"
+  ],
+  "simple_dump_date": "2026-10-02",
+  "simple_examples": "Omitted to avoid redistributing third-party quotations",
+  "licenses": [
+    "CC BY-SA 4.0 (Simple English content)",
+    "CC BY 4.0 and Princeton WordNet License (OEWN content)"
+  ],
+  "changes": "English-only compact SQLite conversion; selected metadata and examples omitted; no definitions generated or rewritten.",
+  "installed_bytes": 62742528,
+  "compressed_bytes": 21913768,
+  "database_sha256": "d89112e21f531a57d72592403fc6834e8403e54471a5cb925fa64a4f1fbe6fd5",
+  "asset_sha256": "949a76c2e4a6d25bee52ca00b16330d2af3d12914b46fd9e7b7138d36c0e09cc"
+}

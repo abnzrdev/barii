@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:barii/core/database/app_database.dart';
 import 'package:barii/features/library/data/book_import_service.dart';
+import 'package:barii/features/library/domain/canonical_publication.dart';
 import 'package:barii/features/library/data/book_resource_limits.dart';
 import 'package:barii/features/library/data/book_processing_worker.dart';
 import 'package:drift/native.dart';
@@ -163,9 +164,48 @@ void main() {
     final canonical = await database.canonicalPublicationFor(book.id);
     expect(canonical, isNotNull);
     expect(canonical!.modelVersion, 1);
-    expect(canonical.parserVersion, 1);
+    expect(canonical.parserVersion, CanonicalPublication.parserVersion);
     expect(canonical.projectionVersion, 1);
     expect(canonical.publicationJson, contains('one.xhtml'));
+  });
+
+  test('refreshes an epub saved before empty anchors were closed', () async {
+    final file = File('${source.path}/anchors.epub');
+    await file.writeAsBytes(
+      epubFixtureBytes(
+        firstXhtml:
+            '<html xmlns="http://www.w3.org/1999/xhtml"><body>'
+            '<h1><a id="idTextAnchor033"/>Drawing a line</h1>'
+            '<ul><li>what is linear regression</li></ul>'
+            '</body></html>',
+      ),
+    );
+    final service = BookImportService(
+      database: database,
+      storageDirectory: storage,
+    );
+    final book = await service.importFile(file.path);
+    final before = await database.bitesForBook(book.id);
+    await database.saveCanonicalPublication(
+      bookId: book.id,
+      modelVersion: 1,
+      parserVersion: 1,
+      projectionVersion: 1,
+      publicationJson: '{}',
+    );
+
+    await service.refreshStaleEpubs();
+
+    final after = await database.bitesForBook(book.id);
+    expect(after.map((bite) => bite.id), before.map((bite) => bite.id));
+    expect(
+      after.map((bite) => bite.content).join('\n'),
+      contains('what is linear regression'),
+    );
+    expect(
+      (await database.canonicalPublicationFor(book.id))!.parserVersion,
+      CanonicalPublication.parserVersion,
+    );
   });
 
   test('rejects unsupported extensions and missing files', () async {

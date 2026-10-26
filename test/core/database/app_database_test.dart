@@ -120,6 +120,50 @@ void main() {
     );
   });
 
+  test(
+    'vocabulary snapshots survive reparsing and repeated saves do not duplicate a sense',
+    () async {
+      await _createBook(database);
+      Future<void> save() => database.saveVocabulary(
+        id: 'book:sense',
+        word: 'Text',
+        normalizedWord: 'text',
+        definition: 'Written words.',
+        sourceSentence: 'Text.',
+        bookId: 'book',
+        biteId: 'bite',
+        dictionarySenseId: 'sense',
+        sourceOffset: 0,
+        endOffset: 4,
+        selectedText: 'Text',
+        canonicalLocator: '{"quote":"Text"}',
+        now: DateTime.utc(2026),
+      );
+      await save();
+      await save();
+      expect(await database.vocabularyForBook('book'), hasLength(1));
+      await database.replaceContent(
+        'book',
+        sections: const [StoredSection(id: 'new-section', position: 0)],
+        bites: const [
+          StoredBite(
+            id: 'new-bite',
+            sectionId: 'new-section',
+            position: 0,
+            text: 'Text.',
+            sourceStart: 0,
+            sourceEnd: 5,
+          ),
+        ],
+      );
+      final saved = (await database.vocabularyForBook('book')).single;
+      expect(saved.biteId, isNull);
+      expect(saved.definition, 'Written words.');
+      expect(saved.canonicalLocator, '{"quote":"Text"}');
+      expect(saved.dictionarySenseId, 'sense');
+    },
+  );
+
   test('deleting a book cascades to dependent records', () async {
     await _createBook(database);
     await database.saveProgress('book', 'bite', 0);

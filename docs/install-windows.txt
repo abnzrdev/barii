@@ -1,0 +1,29 @@
+Barii 0.2.0 beta - Windows x64
+
+1. Close any older Barii window.
+2. Extract the entire ZIP to a new folder, such as Documents\Barii-0.2.0.
+3. Run barii.exe from the extracted folder. Keep all DLLs and the data folder
+   beside it. You can create a shortcut to this copy of barii.exe.
+
+This is a portable application bundle, not an installer. Your existing library,
+books, reading progress and vocabulary are reused. Do not uninstall the old app
+or delete its application data to update. Your old shortcut may still open the
+old copy; use the executable from the newly extracted folder.
+
+The complete English dictionary is included. It installs locally on first
+launch without downloading anything. On desktop, pause the pointer on a word
+to see a short definition; click the preview for the full dictionary. You can
+also use the dictionary toolbar button. In Original EPUB, select a phrase and
+press D. Save word explicitly adds vocabulary; the book's Vocabulary menu lets
+you return to a saved occurrence.
+
+The settings gear changes font and reading background. F11 toggles fullscreen.
+Escape closes the dictionary/panel first, then leaves fullscreen.
+
+Original EPUB uses Microsoft WebView2 Runtime, normally present on Windows.
+If missing, it requires Microsoft's Evergreen Standalone Installer. The
+dictionary and focused reader do not download dictionary data or use AI.
+
+See DICTIONARY.md, LICENSE, NOTICE and the dictionary licence files under
+data\flutter_assets\assets\dictionary\licenses\ for details.
+Source: https://github.com/abnzrdev/barii

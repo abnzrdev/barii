@@ -8,6 +8,7 @@ import 'package:path/path.dart' as path;
 import '../../../core/database/app_database.dart';
 import '../domain/canonical_publication.dart';
 import 'book_processing_worker.dart';
+import 'epub_parser.dart';
 
 class BookImportService {
   BookImportService({
@@ -138,6 +139,120 @@ class BookImportService {
       rethrow;
     }
     return (await database.bookById(fingerprint))!;
+  }
+
+  /// Rebuilds EPUBs imported before empty XHTML anchors were closed.
+  /// Bites whose text changed get new ids, so notes on those bites are dropped.
+  Future<void> refreshStaleEpubs() async {
+    for (final book in await database.allBooks()) {
+      if (book.fileType != 'epub') continue;
+      final stored = await database.canonicalPublicationFor(book.id);
+      if (stored != null &&
+          stored.parserVersion >= CanonicalPublication.parserVersion) {
+        continue;
+      }
+      final source = File(book.filePath);
+      if (!await source.exists()) continue;
+      try {
+        final processed = await processingWorker.process(
+          sourcePath: source.path,
+          extension: '.epub',
+          fingerprint: book.fingerprint,
+        );
+        final existing = await database.bitesForBook(book.id);
+        final next = processed.bites;
+        final unchanged =
+            existing.length == next.length &&
+            [
+              for (var i = 0; i < existing.length; i++)
+                existing[i].id == next[i].id &&
+                    existing[i].content == next[i].text &&
+                    existing[i].markup == next[i].markup,
+            ].every((same) => same);
+        if (unchanged) {
+          await _bumpParsedBook(book, processed.publication);
+          continue;
+        }
+        await _replaceParsed(book, processed);
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _bumpParsedBook(Book book, ParsedPublication publication) async {
+    final canonical = publication.canonical;
+    if (canonical != null) {
+      await database.saveCanonicalPublication(
+        bookId: book.id,
+        modelVersion: CanonicalPublication.modelVersion,
+        parserVersion: CanonicalPublication.parserVersion,
+        projectionVersion: CanonicalPublication.projectionVersion,
+        publicationJson: jsonEncode(canonical.toJson()),
+      );
+    }
+    final cover = publication.cover;
+    if (cover != null && book.cover == null) {
+      await database.setBookCover(book.id, cover);
+    }
+  }
+
+  Future<void> _replaceParsed(Book book, ProcessedBook processed) async {
+    final publication = processed.publication;
+    final assetDirectory = Directory(
+      path.join(storageDirectory.path, '${book.fingerprint}-assets'),
+    );
+    final assetPaths = <String, String>{};
+    if (publication.assets.isNotEmpty) {
+      await assetDirectory.create(recursive: true);
+      for (final entry in publication.assets.entries) {
+        final name = sha256.convert(entry.key.codeUnits).toString();
+        final file = File(
+          path.join(assetDirectory.path, '$name${entry.value.extension}'),
+        );
+        await file.writeAsBytes(entry.value.bytes, flush: true);
+        assetPaths[entry.key] = file.path;
+      }
+    }
+    await database.transaction(() async {
+      await database.replaceContent(
+        book.id,
+        sections: [
+          for (final section in publication.sections)
+            StoredSection(
+              id: '${book.fingerprint}-section-${section.index}',
+              position: section.index,
+              heading: section.heading,
+            ),
+        ],
+        bites: [
+          for (final bite in processed.bites)
+            StoredBite(
+              id: bite.id,
+              sectionId: '${book.fingerprint}-section-${bite.sectionIndex}',
+              position: bite.position,
+              text: bite.text,
+              sourceStart: bite.sourceStart,
+              sourceEnd: bite.sourceEnd,
+              kind: bite.kind,
+              assetPath: assetPaths[bite.assetKey],
+              altText: bite.altText,
+              caption: bite.caption,
+              markup: bite.markup,
+            ),
+        ],
+      );
+      final canonical = publication.canonical;
+      if (canonical != null) {
+        await database.saveCanonicalPublication(
+          bookId: book.id,
+          modelVersion: CanonicalPublication.modelVersion,
+          parserVersion: CanonicalPublication.parserVersion,
+          projectionVersion: CanonicalPublication.projectionVersion,
+          publicationJson: jsonEncode(canonical.toJson()),
+        );
+      }
+      final cover = publication.cover;
+      if (cover != null) await database.setBookCover(book.id, cover);
+    });
   }
 
   Future<void> deleteBook(Book book) async {

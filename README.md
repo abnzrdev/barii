@@ -5,13 +5,13 @@
 
 **Offline-first reading, one bite at a time.**
 
-A focused reading workspace for EPUB and TXT on Android and Linux.
+A focused reading workspace for EPUB and TXT on Android, Linux, and Windows.
 
 [Install](#build-from-source) · [Documentation](docs/) · [Features](#features) · [Project Notes](#project-notes) · [Contribute](https://github.com/abnzrdev/barii/issues)
 
 ![Status](https://img.shields.io/badge/status-beta-C9A34A?style=flat&labelColor=1D2A22)
 ![Flutter](https://img.shields.io/badge/Flutter-Dart-0D6CA8?style=flat&logo=flutter&logoColor=white&labelColor=1D2A22)
-![Platforms](https://img.shields.io/badge/platforms-Android%20%7C%20Linux-5F9B66?style=flat&labelColor=1D2A22)
+![Platforms](https://img.shields.io/badge/platforms-Android%20%7C%20Linux%20%7C%20Windows-5F9B66?style=flat&labelColor=1D2A22)
 ![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-5F9B66?style=flat&labelColor=1D2A22)
 
 </div>
@@ -35,15 +35,25 @@ The current beta combines that bite-sized reading flow with a more traditional E
 | | |
 |---|---|
 | **Focused bite reader** | Read one small text bite at a time with simple directional navigation. |
-| **Original EPUB view** | Read EPUB content in its original structure with paginated navigation. |
+| **Original EPUB view** | Read EPUB content in its original structure with responsive scrolling. |
 | **Local library** | Import EPUB and TXT books directly from local storage. |
 | **Progress** | Resume reading from locally stored progress. |
 | **Notes & highlights** | Keep notes and highlights connected to what you are reading. |
-| **Dictionary workflow** | Select words and move into dictionary/definition workflows while reading. |
+| **Offline English dictionary** | Bundled Simple English Wiktionary and WordNet definitions, forms, phrases, examples and synonyms; no download or AI required. |
 | **Reader controls** | Adjust themes and typography for a more comfortable reading experience. |
 | **Offline-first** | Core reading data stays local and the reading workflow does not depend on a cloud service. |
 
 ### Reader gestures
+
+Use the settings gear to choose a reading font and background in either reader
+view. Choices are saved locally. Original EPUB view scrolls without floating
+page controls; a fresh swipe at the chapter's bottom/top moves to the next/previous
+chapter. Code blocks and wide tables can scroll inside their own boundaries.
+
+The full offline English dictionary is bundled. Hover on desktop, or hold on
+touch to peek; release to dismiss, or move upward while holding to expand.
+For detailed lookup, saving and return-to-word instructions, see
+[the dictionary guide](docs/dictionary.md).
 
 - **Swipe up** → next bite
 - **Swipe down** → previous bite
@@ -53,10 +63,10 @@ The current beta combines that bite-sized reading flow with a more traditional E
 
 ## Current scope
 
-Barii is currently **`v0.1.0-beta.1`**.
+Barii is currently **`v0.2.0-beta.1`**.
 
 - **Supported formats:** EPUB, TXT
-- **Platforms:** Android, Linux
+- **Platforms:** Android, Linux, Windows
 - **State:** beta / active development
 - **Storage model:** local-first
 
@@ -91,6 +101,8 @@ lib/
 - Flutter with a compatible Dart SDK
 - Android SDK for Android builds
 - Linux desktop dependencies for Flutter Linux builds
+- Visual Studio 2022 with Desktop development with C++ and a Windows SDK for Windows builds
+- Flutter 3.47.6 (the version pinned in CI)
 
 ### Run
 
@@ -100,6 +112,28 @@ cd barii
 flutter pub get
 flutter run -d linux
 ```
+
+On Windows, run `flutter run -d windows`. Build a release with
+`flutter build windows --release`. Launch
+`build/windows/x64/runner/Release/barii.exe`; distribute the entire `Release`
+folder, including its DLLs and `data` directory, rather than the executable alone.
+
+Desktop reading supports **F11** and the fullscreen toolbar button. **Escape**
+closes an open reader panel first, then leaves fullscreen. Leaving the reader
+also restores the window. These shortcuts work in Original EPUB view too.
+
+Original EPUB view requires Microsoft WebView2 Runtime on Windows. For an
+entirely offline installation on a machine without it, supply Microsoft's
+Evergreen Standalone Installer alongside Barii. The current release bundle
+does not install prerequisites automatically.
+
+Run the isolated native Windows smoke test with:
+
+```powershell
+flutter test integration_test/reader_windows_test.dart -d windows
+```
+
+It uses a temporary library and database; it does not open your normal library.
 
 For Android, connect a device or start an emulator and run:
 

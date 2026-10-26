@@ -15,7 +15,11 @@ class BundledDictionary implements DictionaryRepository {
   };
 
   @override
-  Future<DictionaryEntry?> lookupEntry(String word) async {
+  Future<DictionaryEntry?> lookupEntry(
+    String word, {
+    String context = '',
+    int? contextOffset,
+  }) async {
     final normalized = normalizeWord(word);
     final definition = _definitions[normalized];
     return definition == null

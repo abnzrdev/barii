@@ -210,6 +210,38 @@ void main() {
     },
   );
 
+  test('does not let empty XHTML anchors swallow the following chapter', () async {
+    final publication = await parser.parse(
+      epubFixtureBytes(
+        firstXhtml:
+            '<html xmlns="http://www.w3.org/1999/xhtml"><body>'
+            '<h1><a id="idTextAnchor033"/><a id="idTextAnchor034"/>Drawing a line</h1>'
+            '<p>In this chapter</p>'
+            '<ul><li>what is linear regression</li><li>fitting a line</li></ul>'
+            '<p>Keep <a href="https://example.com">this link</a> and i<a id="mid"/>t.</p>'
+            '</body></html>',
+      ),
+    );
+    final blocks = publication.sections.first.blocks;
+
+    expect(blocks.map((block) => block.text), [
+      'Drawing a line',
+      'In this chapter',
+      '• what is linear regression',
+      '• fitting a line',
+      'Keep this link and it.',
+    ]);
+    final links = blocks
+        .expand((block) => block.marks)
+        .where((mark) => mark.kind == 'link')
+        .toList();
+    expect(links, hasLength(1));
+    expect(
+      blocks.last.text!.substring(links.single.start, links.single.end),
+      'this link',
+    );
+  });
+
   test('preserves rich text roles, links, and stable anchors', () async {
     final publication = await parser.parse(epubFixtureBytes(richText: true));
     final blocks = publication.sections.first.blocks;

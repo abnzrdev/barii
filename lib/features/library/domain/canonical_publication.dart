@@ -1,6 +1,6 @@
 class CanonicalPublication {
   static const modelVersion = 1;
-  static const parserVersion = 1;
+  static const parserVersion = 2;
   static const projectionVersion = 1;
 
   const CanonicalPublication({

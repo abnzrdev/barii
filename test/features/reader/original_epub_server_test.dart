@@ -30,6 +30,7 @@ void main() {
     );
     expect(response.body, contains('First safe sentence.'));
     expect(response.body, contains('Content-Security-Policy'));
+    expect(response.body, contains("style-src 'self' 'unsafe-inline'"));
 
     final blocked = await _get(server.origin.resolve('%2e%2e/pubspec.yaml'));
     expect(blocked.statusCode, HttpStatus.notFound);

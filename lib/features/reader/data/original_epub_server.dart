@@ -12,7 +12,7 @@ import 'package:xml/xml.dart';
 import '../../library/data/book_resource_limits.dart';
 
 const _csp =
-    "default-src 'self' data: blob:; script-src 'none'; "
+    "default-src 'self' data: blob:; script-src 'none'; style-src 'self' 'unsafe-inline'; "
     "connect-src 'none'; frame-src 'none'; object-src 'none'; "
     "form-action 'none'; base-uri 'self'";
 

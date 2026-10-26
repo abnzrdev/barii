@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../core/database/app_database.dart';
 import 'barii_app.dart';
+import '../features/dictionary/data/bundled_dictionary_pack.dart';
 
 class BariiStartup {
   const BariiStartup({required this.database, required this.storageDirectory});
@@ -26,6 +27,10 @@ Future<BariiStartup> initializeBarii() async {
     database = AppDatabase();
     await database.ensurePreferences();
     await database.allBooks();
+    await ensureBundledDictionary(
+      database,
+      Directory('${documents.path}/dictionaries'),
+    );
     startup.finish();
     return BariiStartup(database: database, storageDirectory: storage);
   } catch (error) {

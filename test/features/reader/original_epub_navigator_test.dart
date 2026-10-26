@@ -11,7 +11,7 @@ void main() {
       generation: 7,
     ).source;
 
-    expect(script, contains('max-inline-size: 46rem'));
+    expect(script, contains('max-inline-size: 728.0px'));
     expect(script, contains('ResizeObserver'));
     expect(script, contains('document.fonts?.ready'));
     expect(script, contains('caretRangeFromPoint'));

@@ -68,8 +68,8 @@ abstract final class BariiTheme {
       surfaceContainerHighest: muted,
     );
     final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(3),
-      side: BorderSide(color: ink.withValues(alpha: 0.9), width: 1.5),
+      borderRadius: BorderRadius.circular(12),
+      side: BorderSide(color: ink.withValues(alpha: 0.16)),
     );
     return ThemeData(
       useMaterial3: true,
@@ -102,7 +102,9 @@ abstract final class BariiTheme {
         style: FilledButton.styleFrom(
           backgroundColor: primary,
           foregroundColor: onPrimary,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           textStyle: const TextStyle(
             fontWeight: FontWeight.w700,
             letterSpacing: 1.6,
@@ -114,7 +116,9 @@ abstract final class BariiTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: ink,
           side: BorderSide(color: ink, width: 1.5),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           textStyle: const TextStyle(
             fontWeight: FontWeight.w700,
             letterSpacing: 1.6,
@@ -125,10 +129,7 @@ abstract final class BariiTheme {
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: primary,
         foregroundColor: onPrimary,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(3),
-          side: BorderSide(color: ink, width: 1.5),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
       textTheme: TextTheme(
         headlineSmall: TextStyle(

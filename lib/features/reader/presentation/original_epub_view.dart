@@ -8,6 +8,7 @@ import 'package:webview_all/webview_all.dart';
 
 import '../data/original_epub_server.dart';
 import 'original_epub_navigator.dart';
+import '../../dictionary/domain/reader_word_selection.dart';
 
 class OriginalEpubView extends StatefulWidget {
   const OriginalEpubView({
@@ -16,18 +17,40 @@ class OriginalEpubView extends StatefulWidget {
     required this.initialSpineIndex,
     required this.initialOffset,
     required this.onLocationChanged,
-    this.initialPresentation,
-    this.onPresentationChanged,
+    this.fontFamily = 'serif',
+    this.fontSize = 20,
+    this.lineHeight = 1.6,
+    this.readingWidth = 680,
+    this.pageMargin = 24,
+    this.backgroundColor = const Color(0xfff4f1ea),
+    this.textColor = const Color(0xff2d3321),
     this.onFirstReadable,
+    this.onToggleFullscreen,
+    this.onEscape,
+    this.onWordPreview,
+    this.onWordExpand,
+    this.onWordDismiss,
+    this.returnLocator,
   });
 
   final String epubPath;
   final int initialSpineIndex;
   final int initialOffset;
   final ValueChanged<OriginalEpubLocation> onLocationChanged;
-  final OriginalEpubPresentation? initialPresentation;
-  final ValueChanged<OriginalEpubPresentation>? onPresentationChanged;
+  final String fontFamily;
+  final double fontSize;
+  final double lineHeight;
+  final double readingWidth;
+  final double pageMargin;
+  final Color backgroundColor;
+  final Color textColor;
   final VoidCallback? onFirstReadable;
+  final VoidCallback? onToggleFullscreen;
+  final VoidCallback? onEscape;
+  final void Function(ReaderWordSelection, Rect)? onWordPreview;
+  final ValueChanged<ReaderWordSelection>? onWordExpand;
+  final VoidCallback? onWordDismiss;
+  final Map<String, dynamic>? returnLocator;
 
   @override
   State<OriginalEpubView> createState() => _OriginalEpubViewState();
@@ -44,8 +67,8 @@ class _OriginalEpubViewState extends State<OriginalEpubView>
   String? _pendingFragment;
   String _pageProgressionDirection = 'default';
   final _history = <({Uri uri, int offset})>[];
+  final _webviewKey = GlobalKey();
   var _navigationInFlight = false;
-  late OriginalEpubPresentation _presentation;
   final _openTask = TimelineTask()..start('OriginalEpub.open');
   var _reportedReadable = false;
 
@@ -53,17 +76,19 @@ class _OriginalEpubViewState extends State<OriginalEpubView>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _presentation =
-        widget.initialPresentation ?? OriginalEpubPresentation.scroll;
     _open();
   }
 
   @override
   void didUpdateWidget(covariant OriginalEpubView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final presentation = widget.initialPresentation;
-    if (presentation != null && presentation != _presentation) {
-      _presentation = presentation;
+    if (oldWidget.fontFamily != widget.fontFamily ||
+        oldWidget.fontSize != widget.fontSize ||
+        oldWidget.lineHeight != widget.lineHeight ||
+        oldWidget.readingWidth != widget.readingWidth ||
+        oldWidget.pageMargin != widget.pageMargin ||
+        oldWidget.backgroundColor != widget.backgroundColor ||
+        oldWidget.textColor != widget.textColor) {
       _generation++;
       unawaited(_installNavigator());
     }
@@ -90,10 +115,6 @@ class _OriginalEpubViewState extends State<OriginalEpubView>
         throw UnsupportedError(
           'Original view does not yet support fixed-layout EPUBs.',
         );
-      }
-      if (widget.initialPresentation == null &&
-          publication.renditionFlow == 'paginated') {
-        _presentation = OriginalEpubPresentation.pages;
       }
       _pageProgressionDirection = publication.pageProgressionDirection;
       final server = await publication.serve();
@@ -199,6 +220,50 @@ class _OriginalEpubViewState extends State<OriginalEpubView>
     if (value is! Map<String, dynamic> || value['generation'] != _generation) {
       return;
     }
+    if (value['type'] == 'word') {
+      if (value['action'] == 'dismiss') {
+        widget.onWordDismiss?.call();
+        return;
+      }
+      final word = value['word'];
+      if (word is! String || word.isEmpty || word.length > 160) return;
+      final locator = jsonEncode({
+        'renderer': 'original',
+        'href': _server?.spinePath(_spineIndex),
+        'spineIndex': _spineIndex,
+        'startOffset': value['startOffset'],
+        'endOffset': value['endOffset'],
+        'quote': word,
+        'before': value['before'],
+        'after': value['after'],
+      });
+      final selection = ReaderWordSelection(
+        word: word,
+        context: value['context'] as String? ?? word,
+        contextOffset: value['contextOffset'] as int? ?? 0,
+        startOffset: value['startOffset'] as int?,
+        endOffset: value['endOffset'] as int?,
+        canonicalLocator: locator,
+      );
+      if (value['action'] == 'expand') {
+        widget.onWordExpand?.call(selection);
+        return;
+      }
+      final box = _webviewKey.currentContext?.findRenderObject() as RenderBox?;
+      if (box == null || value['rect'] is! Map) return;
+      final rect = value['rect'] as Map;
+      final origin = box.localToGlobal(Offset.zero);
+      widget.onWordPreview?.call(
+        selection,
+        Rect.fromLTWH(
+          origin.dx + (rect['x'] as num).toDouble(),
+          origin.dy + (rect['y'] as num).toDouble(),
+          (rect['width'] as num).toDouble(),
+          (rect['height'] as num).toDouble(),
+        ),
+      );
+      return;
+    }
     if (value['type'] == 'link' && value['href'] is String) {
       unawaited(_goTo(Uri.parse(value['href'] as String), addHistory: true));
       return;
@@ -215,6 +280,10 @@ class _OriginalEpubViewState extends State<OriginalEpubView>
           unawaited(_turn(1));
         case 'back':
           unawaited(_goBack());
+        case 'fullscreen':
+          widget.onToggleFullscreen?.call();
+        case 'escape':
+          widget.onEscape?.call();
       }
       return;
     }
@@ -236,15 +305,23 @@ class _OriginalEpubViewState extends State<OriginalEpubView>
     try {
       await controller.runJavaScript(
         OriginalEpubNavigatorScript(
-          presentation: _presentation,
+          returnLocator: widget.returnLocator,
+          presentation: OriginalEpubPresentation.scroll,
           initialOffset: _lastOffset == 0 ? widget.initialOffset : _lastOffset,
           initialFragment: _pendingFragment,
           generation: _generation,
           pageProgressionDirection: _pageProgressionDirection,
+          fontFamily: widget.fontFamily,
+          fontSize: widget.fontSize,
+          lineHeight: widget.lineHeight,
+          readingWidth: widget.readingWidth,
+          pageMargin: widget.pageMargin,
+          backgroundColor: _cssColor(widget.backgroundColor),
+          textColor: _cssColor(widget.textColor),
         ).source,
       );
-    } on Object {
-      // Rendering remains useful if a platform cannot expose relocation.
+    } on Object catch (error) {
+      debugPrint('Could not apply EPUB reader layout: $error');
     }
   }
 
@@ -292,23 +369,7 @@ class _OriginalEpubViewState extends State<OriginalEpubView>
   }
 
   Future<void> _turn(int delta) async {
-    final controller = _controller;
-    if (_presentation == OriginalEpubPresentation.scroll ||
-        controller == null) {
-      await _moveSpine(delta);
-      return;
-    }
-    await controller.runJavaScript(
-      'window.__bariiOriginalReader?.turn(${delta.sign});',
-    );
-  }
-
-  void _setPresentation(OriginalEpubPresentation presentation) {
-    if (_presentation == presentation) return;
-    setState(() => _presentation = presentation);
-    _generation++;
-    widget.onPresentationChanged?.call(presentation);
-    unawaited(_installNavigator());
+    await _moveSpine(delta);
   }
 
   @override
@@ -377,29 +438,7 @@ class _OriginalEpubViewState extends State<OriginalEpubView>
     }
     return Stack(
       children: [
-        WebViewWidget(controller: controller),
-        Positioned(
-          top: 8,
-          left: 0,
-          right: 0,
-          child: Center(
-            child: SegmentedButton<OriginalEpubPresentation>(
-              showSelectedIcon: false,
-              segments: const [
-                ButtonSegment(
-                  value: OriginalEpubPresentation.scroll,
-                  label: Text('Scroll'),
-                ),
-                ButtonSegment(
-                  value: OriginalEpubPresentation.pages,
-                  label: Text('Pages'),
-                ),
-              ],
-              selected: {_presentation},
-              onSelectionChanged: (value) => _setPresentation(value.single),
-            ),
-          ),
-        ),
+        WebViewWidget(key: _webviewKey, controller: controller),
         if (_history.isNotEmpty)
           Positioned(
             top: 8,
@@ -410,33 +449,10 @@ class _OriginalEpubViewState extends State<OriginalEpubView>
               icon: const Icon(Icons.history),
             ),
           ),
-        Positioned(
-          left: 8,
-          bottom: 8,
-          child: IconButton.filledTonal(
-            tooltip: 'Previous EPUB section',
-            onPressed: () => _turn(-1),
-            icon: Icon(
-              _pageProgressionDirection == 'rtl'
-                  ? Icons.chevron_right
-                  : Icons.chevron_left,
-            ),
-          ),
-        ),
-        Positioned(
-          right: 8,
-          bottom: 8,
-          child: IconButton.filledTonal(
-            tooltip: 'Next EPUB section',
-            onPressed: () => _turn(1),
-            icon: Icon(
-              _pageProgressionDirection == 'rtl'
-                  ? Icons.chevron_left
-                  : Icons.chevron_right,
-            ),
-          ),
-        ),
       ],
     );
   }
 }
+
+String _cssColor(Color color) =>
+    '#${(color.toARGB32() & 0xffffff).toRadixString(16).padLeft(6, '0')}';

@@ -109,7 +109,13 @@ class VocabularyEntries extends Table {
   TextColumn get bookId =>
       text().references(Books, #id, onDelete: KeyAction.cascade)();
   TextColumn get biteId =>
-      text().references(Bites, #id, onDelete: KeyAction.cascade)();
+      text().nullable().references(Bites, #id, onDelete: KeyAction.setNull)();
+  TextColumn get dictionaryEntryId => text().nullable()();
+  TextColumn get dictionarySenseId => text().nullable()();
+  IntColumn get sourceOffset => integer().nullable()();
+  IntColumn get endOffset => integer().nullable()();
+  TextColumn get canonicalLocator => text().nullable()();
+  TextColumn get selectedText => text().withDefault(const Constant(''))();
   TextColumn get dictionarySourceId => text().nullable().references(
     DictionarySources,
     #id,
@@ -209,6 +215,9 @@ class ReaderPreferences extends Table {
   IntColumn get id => integer().withDefault(const Constant(1))();
   TextColumn get theme => text().withDefault(const Constant('system'))();
   RealColumn get fontSize => real().withDefault(const Constant(20))();
+  TextColumn get fontFamily => text().withDefault(const Constant('serif'))();
+  TextColumn get readingBackground =>
+      text().withDefault(const Constant('theme'))();
   RealColumn get lineHeight => real().withDefault(const Constant(1.6))();
   TextColumn get alignment => text().withDefault(const Constant('start'))();
   RealColumn get readingWidth => real().withDefault(const Constant(680))();
@@ -306,7 +315,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -340,7 +349,26 @@ class AppDatabase extends _$AppDatabase {
         'ON highlight_notes (book_id, bite_id)',
       );
     },
-    onUpgrade: (migrator, from, to) async {
+    onUpgrade: (migrator, from, to) => transaction(() async {
+      if (from < 13) {
+        // Older interrupted upgrades could add these before user_version was
+        // advanced. Preserve their values and resume instead of adding twice.
+        final columns = (await customSelect(
+          'PRAGMA table_info(reader_preferences)',
+        ).get()).map((row) => row.read<String>('name')).toSet();
+        if (!columns.contains('font_family')) {
+          await migrator.addColumn(
+            readerPreferences,
+            readerPreferences.fontFamily,
+          );
+        }
+        if (!columns.contains('reading_background')) {
+          await migrator.addColumn(
+            readerPreferences,
+            readerPreferences.readingBackground,
+          );
+        }
+      }
       if (from < 2) {
         await migrator.addColumn(
           readerPreferences,
@@ -443,7 +471,25 @@ class AppDatabase extends _$AppDatabase {
           await migrator.addColumn(highlights, highlights.canonicalLocator);
         }
       }
-    },
+      if (from < 14) {
+        await migrator.alterTable(
+          TableMigration(
+            vocabularyEntries,
+            newColumns: [
+              vocabularyEntries.dictionaryEntryId,
+              vocabularyEntries.dictionarySenseId,
+              vocabularyEntries.sourceOffset,
+              vocabularyEntries.endOffset,
+              vocabularyEntries.canonicalLocator,
+              vocabularyEntries.selectedText,
+            ],
+          ),
+        );
+        await customStatement(
+          'CREATE INDEX IF NOT EXISTS vocabulary_book_word ON vocabulary_entries (book_id, normalized_word)',
+        );
+      }
+    }),
     beforeOpen: (_) => customStatement('PRAGMA foreign_keys = ON'),
   );
 
@@ -524,6 +570,11 @@ class AppDatabase extends _$AppDatabase {
   Future<void> renameBook(String id, String title) =>
       (update(books)..where((row) => row.id.equals(id))).write(
         BooksCompanion(title: Value(title.trim())),
+      );
+
+  Future<void> setBookCover(String id, Uint8List cover) =>
+      (update(books)..where((row) => row.id.equals(id))).write(
+        BooksCompanion(cover: Value(cover)),
       );
 
   Stream<List<Book>> watchBooks() => (select(
@@ -708,12 +759,18 @@ class AppDatabase extends _$AppDatabase {
     required String definition,
     required String sourceSentence,
     required String bookId,
-    required String biteId,
+    required String? biteId,
     required DateTime now,
     String? dictionarySourceId,
     String dictionarySourceName = 'Bundled dictionary',
     String? partOfSpeech,
     String? pronunciation,
+    String? dictionaryEntryId,
+    String? dictionarySenseId,
+    int? sourceOffset,
+    int? endOffset,
+    String? canonicalLocator,
+    String selectedText = '',
   }) => into(vocabularyEntries).insertOnConflictUpdate(
     VocabularyEntriesCompanion.insert(
       id: id,
@@ -722,11 +779,17 @@ class AppDatabase extends _$AppDatabase {
       definition: definition,
       sourceSentence: sourceSentence,
       bookId: bookId,
-      biteId: biteId,
+      biteId: Value(biteId),
       dictionarySourceId: Value(dictionarySourceId),
       dictionarySourceName: Value(dictionarySourceName),
       partOfSpeech: Value(partOfSpeech),
       pronunciation: Value(pronunciation),
+      dictionaryEntryId: Value(dictionaryEntryId),
+      dictionarySenseId: Value(dictionarySenseId),
+      sourceOffset: Value(sourceOffset),
+      endOffset: Value(endOffset),
+      canonicalLocator: Value(canonicalLocator),
+      selectedText: Value(selectedText),
       createdAt: now,
     ),
   );
@@ -952,6 +1015,8 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> savePreferences({
+    String fontFamily = 'serif',
+    String readingBackground = 'theme',
     required double fontSize,
     required double lineHeight,
     required String alignment,
@@ -966,6 +1031,8 @@ class AppDatabase extends _$AppDatabase {
     await update(readerPreferences).write(
       ReaderPreferencesCompanion(
         fontSize: Value(fontSize),
+        fontFamily: Value(fontFamily),
+        readingBackground: Value(readingBackground),
         lineHeight: Value(lineHeight),
         alignment: Value(alignment),
         readingWidth: Value(readingWidth),

@@ -24,3 +24,14 @@ and the modifications made.
 
 Third-party dependencies, fonts, dictionaries, book data, and other
 assets remain governed by their respective licenses.
+
+Bundled dictionary data
+=======================
+Simple English Wiktionary contributors, via Kaikki.org / Wiktextract:
+CC BY-SA 4.0. Open English WordNet 2025 contributors and Princeton University:
+CC BY 4.0 and Princeton WordNet licence. Data was converted to compact SQLite;
+definitions were not generated or rewritten. Full attribution, source URLs,
+change descriptions and licence texts accompany the app under
+data/flutter_assets/assets/dictionary/licenses/ (Windows), or the equivalent
+Flutter asset directory on other platforms, and in the dictionary Sources &
+licences disclosure. See assets/dictionary/manifest.json for exact input hashes.

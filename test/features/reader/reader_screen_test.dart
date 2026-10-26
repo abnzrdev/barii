@@ -1,5 +1,8 @@
 import 'package:barii/core/database/app_database.dart';
 import 'package:barii/features/reader/presentation/reader_screen.dart';
+import 'package:barii/features/reader/presentation/reader_appearance.dart';
+import 'package:barii/features/dictionary/presentation/quick_definition.dart';
+import 'package:barii/features/dictionary/presentation/dictionary_panel.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -48,6 +51,276 @@ void main() {
   });
 
   tearDown(() => database.close());
+
+  testWidgets(
+    'hold previews, release dismisses and upward drag expands without navigating',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ReaderScreen(database: database, book: book),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final origin = tester.getCenter(find.byType(SelectableText).first);
+      final hold = await tester.startGesture(origin);
+      await tester.pump(const Duration(milliseconds: 480));
+      await tester.pump();
+      expect(find.byType(QuickDefinition), findsOneWidget);
+      expect(
+        find.text('A portable light protected by a transparent case.'),
+        findsOneWidget,
+      );
+      await hold.up();
+      await tester.pumpAndSettle();
+      expect(find.byType(QuickDefinition), findsNothing);
+      expect(find.byType(DictionaryPanel), findsNothing);
+      final expand = await tester.startGesture(origin);
+      await tester.pump(const Duration(milliseconds: 480));
+      await expand.moveBy(const Offset(0, -90));
+      await expand.up();
+      await tester.pumpAndSettle();
+      expect(find.byType(DictionaryPanel), findsOneWidget);
+      await tester.tap(find.text('Save word'));
+      await tester.pumpAndSettle();
+      final saved = (await database.vocabularyForBook(book.id)).single;
+      expect(saved.word, 'lantern');
+      expect(saved.sourceOffset, 6);
+      expect(saved.endOffset, 13);
+      expect(saved.canonicalLocator, contains('fingerprint'));
+      await tester.tap(find.byTooltip('Close dictionary'));
+      await tester.pumpAndSettle();
+      expect(find.text('First lantern sentence.'), findsOneWidget);
+    },
+  );
+
+  testWidgets('hover requires dwell and dismisses when pointer leaves', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReaderScreen(database: database, book: book),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(find.byType(SelectableText).first));
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(find.byType(QuickDefinition), findsNothing);
+    await tester.pump(const Duration(milliseconds: 120));
+    await tester.pump();
+    expect(find.byType(QuickDefinition), findsOneWidget);
+    await mouse.moveTo(const Offset(1, 1));
+    await tester.pump(const Duration(milliseconds: 220));
+    expect(find.byType(QuickDefinition), findsNothing);
+    await mouse.removePointer();
+  });
+
+  testWidgets('saved vocabulary reopens its exact location', (tester) async {
+    await database.saveVocabulary(
+      id: 'saved',
+      word: 'lantern',
+      normalizedWord: 'lantern',
+      definition: 'A light.',
+      sourceSentence: 'First lantern sentence.',
+      bookId: book.id,
+      biteId: 'bite-1',
+      sourceOffset: 6,
+      endOffset: 13,
+      selectedText: 'lantern',
+      now: DateTime.now(),
+    );
+    await database.saveProgress(book.id, 'bite-2', 1);
+    final saved = (await database.vocabularyForBook(book.id)).single;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReaderScreen(
+          database: database,
+          book: book,
+          initialVocabulary: saved,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('First lantern sentence.'), findsOneWidget);
+    final span = tester
+        .widget<SelectableText>(find.byType(SelectableText).first)
+        .textSpan!;
+    expect(
+      span.children!.whereType<TextSpan>().any(
+        (s) => s.text == 'lantern' && s.style?.backgroundColor != null,
+      ),
+      isTrue,
+    );
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
+    'reading font and background settings persist without moving the book',
+    (tester) async {
+      await database.saveProgress(book.id, 'bite-2', 1, 7);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ReaderScreen(database: database, book: book),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Reader settings'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DropdownButtonFormField<ReaderFont>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Clean sans').last);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byType(DropdownButtonFormField<ReaderBackground>),
+      );
+      await tester.tap(find.byType(DropdownButtonFormField<ReaderBackground>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sepia').last);
+      await tester.pumpAndSettle();
+      final preferences = await database.preferences();
+      expect(preferences.fontFamily, 'sans');
+      expect(preferences.readingBackground, 'sepia');
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      final text = tester.widget<SelectableText>(
+        find.byType(SelectableText).first,
+      );
+      expect(text.textSpan?.style?.fontFamily, 'Arial');
+      expect(
+        tester.widget<Scaffold>(find.byType(Scaffold).first).backgroundColor,
+        isNull,
+      );
+      expect(
+        Theme.of(
+          tester.element(find.byType(SelectableText).first),
+        ).scaffoldBackgroundColor,
+        const Color(0xffeee2c8),
+      );
+      expect((await database.progressFor(book.id))?.biteId, 'bite-2');
+      expect((await database.progressFor(book.id))?.sourceOffset, 7);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ReaderScreen(database: database, book: book),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<SelectableText>(find.byType(SelectableText).first)
+            .textSpan
+            ?.style
+            ?.fontFamily,
+        'Arial',
+      );
+      expect(
+        Theme.of(
+          tester.element(find.byType(SelectableText).first),
+        ).scaffoldBackgroundColor,
+        const Color(0xffeee2c8),
+      );
+    },
+  );
+
+  testWidgets(
+    'desktop fullscreen restores reading and Escape closes panels first',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      var fullscreen = false;
+      final transitions = <bool>[];
+      const channel = MethodChannel('window_manager');
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+        call,
+      ) async {
+        if (call.method == 'isFullScreen') return fullscreen;
+        if (call.method == 'setFullScreen') {
+          fullscreen = (call.arguments as Map)['isFullScreen'] as bool;
+          transitions.add(fullscreen);
+        }
+        return null;
+      });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          channel,
+          null,
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ReaderScreen(database: database, book: book),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      final before = await database.progressFor(book.id);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.f11);
+      await tester.pumpAndSettle();
+      await tester.sendKeyRepeatEvent(LogicalKeyboardKey.f11);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.f11);
+      await tester.pumpAndSettle();
+      expect(fullscreen, isTrue);
+      expect(find.byTooltip('Exit fullscreen (F11)'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyD);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.text('Offline dictionary'), findsNothing);
+      expect(fullscreen, isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(transitions, [true, false]);
+      final after = await database.progressFor(book.id);
+      expect(after?.biteId, before?.biteId);
+      expect(after?.sourceOffset, before?.sourceOffset);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
+
+  testWidgets('leaving desktop reader exits native fullscreen', (tester) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var fullscreen = false;
+    const channel = MethodChannel('window_manager');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+      call,
+    ) async {
+      if (call.method == 'isFullScreen') return fullscreen;
+      if (call.method == 'setFullScreen') {
+        fullscreen = (call.arguments as Map)['isFullScreen'] as bool;
+      }
+      return null;
+    });
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        null,
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReaderScreen(database: database, book: book),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Fullscreen (F11)'));
+    await tester.pumpAndSettle();
+    expect(fullscreen, isTrue);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+    expect(fullscreen, isFalse);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
 
   testWidgets('reader load failure offers retry and return actions', (
     tester,
@@ -346,7 +619,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.longPress(find.byType(SelectableText).first);
+    final selectionOrigin = tester.getCenter(find.byType(SelectableText).first);
+    final selectionGesture = await tester.startGesture(selectionOrigin);
+    await tester.pump(const Duration(milliseconds: 550));
+    await selectionGesture.moveBy(const Offset(50, 20));
+    await tester.pump();
+    await selectionGesture.up();
     await tester.pumpAndSettle();
 
     expect(find.text('Define'), findsOneWidget);

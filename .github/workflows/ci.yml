@@ -9,9 +9,30 @@ permissions:
   contents: read
 
 env:
-  FLUTTER_VERSION: 3.44.8
+  FLUTTER_VERSION: 3.47.6
 
 jobs:
+  windows-build:
+    needs: test
+    runs-on: windows-2022
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get --enforce-lockfile
+      - name: Build Windows release
+        run: flutter build windows --release --no-pub
+      - name: Upload complete Windows bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: barii-windows-x64
+          path: build/windows/x64/runner/Release/
+          if-no-files-found: error
+
   test:
     runs-on: ubuntu-24.04
     timeout-minutes: 20

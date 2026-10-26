@@ -246,9 +246,41 @@ class EpubParser {
     );
   }
 
+  static final _emptyXhtmlElement = RegExp(
+    r'<([A-Za-z][\w:.-]*)(\s[^<>]*?)?\s*/>',
+  );
+
+  static const _htmlVoidElements = {
+    'area',
+    'base',
+    'br',
+    'col',
+    'embed',
+    'hr',
+    'img',
+    'input',
+    'link',
+    'meta',
+    'param',
+    'source',
+    'track',
+    'wbr',
+  };
+
+  /// XHTML writes empty anchors as `<a id="x"/>`. The HTML parser treats that
+  /// as an open tag, so the rest of the chapter becomes one underlined link.
+  static String _expandEmptyXhtmlElements(String source) =>
+      source.replaceAllMapped(_emptyXhtmlElement, (match) {
+        final name = match.group(1)!;
+        final local = name.split(':').last.toLowerCase();
+        if (_htmlVoidElements.contains(local)) return match.group(0)!;
+        final attrs = match.group(2) ?? '';
+        return '<$name$attrs></$name>';
+      });
+
   static _CanonicalDocument _canonicalDocument(String? source) {
     if (source == null) return const _CanonicalDocument([]);
-    final document = html_parser.parse(source);
+    final document = html_parser.parse(_expandEmptyXhtmlElements(source));
     final root = document.documentElement;
     var offset = 0;
     CanonicalNode? build(Node node, String? language, String? direction) {

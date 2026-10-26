@@ -11,6 +11,7 @@ List<int> epubFixtureBytes({
   bool canonicalSemantics = false,
   bool semanticContent = false,
   String? firstXhtml,
+  String? secondXhtml,
   String? renditionFlow,
   String pageProgressionDirection = 'ltr',
   bool nonLinearMiddle = false,
@@ -81,9 +82,10 @@ ${semanticContent ? '''<main id="main-content" role="main"><article id="article"
     ..addFile(
       ArchiveFile.string(
         'OEBPS/two.xhtml',
-        emptyContent
-            ? '<html><body></body></html>'
-            : '<html><body><h1>Chapter Two</h1><p>你好，世界。</p></body></html>',
+        secondXhtml ??
+            (emptyContent
+                ? '<html><body></body></html>'
+                : '<html><body><h1>Chapter Two</h1><p>你好，世界。</p></body></html>'),
       ),
     );
   if (nonLinearMiddle) {

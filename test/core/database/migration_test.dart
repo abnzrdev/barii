@@ -6,9 +6,46 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 void main() {
-  for (var sourceVersion = 1; sourceVersion <= 12; sourceVersion++) {
+  for (final bothColumns in [false, true]) {
+    test('resumes interrupted appearance migration (both=$bothColumns)', () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'barii-interrupted-',
+      );
+      final file = File('${directory.path}/barii.sqlite');
+      addTearDown(() => directory.delete(recursive: true));
+      _createHistoricalDatabase(file, 12);
+      final raw = sqlite3.open(file.path);
+      raw.execute(
+        "ALTER TABLE reader_preferences ADD COLUMN font_family TEXT NOT NULL DEFAULT 'serif'",
+      );
+      raw.execute("UPDATE reader_preferences SET font_family='mono'");
+      if (bothColumns) {
+        raw.execute(
+          "ALTER TABLE reader_preferences ADD COLUMN reading_background TEXT NOT NULL DEFAULT 'theme'",
+        );
+        raw.execute("UPDATE reader_preferences SET reading_background='night'");
+      }
+      raw.close();
+      final db = AppDatabase.forTesting(NativeDatabase(file));
+      expect((await db.preferences()).fontFamily, 'mono');
+      expect(
+        (await db.preferences()).readingBackground,
+        bothColumns ? 'night' : 'theme',
+      );
+      expect(
+        (await db.vocabularyForBook('book')).single.definition,
+        'Definition',
+      );
+      await db.close();
+      final check = sqlite3.open(file.path);
+      expect(check.userVersion, 14);
+      expect(check.select('PRAGMA foreign_key_check'), isEmpty);
+      check.close();
+    });
+  }
+  for (var sourceVersion = 1; sourceVersion <= 13; sourceVersion++) {
     test(
-      'authentic v$sourceVersion schema migrates to v12 and reopens',
+      'authentic v$sourceVersion schema migrates to v14 and reopens',
       () async {
         final directory = await Directory.systemTemp.createTemp(
           'barii-migration-v$sourceVersion-',
@@ -26,6 +63,8 @@ void main() {
             'Definition',
           );
           expect((await database.preferences()).theme, 'dark');
+          expect((await database.preferences()).fontFamily, 'serif');
+          expect((await database.preferences()).readingBackground, 'theme');
           if (sourceVersion >= 3) {
             expect(await database.highlightsForBook('book'), hasLength(1));
           }
@@ -49,7 +88,7 @@ void main() {
           await reopened.close();
 
           final verification = sqlite3.open(file.path);
-          expect(verification.userVersion, 12);
+          expect(verification.userVersion, 14);
           expect(verification.select('PRAGMA foreign_key_check'), isEmpty);
           expect(
             verification.select('PRAGMA integrity_check').single.values.single,

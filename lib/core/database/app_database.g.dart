@@ -3682,12 +3682,81 @@ class $VocabularyEntriesTable extends VocabularyEntries
   late final GeneratedColumn<String> biteId = GeneratedColumn<String>(
     'bite_id',
     aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES bites (id) ON DELETE SET NULL',
+    ),
+  );
+  static const VerificationMeta _dictionaryEntryIdMeta = const VerificationMeta(
+    'dictionaryEntryId',
+  );
+  @override
+  late final GeneratedColumn<String> dictionaryEntryId =
+      GeneratedColumn<String>(
+        'dictionary_entry_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _dictionarySenseIdMeta = const VerificationMeta(
+    'dictionarySenseId',
+  );
+  @override
+  late final GeneratedColumn<String> dictionarySenseId =
+      GeneratedColumn<String>(
+        'dictionary_sense_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _sourceOffsetMeta = const VerificationMeta(
+    'sourceOffset',
+  );
+  @override
+  late final GeneratedColumn<int> sourceOffset = GeneratedColumn<int>(
+    'source_offset',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _endOffsetMeta = const VerificationMeta(
+    'endOffset',
+  );
+  @override
+  late final GeneratedColumn<int> endOffset = GeneratedColumn<int>(
+    'end_offset',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _canonicalLocatorMeta = const VerificationMeta(
+    'canonicalLocator',
+  );
+  @override
+  late final GeneratedColumn<String> canonicalLocator = GeneratedColumn<String>(
+    'canonical_locator',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _selectedTextMeta = const VerificationMeta(
+    'selectedText',
+  );
+  @override
+  late final GeneratedColumn<String> selectedText = GeneratedColumn<String>(
+    'selected_text',
+    aliasedName,
     false,
     type: DriftSqlType.string,
-    requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES bites (id) ON DELETE CASCADE',
-    ),
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
   );
   static const VerificationMeta _dictionarySourceIdMeta =
       const VerificationMeta('dictionarySourceId');
@@ -3757,6 +3826,12 @@ class $VocabularyEntriesTable extends VocabularyEntries
     sourceSentence,
     bookId,
     biteId,
+    dictionaryEntryId,
+    dictionarySenseId,
+    sourceOffset,
+    endOffset,
+    canonicalLocator,
+    selectedText,
     dictionarySourceId,
     dictionarySourceName,
     partOfSpeech,
@@ -3831,8 +3906,57 @@ class $VocabularyEntriesTable extends VocabularyEntries
         _biteIdMeta,
         biteId.isAcceptableOrUnknown(data['bite_id']!, _biteIdMeta),
       );
-    } else if (isInserting) {
-      context.missing(_biteIdMeta);
+    }
+    if (data.containsKey('dictionary_entry_id')) {
+      context.handle(
+        _dictionaryEntryIdMeta,
+        dictionaryEntryId.isAcceptableOrUnknown(
+          data['dictionary_entry_id']!,
+          _dictionaryEntryIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('dictionary_sense_id')) {
+      context.handle(
+        _dictionarySenseIdMeta,
+        dictionarySenseId.isAcceptableOrUnknown(
+          data['dictionary_sense_id']!,
+          _dictionarySenseIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('source_offset')) {
+      context.handle(
+        _sourceOffsetMeta,
+        sourceOffset.isAcceptableOrUnknown(
+          data['source_offset']!,
+          _sourceOffsetMeta,
+        ),
+      );
+    }
+    if (data.containsKey('end_offset')) {
+      context.handle(
+        _endOffsetMeta,
+        endOffset.isAcceptableOrUnknown(data['end_offset']!, _endOffsetMeta),
+      );
+    }
+    if (data.containsKey('canonical_locator')) {
+      context.handle(
+        _canonicalLocatorMeta,
+        canonicalLocator.isAcceptableOrUnknown(
+          data['canonical_locator']!,
+          _canonicalLocatorMeta,
+        ),
+      );
+    }
+    if (data.containsKey('selected_text')) {
+      context.handle(
+        _selectedTextMeta,
+        selectedText.isAcceptableOrUnknown(
+          data['selected_text']!,
+          _selectedTextMeta,
+        ),
+      );
     }
     if (data.containsKey('dictionary_source_id')) {
       context.handle(
@@ -3914,6 +4038,30 @@ class $VocabularyEntriesTable extends VocabularyEntries
       biteId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}bite_id'],
+      ),
+      dictionaryEntryId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}dictionary_entry_id'],
+      ),
+      dictionarySenseId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}dictionary_sense_id'],
+      ),
+      sourceOffset: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}source_offset'],
+      ),
+      endOffset: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}end_offset'],
+      ),
+      canonicalLocator: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}canonical_locator'],
+      ),
+      selectedText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}selected_text'],
       )!,
       dictionarySourceId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -3951,7 +4099,13 @@ class VocabularyEntry extends DataClass implements Insertable<VocabularyEntry> {
   final String definition;
   final String sourceSentence;
   final String bookId;
-  final String biteId;
+  final String? biteId;
+  final String? dictionaryEntryId;
+  final String? dictionarySenseId;
+  final int? sourceOffset;
+  final int? endOffset;
+  final String? canonicalLocator;
+  final String selectedText;
   final String? dictionarySourceId;
   final String dictionarySourceName;
   final String? partOfSpeech;
@@ -3964,7 +4118,13 @@ class VocabularyEntry extends DataClass implements Insertable<VocabularyEntry> {
     required this.definition,
     required this.sourceSentence,
     required this.bookId,
-    required this.biteId,
+    this.biteId,
+    this.dictionaryEntryId,
+    this.dictionarySenseId,
+    this.sourceOffset,
+    this.endOffset,
+    this.canonicalLocator,
+    required this.selectedText,
     this.dictionarySourceId,
     required this.dictionarySourceName,
     this.partOfSpeech,
@@ -3980,7 +4140,25 @@ class VocabularyEntry extends DataClass implements Insertable<VocabularyEntry> {
     map['definition'] = Variable<String>(definition);
     map['source_sentence'] = Variable<String>(sourceSentence);
     map['book_id'] = Variable<String>(bookId);
-    map['bite_id'] = Variable<String>(biteId);
+    if (!nullToAbsent || biteId != null) {
+      map['bite_id'] = Variable<String>(biteId);
+    }
+    if (!nullToAbsent || dictionaryEntryId != null) {
+      map['dictionary_entry_id'] = Variable<String>(dictionaryEntryId);
+    }
+    if (!nullToAbsent || dictionarySenseId != null) {
+      map['dictionary_sense_id'] = Variable<String>(dictionarySenseId);
+    }
+    if (!nullToAbsent || sourceOffset != null) {
+      map['source_offset'] = Variable<int>(sourceOffset);
+    }
+    if (!nullToAbsent || endOffset != null) {
+      map['end_offset'] = Variable<int>(endOffset);
+    }
+    if (!nullToAbsent || canonicalLocator != null) {
+      map['canonical_locator'] = Variable<String>(canonicalLocator);
+    }
+    map['selected_text'] = Variable<String>(selectedText);
     if (!nullToAbsent || dictionarySourceId != null) {
       map['dictionary_source_id'] = Variable<String>(dictionarySourceId);
     }
@@ -4003,7 +4181,25 @@ class VocabularyEntry extends DataClass implements Insertable<VocabularyEntry> {
       definition: Value(definition),
       sourceSentence: Value(sourceSentence),
       bookId: Value(bookId),
-      biteId: Value(biteId),
+      biteId: biteId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(biteId),
+      dictionaryEntryId: dictionaryEntryId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(dictionaryEntryId),
+      dictionarySenseId: dictionarySenseId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(dictionarySenseId),
+      sourceOffset: sourceOffset == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceOffset),
+      endOffset: endOffset == null && nullToAbsent
+          ? const Value.absent()
+          : Value(endOffset),
+      canonicalLocator: canonicalLocator == null && nullToAbsent
+          ? const Value.absent()
+          : Value(canonicalLocator),
+      selectedText: Value(selectedText),
       dictionarySourceId: dictionarySourceId == null && nullToAbsent
           ? const Value.absent()
           : Value(dictionarySourceId),
@@ -4030,7 +4226,17 @@ class VocabularyEntry extends DataClass implements Insertable<VocabularyEntry> {
       definition: serializer.fromJson<String>(json['definition']),
       sourceSentence: serializer.fromJson<String>(json['sourceSentence']),
       bookId: serializer.fromJson<String>(json['bookId']),
-      biteId: serializer.fromJson<String>(json['biteId']),
+      biteId: serializer.fromJson<String?>(json['biteId']),
+      dictionaryEntryId: serializer.fromJson<String?>(
+        json['dictionaryEntryId'],
+      ),
+      dictionarySenseId: serializer.fromJson<String?>(
+        json['dictionarySenseId'],
+      ),
+      sourceOffset: serializer.fromJson<int?>(json['sourceOffset']),
+      endOffset: serializer.fromJson<int?>(json['endOffset']),
+      canonicalLocator: serializer.fromJson<String?>(json['canonicalLocator']),
+      selectedText: serializer.fromJson<String>(json['selectedText']),
       dictionarySourceId: serializer.fromJson<String?>(
         json['dictionarySourceId'],
       ),
@@ -4052,7 +4258,13 @@ class VocabularyEntry extends DataClass implements Insertable<VocabularyEntry> {
       'definition': serializer.toJson<String>(definition),
       'sourceSentence': serializer.toJson<String>(sourceSentence),
       'bookId': serializer.toJson<String>(bookId),
-      'biteId': serializer.toJson<String>(biteId),
+      'biteId': serializer.toJson<String?>(biteId),
+      'dictionaryEntryId': serializer.toJson<String?>(dictionaryEntryId),
+      'dictionarySenseId': serializer.toJson<String?>(dictionarySenseId),
+      'sourceOffset': serializer.toJson<int?>(sourceOffset),
+      'endOffset': serializer.toJson<int?>(endOffset),
+      'canonicalLocator': serializer.toJson<String?>(canonicalLocator),
+      'selectedText': serializer.toJson<String>(selectedText),
       'dictionarySourceId': serializer.toJson<String?>(dictionarySourceId),
       'dictionarySourceName': serializer.toJson<String>(dictionarySourceName),
       'partOfSpeech': serializer.toJson<String?>(partOfSpeech),
@@ -4068,7 +4280,13 @@ class VocabularyEntry extends DataClass implements Insertable<VocabularyEntry> {
     String? definition,
     String? sourceSentence,
     String? bookId,
-    String? biteId,
+    Value<String?> biteId = const Value.absent(),
+    Value<String?> dictionaryEntryId = const Value.absent(),
+    Value<String?> dictionarySenseId = const Value.absent(),
+    Value<int?> sourceOffset = const Value.absent(),
+    Value<int?> endOffset = const Value.absent(),
+    Value<String?> canonicalLocator = const Value.absent(),
+    String? selectedText,
     Value<String?> dictionarySourceId = const Value.absent(),
     String? dictionarySourceName,
     Value<String?> partOfSpeech = const Value.absent(),
@@ -4081,7 +4299,19 @@ class VocabularyEntry extends DataClass implements Insertable<VocabularyEntry> {
     definition: definition ?? this.definition,
     sourceSentence: sourceSentence ?? this.sourceSentence,
     bookId: bookId ?? this.bookId,
-    biteId: biteId ?? this.biteId,
+    biteId: biteId.present ? biteId.value : this.biteId,
+    dictionaryEntryId: dictionaryEntryId.present
+        ? dictionaryEntryId.value
+        : this.dictionaryEntryId,
+    dictionarySenseId: dictionarySenseId.present
+        ? dictionarySenseId.value
+        : this.dictionarySenseId,
+    sourceOffset: sourceOffset.present ? sourceOffset.value : this.sourceOffset,
+    endOffset: endOffset.present ? endOffset.value : this.endOffset,
+    canonicalLocator: canonicalLocator.present
+        ? canonicalLocator.value
+        : this.canonicalLocator,
+    selectedText: selectedText ?? this.selectedText,
     dictionarySourceId: dictionarySourceId.present
         ? dictionarySourceId.value
         : this.dictionarySourceId,
@@ -4107,6 +4337,22 @@ class VocabularyEntry extends DataClass implements Insertable<VocabularyEntry> {
           : this.sourceSentence,
       bookId: data.bookId.present ? data.bookId.value : this.bookId,
       biteId: data.biteId.present ? data.biteId.value : this.biteId,
+      dictionaryEntryId: data.dictionaryEntryId.present
+          ? data.dictionaryEntryId.value
+          : this.dictionaryEntryId,
+      dictionarySenseId: data.dictionarySenseId.present
+          ? data.dictionarySenseId.value
+          : this.dictionarySenseId,
+      sourceOffset: data.sourceOffset.present
+          ? data.sourceOffset.value
+          : this.sourceOffset,
+      endOffset: data.endOffset.present ? data.endOffset.value : this.endOffset,
+      canonicalLocator: data.canonicalLocator.present
+          ? data.canonicalLocator.value
+          : this.canonicalLocator,
+      selectedText: data.selectedText.present
+          ? data.selectedText.value
+          : this.selectedText,
       dictionarySourceId: data.dictionarySourceId.present
           ? data.dictionarySourceId.value
           : this.dictionarySourceId,
@@ -4133,6 +4379,12 @@ class VocabularyEntry extends DataClass implements Insertable<VocabularyEntry> {
           ..write('sourceSentence: $sourceSentence, ')
           ..write('bookId: $bookId, ')
           ..write('biteId: $biteId, ')
+          ..write('dictionaryEntryId: $dictionaryEntryId, ')
+          ..write('dictionarySenseId: $dictionarySenseId, ')
+          ..write('sourceOffset: $sourceOffset, ')
+          ..write('endOffset: $endOffset, ')
+          ..write('canonicalLocator: $canonicalLocator, ')
+          ..write('selectedText: $selectedText, ')
           ..write('dictionarySourceId: $dictionarySourceId, ')
           ..write('dictionarySourceName: $dictionarySourceName, ')
           ..write('partOfSpeech: $partOfSpeech, ')
@@ -4151,6 +4403,12 @@ class VocabularyEntry extends DataClass implements Insertable<VocabularyEntry> {
     sourceSentence,
     bookId,
     biteId,
+    dictionaryEntryId,
+    dictionarySenseId,
+    sourceOffset,
+    endOffset,
+    canonicalLocator,
+    selectedText,
     dictionarySourceId,
     dictionarySourceName,
     partOfSpeech,
@@ -4168,6 +4426,12 @@ class VocabularyEntry extends DataClass implements Insertable<VocabularyEntry> {
           other.sourceSentence == this.sourceSentence &&
           other.bookId == this.bookId &&
           other.biteId == this.biteId &&
+          other.dictionaryEntryId == this.dictionaryEntryId &&
+          other.dictionarySenseId == this.dictionarySenseId &&
+          other.sourceOffset == this.sourceOffset &&
+          other.endOffset == this.endOffset &&
+          other.canonicalLocator == this.canonicalLocator &&
+          other.selectedText == this.selectedText &&
           other.dictionarySourceId == this.dictionarySourceId &&
           other.dictionarySourceName == this.dictionarySourceName &&
           other.partOfSpeech == this.partOfSpeech &&
@@ -4182,7 +4446,13 @@ class VocabularyEntriesCompanion extends UpdateCompanion<VocabularyEntry> {
   final Value<String> definition;
   final Value<String> sourceSentence;
   final Value<String> bookId;
-  final Value<String> biteId;
+  final Value<String?> biteId;
+  final Value<String?> dictionaryEntryId;
+  final Value<String?> dictionarySenseId;
+  final Value<int?> sourceOffset;
+  final Value<int?> endOffset;
+  final Value<String?> canonicalLocator;
+  final Value<String> selectedText;
   final Value<String?> dictionarySourceId;
   final Value<String> dictionarySourceName;
   final Value<String?> partOfSpeech;
@@ -4197,6 +4467,12 @@ class VocabularyEntriesCompanion extends UpdateCompanion<VocabularyEntry> {
     this.sourceSentence = const Value.absent(),
     this.bookId = const Value.absent(),
     this.biteId = const Value.absent(),
+    this.dictionaryEntryId = const Value.absent(),
+    this.dictionarySenseId = const Value.absent(),
+    this.sourceOffset = const Value.absent(),
+    this.endOffset = const Value.absent(),
+    this.canonicalLocator = const Value.absent(),
+    this.selectedText = const Value.absent(),
     this.dictionarySourceId = const Value.absent(),
     this.dictionarySourceName = const Value.absent(),
     this.partOfSpeech = const Value.absent(),
@@ -4211,7 +4487,13 @@ class VocabularyEntriesCompanion extends UpdateCompanion<VocabularyEntry> {
     required String definition,
     required String sourceSentence,
     required String bookId,
-    required String biteId,
+    this.biteId = const Value.absent(),
+    this.dictionaryEntryId = const Value.absent(),
+    this.dictionarySenseId = const Value.absent(),
+    this.sourceOffset = const Value.absent(),
+    this.endOffset = const Value.absent(),
+    this.canonicalLocator = const Value.absent(),
+    this.selectedText = const Value.absent(),
     this.dictionarySourceId = const Value.absent(),
     this.dictionarySourceName = const Value.absent(),
     this.partOfSpeech = const Value.absent(),
@@ -4224,7 +4506,6 @@ class VocabularyEntriesCompanion extends UpdateCompanion<VocabularyEntry> {
        definition = Value(definition),
        sourceSentence = Value(sourceSentence),
        bookId = Value(bookId),
-       biteId = Value(biteId),
        createdAt = Value(createdAt);
   static Insertable<VocabularyEntry> custom({
     Expression<String>? id,
@@ -4234,6 +4515,12 @@ class VocabularyEntriesCompanion extends UpdateCompanion<VocabularyEntry> {
     Expression<String>? sourceSentence,
     Expression<String>? bookId,
     Expression<String>? biteId,
+    Expression<String>? dictionaryEntryId,
+    Expression<String>? dictionarySenseId,
+    Expression<int>? sourceOffset,
+    Expression<int>? endOffset,
+    Expression<String>? canonicalLocator,
+    Expression<String>? selectedText,
     Expression<String>? dictionarySourceId,
     Expression<String>? dictionarySourceName,
     Expression<String>? partOfSpeech,
@@ -4249,6 +4536,12 @@ class VocabularyEntriesCompanion extends UpdateCompanion<VocabularyEntry> {
       if (sourceSentence != null) 'source_sentence': sourceSentence,
       if (bookId != null) 'book_id': bookId,
       if (biteId != null) 'bite_id': biteId,
+      if (dictionaryEntryId != null) 'dictionary_entry_id': dictionaryEntryId,
+      if (dictionarySenseId != null) 'dictionary_sense_id': dictionarySenseId,
+      if (sourceOffset != null) 'source_offset': sourceOffset,
+      if (endOffset != null) 'end_offset': endOffset,
+      if (canonicalLocator != null) 'canonical_locator': canonicalLocator,
+      if (selectedText != null) 'selected_text': selectedText,
       if (dictionarySourceId != null)
         'dictionary_source_id': dictionarySourceId,
       if (dictionarySourceName != null)
@@ -4267,7 +4560,13 @@ class VocabularyEntriesCompanion extends UpdateCompanion<VocabularyEntry> {
     Value<String>? definition,
     Value<String>? sourceSentence,
     Value<String>? bookId,
-    Value<String>? biteId,
+    Value<String?>? biteId,
+    Value<String?>? dictionaryEntryId,
+    Value<String?>? dictionarySenseId,
+    Value<int?>? sourceOffset,
+    Value<int?>? endOffset,
+    Value<String?>? canonicalLocator,
+    Value<String>? selectedText,
     Value<String?>? dictionarySourceId,
     Value<String>? dictionarySourceName,
     Value<String?>? partOfSpeech,
@@ -4283,6 +4582,12 @@ class VocabularyEntriesCompanion extends UpdateCompanion<VocabularyEntry> {
       sourceSentence: sourceSentence ?? this.sourceSentence,
       bookId: bookId ?? this.bookId,
       biteId: biteId ?? this.biteId,
+      dictionaryEntryId: dictionaryEntryId ?? this.dictionaryEntryId,
+      dictionarySenseId: dictionarySenseId ?? this.dictionarySenseId,
+      sourceOffset: sourceOffset ?? this.sourceOffset,
+      endOffset: endOffset ?? this.endOffset,
+      canonicalLocator: canonicalLocator ?? this.canonicalLocator,
+      selectedText: selectedText ?? this.selectedText,
       dictionarySourceId: dictionarySourceId ?? this.dictionarySourceId,
       dictionarySourceName: dictionarySourceName ?? this.dictionarySourceName,
       partOfSpeech: partOfSpeech ?? this.partOfSpeech,
@@ -4315,6 +4620,24 @@ class VocabularyEntriesCompanion extends UpdateCompanion<VocabularyEntry> {
     }
     if (biteId.present) {
       map['bite_id'] = Variable<String>(biteId.value);
+    }
+    if (dictionaryEntryId.present) {
+      map['dictionary_entry_id'] = Variable<String>(dictionaryEntryId.value);
+    }
+    if (dictionarySenseId.present) {
+      map['dictionary_sense_id'] = Variable<String>(dictionarySenseId.value);
+    }
+    if (sourceOffset.present) {
+      map['source_offset'] = Variable<int>(sourceOffset.value);
+    }
+    if (endOffset.present) {
+      map['end_offset'] = Variable<int>(endOffset.value);
+    }
+    if (canonicalLocator.present) {
+      map['canonical_locator'] = Variable<String>(canonicalLocator.value);
+    }
+    if (selectedText.present) {
+      map['selected_text'] = Variable<String>(selectedText.value);
     }
     if (dictionarySourceId.present) {
       map['dictionary_source_id'] = Variable<String>(dictionarySourceId.value);
@@ -4349,6 +4672,12 @@ class VocabularyEntriesCompanion extends UpdateCompanion<VocabularyEntry> {
           ..write('sourceSentence: $sourceSentence, ')
           ..write('bookId: $bookId, ')
           ..write('biteId: $biteId, ')
+          ..write('dictionaryEntryId: $dictionaryEntryId, ')
+          ..write('dictionarySenseId: $dictionarySenseId, ')
+          ..write('sourceOffset: $sourceOffset, ')
+          ..write('endOffset: $endOffset, ')
+          ..write('canonicalLocator: $canonicalLocator, ')
+          ..write('selectedText: $selectedText, ')
           ..write('dictionarySourceId: $dictionarySourceId, ')
           ..write('dictionarySourceName: $dictionarySourceName, ')
           ..write('partOfSpeech: $partOfSpeech, ')
@@ -6219,6 +6548,31 @@ class $ReaderPreferencesTable extends ReaderPreferences
     requiredDuringInsert: false,
     defaultValue: const Constant(20),
   );
+  static const VerificationMeta _fontFamilyMeta = const VerificationMeta(
+    'fontFamily',
+  );
+  @override
+  late final GeneratedColumn<String> fontFamily = GeneratedColumn<String>(
+    'font_family',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('serif'),
+  );
+  static const VerificationMeta _readingBackgroundMeta = const VerificationMeta(
+    'readingBackground',
+  );
+  @override
+  late final GeneratedColumn<String> readingBackground =
+      GeneratedColumn<String>(
+        'reading_background',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('theme'),
+      );
   static const VerificationMeta _lineHeightMeta = const VerificationMeta(
     'lineHeight',
   );
@@ -6332,6 +6686,8 @@ class $ReaderPreferencesTable extends ReaderPreferences
     id,
     theme,
     fontSize,
+    fontFamily,
+    readingBackground,
     lineHeight,
     alignment,
     readingWidth,
@@ -6366,6 +6722,21 @@ class $ReaderPreferencesTable extends ReaderPreferences
       context.handle(
         _fontSizeMeta,
         fontSize.isAcceptableOrUnknown(data['font_size']!, _fontSizeMeta),
+      );
+    }
+    if (data.containsKey('font_family')) {
+      context.handle(
+        _fontFamilyMeta,
+        fontFamily.isAcceptableOrUnknown(data['font_family']!, _fontFamilyMeta),
+      );
+    }
+    if (data.containsKey('reading_background')) {
+      context.handle(
+        _readingBackgroundMeta,
+        readingBackground.isAcceptableOrUnknown(
+          data['reading_background']!,
+          _readingBackgroundMeta,
+        ),
       );
     }
     if (data.containsKey('line_height')) {
@@ -6452,6 +6823,14 @@ class $ReaderPreferencesTable extends ReaderPreferences
         DriftSqlType.double,
         data['${effectivePrefix}font_size'],
       )!,
+      fontFamily: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}font_family'],
+      )!,
+      readingBackground: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reading_background'],
+      )!,
       lineHeight: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}line_height'],
@@ -6498,6 +6877,8 @@ class ReaderPreference extends DataClass
   final int id;
   final String theme;
   final double fontSize;
+  final String fontFamily;
+  final String readingBackground;
   final double lineHeight;
   final String alignment;
   final double readingWidth;
@@ -6510,6 +6891,8 @@ class ReaderPreference extends DataClass
     required this.id,
     required this.theme,
     required this.fontSize,
+    required this.fontFamily,
+    required this.readingBackground,
     required this.lineHeight,
     required this.alignment,
     required this.readingWidth,
@@ -6525,6 +6908,8 @@ class ReaderPreference extends DataClass
     map['id'] = Variable<int>(id);
     map['theme'] = Variable<String>(theme);
     map['font_size'] = Variable<double>(fontSize);
+    map['font_family'] = Variable<String>(fontFamily);
+    map['reading_background'] = Variable<String>(readingBackground);
     map['line_height'] = Variable<double>(lineHeight);
     map['alignment'] = Variable<String>(alignment);
     map['reading_width'] = Variable<double>(readingWidth);
@@ -6541,6 +6926,8 @@ class ReaderPreference extends DataClass
       id: Value(id),
       theme: Value(theme),
       fontSize: Value(fontSize),
+      fontFamily: Value(fontFamily),
+      readingBackground: Value(readingBackground),
       lineHeight: Value(lineHeight),
       alignment: Value(alignment),
       readingWidth: Value(readingWidth),
@@ -6561,6 +6948,8 @@ class ReaderPreference extends DataClass
       id: serializer.fromJson<int>(json['id']),
       theme: serializer.fromJson<String>(json['theme']),
       fontSize: serializer.fromJson<double>(json['fontSize']),
+      fontFamily: serializer.fromJson<String>(json['fontFamily']),
+      readingBackground: serializer.fromJson<String>(json['readingBackground']),
       lineHeight: serializer.fromJson<double>(json['lineHeight']),
       alignment: serializer.fromJson<String>(json['alignment']),
       readingWidth: serializer.fromJson<double>(json['readingWidth']),
@@ -6578,6 +6967,8 @@ class ReaderPreference extends DataClass
       'id': serializer.toJson<int>(id),
       'theme': serializer.toJson<String>(theme),
       'fontSize': serializer.toJson<double>(fontSize),
+      'fontFamily': serializer.toJson<String>(fontFamily),
+      'readingBackground': serializer.toJson<String>(readingBackground),
       'lineHeight': serializer.toJson<double>(lineHeight),
       'alignment': serializer.toJson<String>(alignment),
       'readingWidth': serializer.toJson<double>(readingWidth),
@@ -6593,6 +6984,8 @@ class ReaderPreference extends DataClass
     int? id,
     String? theme,
     double? fontSize,
+    String? fontFamily,
+    String? readingBackground,
     double? lineHeight,
     String? alignment,
     double? readingWidth,
@@ -6605,6 +6998,8 @@ class ReaderPreference extends DataClass
     id: id ?? this.id,
     theme: theme ?? this.theme,
     fontSize: fontSize ?? this.fontSize,
+    fontFamily: fontFamily ?? this.fontFamily,
+    readingBackground: readingBackground ?? this.readingBackground,
     lineHeight: lineHeight ?? this.lineHeight,
     alignment: alignment ?? this.alignment,
     readingWidth: readingWidth ?? this.readingWidth,
@@ -6619,6 +7014,12 @@ class ReaderPreference extends DataClass
       id: data.id.present ? data.id.value : this.id,
       theme: data.theme.present ? data.theme.value : this.theme,
       fontSize: data.fontSize.present ? data.fontSize.value : this.fontSize,
+      fontFamily: data.fontFamily.present
+          ? data.fontFamily.value
+          : this.fontFamily,
+      readingBackground: data.readingBackground.present
+          ? data.readingBackground.value
+          : this.readingBackground,
       lineHeight: data.lineHeight.present
           ? data.lineHeight.value
           : this.lineHeight,
@@ -6650,6 +7051,8 @@ class ReaderPreference extends DataClass
           ..write('id: $id, ')
           ..write('theme: $theme, ')
           ..write('fontSize: $fontSize, ')
+          ..write('fontFamily: $fontFamily, ')
+          ..write('readingBackground: $readingBackground, ')
           ..write('lineHeight: $lineHeight, ')
           ..write('alignment: $alignment, ')
           ..write('readingWidth: $readingWidth, ')
@@ -6667,6 +7070,8 @@ class ReaderPreference extends DataClass
     id,
     theme,
     fontSize,
+    fontFamily,
+    readingBackground,
     lineHeight,
     alignment,
     readingWidth,
@@ -6683,6 +7088,8 @@ class ReaderPreference extends DataClass
           other.id == this.id &&
           other.theme == this.theme &&
           other.fontSize == this.fontSize &&
+          other.fontFamily == this.fontFamily &&
+          other.readingBackground == this.readingBackground &&
           other.lineHeight == this.lineHeight &&
           other.alignment == this.alignment &&
           other.readingWidth == this.readingWidth &&
@@ -6697,6 +7104,8 @@ class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
   final Value<int> id;
   final Value<String> theme;
   final Value<double> fontSize;
+  final Value<String> fontFamily;
+  final Value<String> readingBackground;
   final Value<double> lineHeight;
   final Value<String> alignment;
   final Value<double> readingWidth;
@@ -6709,6 +7118,8 @@ class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
     this.id = const Value.absent(),
     this.theme = const Value.absent(),
     this.fontSize = const Value.absent(),
+    this.fontFamily = const Value.absent(),
+    this.readingBackground = const Value.absent(),
     this.lineHeight = const Value.absent(),
     this.alignment = const Value.absent(),
     this.readingWidth = const Value.absent(),
@@ -6722,6 +7133,8 @@ class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
     this.id = const Value.absent(),
     this.theme = const Value.absent(),
     this.fontSize = const Value.absent(),
+    this.fontFamily = const Value.absent(),
+    this.readingBackground = const Value.absent(),
     this.lineHeight = const Value.absent(),
     this.alignment = const Value.absent(),
     this.readingWidth = const Value.absent(),
@@ -6735,6 +7148,8 @@ class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
     Expression<int>? id,
     Expression<String>? theme,
     Expression<double>? fontSize,
+    Expression<String>? fontFamily,
+    Expression<String>? readingBackground,
     Expression<double>? lineHeight,
     Expression<String>? alignment,
     Expression<double>? readingWidth,
@@ -6748,6 +7163,8 @@ class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
       if (id != null) 'id': id,
       if (theme != null) 'theme': theme,
       if (fontSize != null) 'font_size': fontSize,
+      if (fontFamily != null) 'font_family': fontFamily,
+      if (readingBackground != null) 'reading_background': readingBackground,
       if (lineHeight != null) 'line_height': lineHeight,
       if (alignment != null) 'alignment': alignment,
       if (readingWidth != null) 'reading_width': readingWidth,
@@ -6763,6 +7180,8 @@ class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
     Value<int>? id,
     Value<String>? theme,
     Value<double>? fontSize,
+    Value<String>? fontFamily,
+    Value<String>? readingBackground,
     Value<double>? lineHeight,
     Value<String>? alignment,
     Value<double>? readingWidth,
@@ -6776,6 +7195,8 @@ class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
       id: id ?? this.id,
       theme: theme ?? this.theme,
       fontSize: fontSize ?? this.fontSize,
+      fontFamily: fontFamily ?? this.fontFamily,
+      readingBackground: readingBackground ?? this.readingBackground,
       lineHeight: lineHeight ?? this.lineHeight,
       alignment: alignment ?? this.alignment,
       readingWidth: readingWidth ?? this.readingWidth,
@@ -6798,6 +7219,12 @@ class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
     }
     if (fontSize.present) {
       map['font_size'] = Variable<double>(fontSize.value);
+    }
+    if (fontFamily.present) {
+      map['font_family'] = Variable<String>(fontFamily.value);
+    }
+    if (readingBackground.present) {
+      map['reading_background'] = Variable<String>(readingBackground.value);
     }
     if (lineHeight.present) {
       map['line_height'] = Variable<double>(lineHeight.value);
@@ -6832,6 +7259,8 @@ class ReaderPreferencesCompanion extends UpdateCompanion<ReaderPreference> {
           ..write('id: $id, ')
           ..write('theme: $theme, ')
           ..write('fontSize: $fontSize, ')
+          ..write('fontFamily: $fontFamily, ')
+          ..write('readingBackground: $readingBackground, ')
           ..write('lineHeight: $lineHeight, ')
           ..write('alignment: $alignment, ')
           ..write('readingWidth: $readingWidth, ')
@@ -7630,7 +8059,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         'bites',
         limitUpdateKind: UpdateKind.delete,
       ),
-      result: [TableUpdate('vocabulary_entries', kind: UpdateKind.delete)],
+      result: [TableUpdate('vocabulary_entries', kind: UpdateKind.update)],
     ),
     WritePropagation(
       on: TableUpdateQuery.onTableName(
@@ -12293,7 +12722,13 @@ typedef $$VocabularyEntriesTableCreateCompanionBuilder =
       required String definition,
       required String sourceSentence,
       required String bookId,
-      required String biteId,
+      Value<String?> biteId,
+      Value<String?> dictionaryEntryId,
+      Value<String?> dictionarySenseId,
+      Value<int?> sourceOffset,
+      Value<int?> endOffset,
+      Value<String?> canonicalLocator,
+      Value<String> selectedText,
       Value<String?> dictionarySourceId,
       Value<String> dictionarySourceName,
       Value<String?> partOfSpeech,
@@ -12309,7 +12744,13 @@ typedef $$VocabularyEntriesTableUpdateCompanionBuilder =
       Value<String> definition,
       Value<String> sourceSentence,
       Value<String> bookId,
-      Value<String> biteId,
+      Value<String?> biteId,
+      Value<String?> dictionaryEntryId,
+      Value<String?> dictionarySenseId,
+      Value<int?> sourceOffset,
+      Value<int?> endOffset,
+      Value<String?> canonicalLocator,
+      Value<String> selectedText,
       Value<String?> dictionarySourceId,
       Value<String> dictionarySourceName,
       Value<String?> partOfSpeech,
@@ -12351,9 +12792,9 @@ final class $$VocabularyEntriesTableReferences
   static $BitesTable _biteIdTable(_$AppDatabase db) =>
       db.bites.createAlias('vocabulary_entries__bite_id__bites__id');
 
-  $$BitesTableProcessedTableManager get biteId {
-    final $_column = $_itemColumn<String>('bite_id')!;
-
+  $$BitesTableProcessedTableManager? get biteId {
+    final $_column = $_itemColumn<String>('bite_id');
+    if ($_column == null) return null;
     final manager = $$BitesTableTableManager(
       $_db,
       $_db.bites,
@@ -12416,6 +12857,36 @@ class $$VocabularyEntriesTableFilterComposer
 
   ColumnFilters<String> get sourceSentence => $composableBuilder(
     column: $table.sourceSentence,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get dictionaryEntryId => $composableBuilder(
+    column: $table.dictionaryEntryId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get dictionarySenseId => $composableBuilder(
+    column: $table.dictionarySenseId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sourceOffset => $composableBuilder(
+    column: $table.sourceOffset,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get endOffset => $composableBuilder(
+    column: $table.endOffset,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get canonicalLocator => $composableBuilder(
+    column: $table.canonicalLocator,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get selectedText => $composableBuilder(
+    column: $table.selectedText,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -12543,6 +13014,36 @@ class $$VocabularyEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get dictionaryEntryId => $composableBuilder(
+    column: $table.dictionaryEntryId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get dictionarySenseId => $composableBuilder(
+    column: $table.dictionarySenseId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sourceOffset => $composableBuilder(
+    column: $table.sourceOffset,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get endOffset => $composableBuilder(
+    column: $table.endOffset,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get canonicalLocator => $composableBuilder(
+    column: $table.canonicalLocator,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get selectedText => $composableBuilder(
+    column: $table.selectedText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get dictionarySourceName => $composableBuilder(
     column: $table.dictionarySourceName,
     builder: (column) => ColumnOrderings(column),
@@ -12660,6 +13161,34 @@ class $$VocabularyEntriesTableAnnotationComposer
 
   GeneratedColumn<String> get sourceSentence => $composableBuilder(
     column: $table.sourceSentence,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get dictionaryEntryId => $composableBuilder(
+    column: $table.dictionaryEntryId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get dictionarySenseId => $composableBuilder(
+    column: $table.dictionarySenseId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get sourceOffset => $composableBuilder(
+    column: $table.sourceOffset,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get endOffset =>
+      $composableBuilder(column: $table.endOffset, builder: (column) => column);
+
+  GeneratedColumn<String> get canonicalLocator => $composableBuilder(
+    column: $table.canonicalLocator,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get selectedText => $composableBuilder(
+    column: $table.selectedText,
     builder: (column) => column,
   );
 
@@ -12795,7 +13324,13 @@ class $$VocabularyEntriesTableTableManager
                 Value<String> definition = const Value.absent(),
                 Value<String> sourceSentence = const Value.absent(),
                 Value<String> bookId = const Value.absent(),
-                Value<String> biteId = const Value.absent(),
+                Value<String?> biteId = const Value.absent(),
+                Value<String?> dictionaryEntryId = const Value.absent(),
+                Value<String?> dictionarySenseId = const Value.absent(),
+                Value<int?> sourceOffset = const Value.absent(),
+                Value<int?> endOffset = const Value.absent(),
+                Value<String?> canonicalLocator = const Value.absent(),
+                Value<String> selectedText = const Value.absent(),
                 Value<String?> dictionarySourceId = const Value.absent(),
                 Value<String> dictionarySourceName = const Value.absent(),
                 Value<String?> partOfSpeech = const Value.absent(),
@@ -12810,6 +13345,12 @@ class $$VocabularyEntriesTableTableManager
                 sourceSentence: sourceSentence,
                 bookId: bookId,
                 biteId: biteId,
+                dictionaryEntryId: dictionaryEntryId,
+                dictionarySenseId: dictionarySenseId,
+                sourceOffset: sourceOffset,
+                endOffset: endOffset,
+                canonicalLocator: canonicalLocator,
+                selectedText: selectedText,
                 dictionarySourceId: dictionarySourceId,
                 dictionarySourceName: dictionarySourceName,
                 partOfSpeech: partOfSpeech,
@@ -12825,7 +13366,13 @@ class $$VocabularyEntriesTableTableManager
                 required String definition,
                 required String sourceSentence,
                 required String bookId,
-                required String biteId,
+                Value<String?> biteId = const Value.absent(),
+                Value<String?> dictionaryEntryId = const Value.absent(),
+                Value<String?> dictionarySenseId = const Value.absent(),
+                Value<int?> sourceOffset = const Value.absent(),
+                Value<int?> endOffset = const Value.absent(),
+                Value<String?> canonicalLocator = const Value.absent(),
+                Value<String> selectedText = const Value.absent(),
                 Value<String?> dictionarySourceId = const Value.absent(),
                 Value<String> dictionarySourceName = const Value.absent(),
                 Value<String?> partOfSpeech = const Value.absent(),
@@ -12840,6 +13387,12 @@ class $$VocabularyEntriesTableTableManager
                 sourceSentence: sourceSentence,
                 bookId: bookId,
                 biteId: biteId,
+                dictionaryEntryId: dictionaryEntryId,
+                dictionarySenseId: dictionarySenseId,
+                sourceOffset: sourceOffset,
+                endOffset: endOffset,
+                canonicalLocator: canonicalLocator,
+                selectedText: selectedText,
                 dictionarySourceId: dictionarySourceId,
                 dictionarySourceName: dictionarySourceName,
                 partOfSpeech: partOfSpeech,
@@ -14579,6 +15132,8 @@ typedef $$ReaderPreferencesTableCreateCompanionBuilder =
       Value<int> id,
       Value<String> theme,
       Value<double> fontSize,
+      Value<String> fontFamily,
+      Value<String> readingBackground,
       Value<double> lineHeight,
       Value<String> alignment,
       Value<double> readingWidth,
@@ -14593,6 +15148,8 @@ typedef $$ReaderPreferencesTableUpdateCompanionBuilder =
       Value<int> id,
       Value<String> theme,
       Value<double> fontSize,
+      Value<String> fontFamily,
+      Value<String> readingBackground,
       Value<double> lineHeight,
       Value<String> alignment,
       Value<double> readingWidth,
@@ -14624,6 +15181,16 @@ class $$ReaderPreferencesTableFilterComposer
 
   ColumnFilters<double> get fontSize => $composableBuilder(
     column: $table.fontSize,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fontFamily => $composableBuilder(
+    column: $table.fontFamily,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get readingBackground => $composableBuilder(
+    column: $table.readingBackground,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -14692,6 +15259,16 @@ class $$ReaderPreferencesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get fontFamily => $composableBuilder(
+    column: $table.fontFamily,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get readingBackground => $composableBuilder(
+    column: $table.readingBackground,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<double> get lineHeight => $composableBuilder(
     column: $table.lineHeight,
     builder: (column) => ColumnOrderings(column),
@@ -14750,6 +15327,16 @@ class $$ReaderPreferencesTableAnnotationComposer
 
   GeneratedColumn<double> get fontSize =>
       $composableBuilder(column: $table.fontSize, builder: (column) => column);
+
+  GeneratedColumn<String> get fontFamily => $composableBuilder(
+    column: $table.fontFamily,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get readingBackground => $composableBuilder(
+    column: $table.readingBackground,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<double> get lineHeight => $composableBuilder(
     column: $table.lineHeight,
@@ -14833,6 +15420,8 @@ class $$ReaderPreferencesTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<String> theme = const Value.absent(),
                 Value<double> fontSize = const Value.absent(),
+                Value<String> fontFamily = const Value.absent(),
+                Value<String> readingBackground = const Value.absent(),
                 Value<double> lineHeight = const Value.absent(),
                 Value<String> alignment = const Value.absent(),
                 Value<double> readingWidth = const Value.absent(),
@@ -14845,6 +15434,8 @@ class $$ReaderPreferencesTableTableManager
                 id: id,
                 theme: theme,
                 fontSize: fontSize,
+                fontFamily: fontFamily,
+                readingBackground: readingBackground,
                 lineHeight: lineHeight,
                 alignment: alignment,
                 readingWidth: readingWidth,
@@ -14859,6 +15450,8 @@ class $$ReaderPreferencesTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<String> theme = const Value.absent(),
                 Value<double> fontSize = const Value.absent(),
+                Value<String> fontFamily = const Value.absent(),
+                Value<String> readingBackground = const Value.absent(),
                 Value<double> lineHeight = const Value.absent(),
                 Value<String> alignment = const Value.absent(),
                 Value<double> readingWidth = const Value.absent(),
@@ -14871,6 +15464,8 @@ class $$ReaderPreferencesTableTableManager
                 id: id,
                 theme: theme,
                 fontSize: fontSize,
+                fontFamily: fontFamily,
+                readingBackground: readingBackground,
                 lineHeight: lineHeight,
                 alignment: alignment,
                 readingWidth: readingWidth,
