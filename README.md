@@ -1,34 +1,12 @@
-<div align="center">
-  <img src="docs/assets/barii-logo.webp" alt="Barii app icon" width="220" />
-
 # Barii
 
-**Offline-first reading, one bite at a time.**
+Offline EPUB and TXT reader for Android, Linux, and Windows. Built with Flutter, Dart, Riverpod, and Drift/SQLite. Books, notes, highlights, and reading progress stay on the device.
 
-A focused reading workspace for EPUB and TXT on Android and Linux.
+[Project site](https://abnzrdev.github.io/barii/) · [Releases](https://github.com/abnzrdev/barii/releases) · [Build from source](#build-from-source) · [Pagination measurements](docs/performance/m2-samsung-baseline.md)
 
-[Install](#build-from-source) · [Documentation](docs/) · [Features](#features) · [Project Notes](#project-notes) · [Contribute](https://github.com/abnzrdev/barii/issues)
+![Barii Windows reader](docs/assets/reader.png)
 
-![Status](https://img.shields.io/badge/status-beta-C9A34A?style=flat&labelColor=1D2A22)
-![Flutter](https://img.shields.io/badge/Flutter-Dart-0D6CA8?style=flat&logo=flutter&logoColor=white&labelColor=1D2A22)
-![Platforms](https://img.shields.io/badge/platforms-Android%20%7C%20Linux-5F9B66?style=flat&labelColor=1D2A22)
-![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-5F9B66?style=flat&labelColor=1D2A22)
-
-</div>
-
-Barii is a local-first reading workspace built to make long-form reading feel lighter and more focused. Instead of filling the screen with an entire chapter, Barii can present a small **bite** at a time while keeping your library, progress, notes, highlights, and reading state on your device.
-
-The name **Barii** evokes dawn and the beginning of daylight in Afaan Oromo.
-
-## Why Barii?
-
-When you start climbing a mountain, you do not need to keep looking at the summit. You focus on the next step in front of you.
-
-Long books can feel the same way. Hundreds of pages and long chapters can make reading feel like something to finish rather than something to experience.
-
-Barii is built around a simple idea: **you do not need to think about the whole book at once. Just read the next bite.**
-
-The current beta combines that bite-sized reading flow with a more traditional EPUB view, so you can switch between focused reading and the book's original structure whenever you want.
+The focused reader presents a small text bite at a time; the original EPUB view preserves the book structure. Device-specific pagination measurements include their fixture and methodology in the linked report.
 
 ## Features
 
@@ -131,3 +109,6 @@ Barii studies [Readest](https://github.com/readest/readest) as an architectural 
 Barii is free software licensed under the **GNU Affero General Public License v3.0 or later** (`AGPL-3.0-or-later`).
 
 See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
+
+
+Presentation refined with [Unslop](https://github.com/heydamir/unslop) by Damir Sokolovsky (CC BY 4.0).
